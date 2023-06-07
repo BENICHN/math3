@@ -1,29 +1,16 @@
 package fr.benichn.math3
 
-import android.animation.ValueAnimator
 import android.annotation.SuppressLint
 import android.content.Context
 import android.graphics.Color
 import android.os.Bundle
-import android.util.Log
-import android.view.LayoutInflater
-import android.view.MotionEvent
-import android.view.View
-import android.view.ViewGroup
-import android.view.ViewGroup.MarginLayoutParams
-import android.view.animation.Animation
-import android.view.animation.Transformation
-import android.view.animation.TranslateAnimation
+import android.view.*
 import android.widget.FrameLayout
 import android.widget.GridLayout
-import android.widget.LinearLayout
-import android.widget.ScrollView
-import androidx.appcompat.content.res.AppCompatResources
 import androidx.appcompat.widget.AppCompatButton
-import androidx.core.animation.doOnEnd
 import androidx.fragment.app.Fragment
-import java.time.Duration
 import kotlin.math.abs
+
 
 enum class Direction {
     Up,
@@ -33,7 +20,7 @@ enum class Direction {
 }
 
 @SuppressLint("ClickableViewAccessibility")
-class NumpadButton(context: Context) : AppCompatButton(context) {
+class NumpadButton(context: Context) : AppCompatButton(ContextThemeWrapper(context, R.style.numpad_btn), null, R.style.numpad_btn) {
     var onSwipe : (Direction) -> Unit = {}
     init {
         setOnTouchListener(object : SwipeTouchListener() {
@@ -50,6 +37,8 @@ class NumpadButton(context: Context) : AppCompatButton(context) {
                 onSwipe(Direction.Up)
             }
         })
+        setTextColor(Color.BLACK)
+        stateListAnimator = null
     }
     override fun onTouchEvent(event: MotionEvent): Boolean {
         when (event.actionMasked) {
@@ -132,7 +121,7 @@ class NumpadFragment : Fragment() {
         }.key
     }
 
-    fun onSwipe(d: Direction) {
+    private fun onSwipe(d: Direction) {
         moveTo(nextPos(d), d)
     }
 
@@ -143,23 +132,23 @@ class NumpadFragment : Fragment() {
     }
 
     private fun addDefaultPages() {
-        pageMap[Pt(0,0)] = NumpadPageView(requireContext(), 3, 3, "c")
+        pageMap[Pt(0,0)] = NumpadPageView(requireContext(), 4, 4, "c")
         pageMap[Pt(0,0)]?.onSwipe = { d ->
             onSwipe(d)
         }
-        pageMap[Pt(1,0)] = NumpadPageView(requireContext(), 3, 3, "r")
+        pageMap[Pt(1,0)] = NumpadPageView(requireContext(), 4, 4, "r")
         pageMap[Pt(1,0)]?.onSwipe = { d ->
             onSwipe(d)
         }
-        pageMap[Pt(0,-1)] = NumpadPageView(requireContext(), 3, 3, "b")
+        pageMap[Pt(0,-1)] = NumpadPageView(requireContext(), 4, 4, "b")
         pageMap[Pt(0,-1)]?.onSwipe = { d ->
             onSwipe(d)
         }
-        pageMap[Pt(-1,0)] = NumpadPageView(requireContext(), 3, 3, "l")
+        pageMap[Pt(-1,0)] = NumpadPageView(requireContext(), 4, 4, "l")
         pageMap[Pt(-1,0)]?.onSwipe = { d ->
             onSwipe(d)
         }
-        pageMap[Pt(0,1)] = NumpadPageView(requireContext(), 3, 3, "t")
+        pageMap[Pt(0,1)] = NumpadPageView(requireContext(), 4, 4, "t")
         pageMap[Pt(0,1)]?.onSwipe = { d ->
             onSwipe(d)
         }
@@ -217,33 +206,50 @@ class NumpadFragment : Fragment() {
         }
     }
 
-    // fun goUp() {
-    //     val h = fl.height
-    //     fl.addView(pages[1])
-    //     Utils.setViewPosition(pages[1], 0, -h)
-    //     Utils.animatePos( 0, h, 250, pages[0], pages[1]) {
-    //         Log.d("ZXCV", "FGDFFD")
-    //         fl.removeView(pages[0])
-    //     }
-    // }
-
     companion object {
-        const val SWIPE_DURATION = 200L
+        const val SWIPE_DURATION = 250L
     }
 }
 
-class NumpadPageView(context: Context, w: Int, h: Int, text: String) : GridLayout(context) {
+class NumpadPageView(context: Context, w: Int, h: Int, text: String) : GridLayout(ContextThemeWrapper(context, R.style.numpad_page), null, R.style.numpad_page) {
     var onSwipe : (Direction) -> Unit = {}
     var onButtonClicked: (Int, Int) -> Unit = {_, _ ->}
+
+    fun hline(columnCount: Int, index: Int): View {
+        return View(context).apply {
+            layoutParams = LayoutParams(
+                spec(index, 1, 0f),
+                spec(0, columnCount, 0f)
+            ).apply {
+                height = 1
+            }
+        }
+    }
+    fun vline(rowCount: Int, index: Int): View {
+        return View(context).apply {
+            layoutParams = LayoutParams(
+                spec(0, rowCount, 0f),
+                spec(index, 1, 0f)
+            ).apply {
+                width = 1
+            }
+        }
+    }
+
     init {
-        rowCount = h
-        columnCount = w
+        rowCount = 2*h+1
+        columnCount = 2*w+1
+        addView(hline(columnCount, 0))
+        addView(vline(rowCount, 0))
+        for (i in 1..h) {
+            addView(hline(columnCount, 2*i))
+        }
+        for (j in 1..w) {
+            addView(vline(rowCount, 2*j))
+        }
         for (i in 1..h) {
             for (j in 1..w) {
                 val b = NumpadButton(context)
-                b.background = AppCompatResources.getDrawable(context, R.drawable.btn_selector)
-                b.setTextColor(Color.BLACK)
-                b.stateListAnimator = null
                 b.text = "${text} ~ ${i}, ${j}"
                 b.setOnClickListener {
                     onButtonClicked(i, j)
@@ -251,9 +257,9 @@ class NumpadPageView(context: Context, w: Int, h: Int, text: String) : GridLayou
                 b.onSwipe = { d ->
                     onSwipe(d)
                 }
-                b.layoutParams = GridLayout.LayoutParams(
-                    spec(i-1, 1, 1.0f),
-                    spec(j-1, 1, 1.0f)
+                b.layoutParams = LayoutParams(
+                    spec((2*i-1), 1, 1.0f),
+                    spec((2*j-1), 1, 1.0f)
                 )
                 addView(b)
             }

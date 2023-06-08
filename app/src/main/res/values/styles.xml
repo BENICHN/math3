@@ -3,7 +3,7 @@
     <style name="numpad_page">
         <item name="android:background">@color/black</item>
     </style>
-    <style name="numpad_btn" parent="Widget.AppCompat.Button">
+    <style name="numpad_btn" parent="Widget.AppCompat.ImageButton">
         <item name="android:background">@drawable/numpad_btn_selector</item>
         <item name="android:stateListAnimator">@null</item>
     </style>

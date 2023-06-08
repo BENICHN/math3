@@ -4,11 +4,14 @@ import android.annotation.SuppressLint
 import android.content.Context
 import android.graphics.Color
 import android.os.Bundle
+import android.util.Log
 import android.view.*
 import android.widget.FrameLayout
 import android.widget.GridLayout
+import android.widget.ImageButton
 import androidx.appcompat.widget.AppCompatButton
 import androidx.fragment.app.Fragment
+import org.json.JSONObject
 import kotlin.math.abs
 
 
@@ -20,7 +23,7 @@ enum class Direction {
 }
 
 @SuppressLint("ClickableViewAccessibility")
-class NumpadButton(context: Context) : AppCompatButton(ContextThemeWrapper(context, R.style.numpad_btn), null, R.style.numpad_btn) {
+class NumpadButton(context: Context, val id: String) : androidx.appcompat.widget.AppCompatImageButton(ContextThemeWrapper(context, R.style.numpad_btn), null, R.style.numpad_btn) {
     var onSwipe : (Direction) -> Unit = {}
     init {
         setOnTouchListener(object : SwipeTouchListener() {
@@ -37,7 +40,7 @@ class NumpadButton(context: Context) : AppCompatButton(ContextThemeWrapper(conte
                 onSwipe(Direction.Up)
             }
         })
-        setTextColor(Color.BLACK)
+        // setTextColor(Color.BLACK)
         stateListAnimator = null
     }
     override fun onTouchEvent(event: MotionEvent): Boolean {
@@ -125,6 +128,10 @@ class NumpadFragment : Fragment() {
         moveTo(nextPos(d), d)
     }
 
+    private fun onButtonClicked(id: String) {
+        Log.d("clk", id)
+    }
+
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
         addDefaultPages()
@@ -132,25 +139,15 @@ class NumpadFragment : Fragment() {
     }
 
     private fun addDefaultPages() {
-        pageMap[Pt(0,0)] = NumpadPageView(requireContext(), 4, 4, "c")
-        pageMap[Pt(0,0)]?.onSwipe = { d ->
-            onSwipe(d)
-        }
-        pageMap[Pt(1,0)] = NumpadPageView(requireContext(), 4, 4, "r")
-        pageMap[Pt(1,0)]?.onSwipe = { d ->
-            onSwipe(d)
-        }
-        pageMap[Pt(0,-1)] = NumpadPageView(requireContext(), 4, 4, "b")
-        pageMap[Pt(0,-1)]?.onSwipe = { d ->
-            onSwipe(d)
-        }
-        pageMap[Pt(-1,0)] = NumpadPageView(requireContext(), 4, 4, "l")
-        pageMap[Pt(-1,0)]?.onSwipe = { d ->
-            onSwipe(d)
-        }
-        pageMap[Pt(0,1)] = NumpadPageView(requireContext(), 4, 4, "t")
-        pageMap[Pt(0,1)]?.onSwipe = { d ->
-            onSwipe(d)
+        val pages = JSONObject(requireContext().assets.open("numpad_pages.json").reader().use { it.readText() })
+        Log.d("json", pages.toString())
+        for (k in pages.keys()) {
+            val coords = k.split(",").map { it.toInt() }
+            val page = pages.getJSONObject(k)
+            val pageview = NumpadPageView(requireContext(), page.getInt("w"), page.getInt("h"), page.getJSONObject("buttons"))
+            pageview.onSwipe = { onSwipe(it) }
+            pageview.onButtonClicked = { onButtonClicked(it) }
+            pageMap[Pt(coords[0], coords[1])] = pageview
         }
     }
 
@@ -168,6 +165,7 @@ class NumpadFragment : Fragment() {
         val h = fl.height
         val old = pageMap[this.pos]!!
         val new = pageMap[pos] ?: return
+        if (old == new) return
         isSwiping = true
         fl.addView(new)
         when (d) {
@@ -211,9 +209,9 @@ class NumpadFragment : Fragment() {
     }
 }
 
-class NumpadPageView(context: Context, w: Int, h: Int, text: String) : GridLayout(ContextThemeWrapper(context, R.style.numpad_page), null, R.style.numpad_page) {
+class NumpadPageView(context: Context, w: Int, h: Int, buttons: JSONObject) : GridLayout(ContextThemeWrapper(context, R.style.numpad_page), null, R.style.numpad_page) {
     var onSwipe : (Direction) -> Unit = {}
-    var onButtonClicked: (Int, Int) -> Unit = {_, _ ->}
+    var onButtonClicked: (String) -> Unit = {}
 
     fun hline(columnCount: Int, index: Int): View {
         return View(context).apply {
@@ -249,10 +247,9 @@ class NumpadPageView(context: Context, w: Int, h: Int, text: String) : GridLayou
         }
         for (i in 1..h) {
             for (j in 1..w) {
-                val b = NumpadButton(context)
-                b.text = "${text} ~ ${i}, ${j}"
+                val b = NumpadButton(context, buttons.getString("${i},${j}"))
                 b.setOnClickListener {
-                    onButtonClicked(i, j)
+                    onButtonClicked(b.id)
                 }
                 b.onSwipe = { d ->
                     onSwipe(d)

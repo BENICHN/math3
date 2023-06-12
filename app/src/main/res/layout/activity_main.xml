@@ -8,12 +8,13 @@
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:layout_weight="1">
-        <TextView
+        android:layout_weight="1"
+        android:orientation="vertical"
+        android:id="@+id/mll">
+        <fr.benichn.math3.FormulaView
             android:layout_width="match_parent"
             android:layout_height="match_parent"
-            android:id="@+id/tv"
-            android:text="texteeeeee"/>
+            android:id="@+id/fv"/>
     </LinearLayout>
     <androidx.fragment.app.FragmentContainerView
         android:layout_width="match_parent"

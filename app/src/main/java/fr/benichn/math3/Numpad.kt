@@ -2,53 +2,20 @@ package fr.benichn.math3
 
 import android.annotation.SuppressLint
 import android.content.Context
-import android.graphics.Color
 import android.os.Bundle
 import android.util.Log
 import android.view.*
 import android.widget.FrameLayout
 import android.widget.GridLayout
-import android.widget.ImageButton
-import androidx.appcompat.widget.AppCompatButton
 import androidx.fragment.app.Fragment
 import org.json.JSONObject
 import kotlin.math.abs
-
 
 enum class Direction {
     Up,
     Left,
     Down,
     Right
-}
-
-@SuppressLint("ClickableViewAccessibility")
-class NumpadButton(context: Context, val id: String) : androidx.appcompat.widget.AppCompatImageButton(ContextThemeWrapper(context, R.style.numpad_btn), null, R.style.numpad_btn) {
-    var onSwipe : (Direction) -> Unit = {}
-    init {
-        setOnTouchListener(object : SwipeTouchListener() {
-            override fun onSwipeBottom() {
-                onSwipe(Direction.Down)
-            }
-            override fun onSwipeLeft() {
-                onSwipe(Direction.Left)
-            }
-            override fun onSwipeRight() {
-                onSwipe(Direction.Right)
-            }
-            override fun onSwipeTop() {
-                onSwipe(Direction.Up)
-            }
-        })
-        // setTextColor(Color.BLACK)
-        stateListAnimator = null
-    }
-    override fun onTouchEvent(event: MotionEvent): Boolean {
-        when (event.actionMasked) {
-            MotionEvent.ACTION_DOWN -> isPressed = true
-        }
-        return super.onTouchEvent(event)
-    }
 }
 
 data class Pt(val x: Int, val y: Int) {
@@ -128,9 +95,7 @@ class NumpadFragment : Fragment() {
         moveTo(nextPos(d), d)
     }
 
-    private fun onButtonClicked(id: String) {
-        Log.d("clk", id)
-    }
+    var onButtonClicked: (String) -> Unit = {}
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
@@ -145,8 +110,8 @@ class NumpadFragment : Fragment() {
             val coords = k.split(",").map { it.toInt() }
             val page = pages.getJSONObject(k)
             val pageview = NumpadPageView(requireContext(), page.getInt("w"), page.getInt("h"), page.getJSONObject("buttons"))
-            pageview.onSwipe = { onSwipe(it) }
-            pageview.onButtonClicked = { onButtonClicked(it) }
+            pageview.onSwipe += { s, e -> onSwipe(e) }
+            pageview.onButtonClicked += { s, e -> onButtonClicked(e) }
             pageMap[Pt(coords[0], coords[1])] = pageview
         }
     }
@@ -210,8 +175,8 @@ class NumpadFragment : Fragment() {
 }
 
 class NumpadPageView(context: Context, w: Int, h: Int, buttons: JSONObject) : GridLayout(ContextThemeWrapper(context, R.style.numpad_page), null, R.style.numpad_page) {
-    var onSwipe : (Direction) -> Unit = {}
-    var onButtonClicked: (String) -> Unit = {}
+    val onSwipe = Callback<NumpadPageView, Direction>()
+    val onButtonClicked = Callback<NumpadPageView, String>()
 
     fun hline(columnCount: Int, index: Int): View {
         return View(context).apply {
@@ -249,10 +214,10 @@ class NumpadPageView(context: Context, w: Int, h: Int, buttons: JSONObject) : Gr
             for (j in 1..w) {
                 val b = NumpadButton(context, buttons.getString("${i},${j}"))
                 b.setOnClickListener {
-                    onButtonClicked(b.id)
+                    onButtonClicked(this, b.id)
                 }
-                b.onSwipe = { d ->
-                    onSwipe(d)
+                b.onSwipe += { s, d ->
+                    onSwipe(this, d)
                 }
                 b.layoutParams = LayoutParams(
                     spec((2*i-1), 1, 1.0f),
@@ -261,5 +226,33 @@ class NumpadPageView(context: Context, w: Int, h: Int, buttons: JSONObject) : Gr
                 addView(b)
             }
         }
+    }
+}
+
+@SuppressLint("ClickableViewAccessibility")
+class NumpadButton(context: Context, val id: String) : androidx.appcompat.widget.AppCompatImageButton(ContextThemeWrapper(context, R.style.numpad_btn), null, R.style.numpad_btn) {
+    val onSwipe = Callback<NumpadButton, Direction>()
+    init {
+        setOnTouchListener(object : SwipeTouchListener() {
+            override fun onSwipeBottom() {
+                onSwipe(this@NumpadButton, Direction.Down)
+            }
+            override fun onSwipeLeft() {
+                onSwipe(this@NumpadButton, Direction.Left)
+            }
+            override fun onSwipeRight() {
+                onSwipe(this@NumpadButton, Direction.Right)
+            }
+            override fun onSwipeTop() {
+                onSwipe(this@NumpadButton, Direction.Up)
+            }
+        })
+        stateListAnimator = null
+    }
+    override fun onTouchEvent(event: MotionEvent): Boolean {
+        when (event.actionMasked) {
+            MotionEvent.ACTION_DOWN -> isPressed = true
+        }
+        return super.onTouchEvent(event)
     }
 }

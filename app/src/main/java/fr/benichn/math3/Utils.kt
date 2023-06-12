@@ -2,10 +2,6 @@ package fr.benichn.math3
 
 import android.animation.ValueAnimator
 import android.annotation.SuppressLint
-import android.content.Context
-import android.util.Log
-import android.view.GestureDetector
-import android.view.GestureDetector.SimpleOnGestureListener
 import android.view.MotionEvent
 import android.view.View
 import android.view.View.OnTouchListener
@@ -14,6 +10,27 @@ import androidx.core.animation.doOnEnd
 import kotlin.math.abs
 import kotlin.math.pow
 import kotlin.math.sqrt
+
+data class ValueChangedEvent<T>(val old: T, val new: T)
+
+class Callback<S, T> {
+    private val listeners: MutableList<(S, T) -> Unit> = mutableListOf()
+    operator fun invoke(source: S, e: T) {
+        for (l in listeners) {
+            l(source, e)
+        }
+    }
+    operator fun plusAssign(l: (S, T) -> Unit) {
+        listeners.add(l)
+    }
+    operator fun minusAssign(l: (S, T) -> Unit) {
+        listeners.remove(l)
+    }
+
+    // fun clear() {
+    //     listeners.clear()
+    // }
+}
 
 open class SwipeTouchListener : OnTouchListener {
     private var x0: Float = -1f

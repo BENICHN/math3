@@ -49,6 +49,22 @@ abstract class Box {
         canvas.translate(-origin.x, -origin.y)
     }
 
+    open fun applyBounds(bounds: RectF) {
+
+    }
+
+    fun resizeBounds(orientation: Orientation, newLength: Float) {
+        val r = newLength / 2
+        val new = if (orientation == Orientation.H) {
+            RectF(origin.x - r, bounds.top, origin.x + r, bounds.bottom)
+        } else {
+            RectF(bounds.left, origin.y - r, bounds.right, origin.y + r)
+        }
+        applyBounds(new)
+    }
+
+    fun getSide(orientation: Orientation) = if (orientation == Orientation.H) bounds.width() else bounds.height()
+
     // open fun dispose() {
     //     onBoundsChanged.clear()
     //     for (b in children) {
@@ -87,15 +103,101 @@ class FormulaText(val string: String): Box() {
     }
 }
 
-class FormulaSequence: Box() {
-    private fun computeBounds() {
+abstract class BoundsRule(val source: Box, val dest: Box) {
+    private val obc = { _: Box, e: ValueChangedEvent<RectF> -> onSourceBoundsChanged(e.old, e.new)}
+    init {
+        source.onBoundsChanged += obc
+    }
+    abstract fun onSourceBoundsChanged(old: RectF, new: RectF)
+    fun stop() {
+        source.onBoundsChanged -= obc
+    }
+}
+
+enum class Orientation { H, V }
+
+data class RectPoint(val tx: Float, val ty: Float) {
+    init {
+        assert(tx in 0.0..1.0)
+        assert(ty in 0.0..1.0)
+    }
+
+    fun get(r: RectF): PointF = PointF(
+        r.left + tx * (r.right - r.left),
+        r.top + ty * (r.bottom - r.top)
+    )
+
+    companion object {
+        val TOP_LEFT = RectPoint(0f, 0f)
+        val TOP_RIGHT = RectPoint(1f, 0f)
+        val BOTTOM_RIGHT = RectPoint(1f, 1f)
+        val BOTTOM_LEFT = RectPoint(0f, 1f)
+        val CENTER = RectPoint(0.5f,0.5f)
+        val TOP_CENTER = RectPoint(0.5f, 0f)
+        val BOTTOM_CENTER = RectPoint(0.5f, 1f)
+        val CENTER_LEFT = RectPoint(0f, 0.5f)
+        val CENTER_RIGHT = RectPoint(1f, 0.5f)
+    }
+}
+
+class BoundsRules {
+    class Sync(source: Box, dest: Box, val source_d: Orientation, val dest_d: Orientation) : BoundsRule(source, dest) {
+        override fun onSourceBoundsChanged(old: RectF, new: RectF) {
+            val l = source.getSide(source_d)
+            dest.resizeBounds(dest_d, l)
+        }
+    }
+    class Overflow(source: Box, dest: Box, val l: Float, val orientation: Orientation) : BoundsRule(source, dest) {
+        override fun onSourceBoundsChanged(old: RectF, new: RectF) {
+            dest.resizeBounds(orientation, dest.getSide(orientation) + 2*l)
+        }
+    }
+    class Place(source: Box, dest: Box, val source_rp: RectPoint, val dest_rp: RectPoint) : BoundsRule(source, dest) {
+        override fun onSourceBoundsChanged(old: RectF, new: RectF) {
+            val source_p = source_rp.get(source.bounds)
+            val dest_p = dest_rp.get(dest.bounds)
+            val v = source_p - dest_p
+            dest.origin += v
+        }
+    }
+
+    companion object {
+    }
+}
+
+open class FormulaGroup : Box() {
+    private val boundsRules = mutableListOf<BoundsRule>()
+    protected fun addRule(r: BoundsRule) {
+        boundsRules.add(r)
+    }
+    protected fun removeRuleAt(i: Int) {
+        boundsRules[i].stop()
+        boundsRules.removeAt(i)
+    }
+    protected fun removeRule(r: BoundsRule) = removeRuleAt(boundsRules.indexOf(r))
+    protected fun removeRulesWithSource(b: Box) {
+        val rules = boundsRules.filter { it.source == b }
+        for (r in rules) {
+            removeRule(r)
+        }
+    }
+    protected fun removeRulesWithDest(b: Box) {
+        val rules = boundsRules.filter { it.dest == b }
+        for (r in rules) {
+            removeRule(r)
+        }
+    }
+
+    protected fun computeBounds() {
         val res = RectF()
         for (b in children) {
             res.union(b.bounds)
         }
         bounds = res
     }
+}
 
+class FormulaSequence: FormulaGroup() {
     fun addBox(b: Box) {
         b.origin = PointF(children.lastOrNull()?.bounds?.right ?: 0f, 0f)
         b.onBoundsChanged += { s, e ->

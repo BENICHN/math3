@@ -175,8 +175,8 @@ class NumpadFragment : Fragment() {
 }
 
 class NumpadPageView(context: Context, w: Int, h: Int, buttons: JSONObject) : GridLayout(ContextThemeWrapper(context, R.style.numpad_page), null, R.style.numpad_page) {
-    val onSwipe = Callback<NumpadPageView, Direction>()
-    val onButtonClicked = Callback<NumpadPageView, String>()
+    val onSwipe = Callback<NumpadPageView, Direction>(this)
+    val onButtonClicked = Callback<NumpadPageView, String>(this)
 
     fun hline(columnCount: Int, index: Int): View {
         return View(context).apply {
@@ -214,10 +214,10 @@ class NumpadPageView(context: Context, w: Int, h: Int, buttons: JSONObject) : Gr
             for (j in 1..w) {
                 val b = NumpadButton(context, buttons.getString("${i},${j}"))
                 b.setOnClickListener {
-                    onButtonClicked(this, b.id)
+                    onButtonClicked(b.id)
                 }
                 b.onSwipe += { s, d ->
-                    onSwipe(this, d)
+                    onSwipe(d)
                 }
                 b.layoutParams = LayoutParams(
                     spec((2*i-1), 1, 1.0f),
@@ -231,20 +231,20 @@ class NumpadPageView(context: Context, w: Int, h: Int, buttons: JSONObject) : Gr
 
 @SuppressLint("ClickableViewAccessibility")
 class NumpadButton(context: Context, val id: String) : androidx.appcompat.widget.AppCompatImageButton(ContextThemeWrapper(context, R.style.numpad_btn), null, R.style.numpad_btn) {
-    val onSwipe = Callback<NumpadButton, Direction>()
+    val onSwipe = Callback<NumpadButton, Direction>(this)
     init {
         setOnTouchListener(object : SwipeTouchListener() {
             override fun onSwipeBottom() {
-                onSwipe(this@NumpadButton, Direction.Down)
+                onSwipe(Direction.Down)
             }
             override fun onSwipeLeft() {
-                onSwipe(this@NumpadButton, Direction.Left)
+                onSwipe(Direction.Left)
             }
             override fun onSwipeRight() {
-                onSwipe(this@NumpadButton, Direction.Right)
+                onSwipe(Direction.Right)
             }
             override fun onSwipeTop() {
-                onSwipe(this@NumpadButton, Direction.Up)
+                onSwipe(Direction.Up)
             }
         })
         stateListAnimator = null

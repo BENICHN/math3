@@ -12,8 +12,8 @@ import androidx.core.graphics.PathParser
 import dev.romainguy.graphics.path.toSvg
 
 class FormulaView(context: Context, attrs: AttributeSet? = null) : RelativeLayout(context, attrs) {
-    var box = FormulaSequence().also {
-        it.onBoundsChanged += { s, e ->
+    var box = SequenceFormulaBox().also {
+        it.onGraphicsChanged += { s, e ->
             invalidate()
         }
     }

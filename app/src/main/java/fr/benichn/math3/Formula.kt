@@ -4,24 +4,26 @@ import android.graphics.Canvas
 import android.graphics.Paint
 import android.graphics.Path
 import android.graphics.PointF
+import android.graphics.Rect
 import android.graphics.RectF
 import android.util.Log
+import android.util.SizeF
 import androidx.core.graphics.minus
 import androidx.core.graphics.plus
 
-data class MeasuredPath(
-    val path: Path,
-    val w: Float,
-    val h: Float,
-)
+/*
 
 abstract class Box {
+    var parent: Box? = null
+        private set
     val onBoundsChanged = Callback<Box, ValueChangedEvent<RectF>>()
     var bounds: RectF = RectF(0f,0f,0f,0f)
         protected set(value) {
             val old = field
             field = value
-            onBoundsChanged(this, ValueChangedEvent(old, value))
+            if (old != value) {
+                onBoundsChanged(this, ValueChangedEvent(old, value))
+            }
         }
     var origin: PointF = PointF()
         set(value) {
@@ -32,6 +34,8 @@ abstract class Box {
 
     var path: Path = Path()
         protected set
+
+    protected var minSize = SizeF(0f, 0f)
 
     protected val children = mutableListOf<Box>()
     operator fun get(i: Int) = children[i]
@@ -49,12 +53,19 @@ abstract class Box {
         canvas.translate(-origin.x, -origin.y)
     }
 
-    open fun applyBounds(bounds: RectF) {
+    open fun applyBounds(newBounds: RectF) {
 
     }
 
     fun resizeBounds(orientation: Orientation, newLength: Float) {
-        val r = newLength / 2
+        val l = if (orientation == Orientation.H) {
+            if (newLength < minSize.width) minSize.width
+            else newLength
+        } else {
+            if (newLength < minSize.height) minSize.height
+            else newLength
+        }
+        val r = l / 2
         val new = if (orientation == Orientation.H) {
             RectF(origin.x - r, bounds.top, origin.x + r, bounds.bottom)
         } else {
@@ -73,33 +84,32 @@ abstract class Box {
     // }
 
     companion object {
-        fun getTextPathAndSize(textSize: Float, text: String): MeasuredPath {
-            val res = Path()
-            val paint = Paint()
-            paint.typeface = App.instance.resources.getFont(R.font.source_code_pro_light)
-            paint.textSize = textSize
-            Log.d("mes", paint.measureText(text).toString())
-            // val widths = FloatArray(text.length)
-            // paint.getTextWidths(text, widths)
-            // Log.d("metrics", paint.fontMetrics.let { "${it.top} ~ ${it.ascent} ~ ${it.descent} ~ ${it.bottom} ~ ${it.leading}" })
-            // Log.d("metrics", "${paint.fontSpacing} ~ ${paint.letterSpacing}")
-            // Log.d("metrics", widths.joinToString())
-            paint.getTextPath(text, 0, text.length, 0f, 0f-(paint.fontMetrics.top+paint.fontMetrics.bottom)/2, res)
-            return MeasuredPath(res, paint.measureText(text), paint.fontMetrics.top)
-        }
-        fun getPathBounds(path: Path): RectF {
-            val res = RectF()
-            path.computeBounds(res, false)
-            return res
-        }
     }
 }
 
 class FormulaText(val string: String): Box() {
     init {
-        val (p, w, h) = getTextPathAndSize(140f, string)
+        val (p, w, h) = Utils.getTextPathAndSize(140f, string)
         path = p
         bounds = RectF(0f, -h/2, w, h/2)
+    }
+}
+
+class FormulaLine(val orientation: Orientation): Box() {
+    init {
+        bounds = if (orientation == Orientation.H) RectF(-1f, -10f, 1f, 10f) else RectF(-10f, -1f, 10f, 1f)
+    }
+    override fun applyBounds(newBounds: RectF) {
+        if (orientation == Orientation.H) {
+            path = Path()
+            path.moveTo(newBounds.left, 0f)
+            path.lineTo(newBounds.right, 0f)
+        } else {
+            path = Path()
+            path.moveTo(0f, newBounds.top)
+            path.lineTo(0f, newBounds.bottom)
+        }
+        bounds = newBounds
     }
 }
 
@@ -112,33 +122,12 @@ abstract class BoundsRule(val source: Box, val dest: Box) {
     fun stop() {
         source.onBoundsChanged -= obc
     }
-}
-
-enum class Orientation { H, V }
-
-data class RectPoint(val tx: Float, val ty: Float) {
-    init {
-        assert(tx in 0.0..1.0)
-        assert(ty in 0.0..1.0)
-    }
-
-    fun get(r: RectF): PointF = PointF(
-        r.left + tx * (r.right - r.left),
-        r.top + ty * (r.bottom - r.top)
-    )
-
-    companion object {
-        val TOP_LEFT = RectPoint(0f, 0f)
-        val TOP_RIGHT = RectPoint(1f, 0f)
-        val BOTTOM_RIGHT = RectPoint(1f, 1f)
-        val BOTTOM_LEFT = RectPoint(0f, 1f)
-        val CENTER = RectPoint(0.5f,0.5f)
-        val TOP_CENTER = RectPoint(0.5f, 0f)
-        val BOTTOM_CENTER = RectPoint(0.5f, 1f)
-        val CENTER_LEFT = RectPoint(0f, 0.5f)
-        val CENTER_RIGHT = RectPoint(1f, 0.5f)
+    fun apply() {
+        onSourceBoundsChanged(RectF(), source.bounds)
     }
 }
+
+
 
 class BoundsRules {
     class Sync(source: Box, dest: Box, val source_d: Orientation, val dest_d: Orientation) : BoundsRule(source, dest) {
@@ -188,6 +177,18 @@ open class FormulaGroup : Box() {
         }
     }
 
+    protected open fun addBox(b: Box) {
+        children.add(b)
+        computeBounds()
+    }
+
+    protected open fun removeBoxAt(i: Int) {
+        val b = children[i]
+        children.removeAt(i)
+        removeRulesWithDest(b)
+        removeRulesWithSource(b)
+    }
+
     protected fun computeBounds() {
         val res = RectF()
         for (b in children) {
@@ -198,7 +199,12 @@ open class FormulaGroup : Box() {
 }
 
 class FormulaSequence: FormulaGroup() {
-    fun addBox(b: Box) {
+    init {
+        minSize = SizeF(84f, 140f)
+        bounds = RectF(0f, -minSize.height/2, minSize.width, minSize.height/2)
+    }
+
+    public override fun addBox(b: Box) {
         b.origin = PointF(children.lastOrNull()?.bounds?.right ?: 0f, 0f)
         b.onBoundsChanged += { s, e ->
             val i = children.indexOf(s)
@@ -208,12 +214,11 @@ class FormulaSequence: FormulaGroup() {
                 computeBounds()
             }
         }
-        children.add(b)
-        computeBounds()
+        super.addBox(b)
     }
-    fun removeBoxAt(i: Int) {
+    public override fun removeBoxAt(i: Int) {
         val b = children[i]
-        children.removeAt(i)
+        super.removeBoxAt(i)
         // b.dispose()
         if (i < children.size) {
             children[i].origin -= PointF(b.bounds.width(), 0f)
@@ -224,3 +229,19 @@ class FormulaSequence: FormulaGroup() {
     fun removeLastBox() { if (children.isNotEmpty()) { removeBoxAt(children.size - 1) } }
     fun removeBox(b: Box) = removeBoxAt(children.indexOf(b))
 }
+
+class FractionFormula : FormulaGroup() {
+    val num = FormulaSequence()
+    val den = FormulaSequence()
+    val line = FormulaLine(Orientation.H)
+    init {
+        addBox(line)
+        addBox(num)
+        addBox(den)
+        addRule(BoundsRules.Sync(num, line, Orientation.H, Orientation.H))
+        addRule(BoundsRules.Place(line, num, RectPoint.TOP_CENTER, RectPoint.BOTTOM_CENTER).also { it.apply() })
+        addRule(BoundsRules.Place(line, den, RectPoint.BOTTOM_CENTER, RectPoint.TOP_CENTER).also { it.apply() })
+    }
+}
+
+ */

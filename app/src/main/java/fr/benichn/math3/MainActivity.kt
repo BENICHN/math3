@@ -35,7 +35,7 @@ class MainActivity : AppCompatActivity() {
             if (id == "del") {
                 fv.box.removeLastBox()
             } else {
-                fv.box.addBox(FormulaText(id))
+                fv.box.addBox(TextFormulaBox(id))
             }
         }
     }

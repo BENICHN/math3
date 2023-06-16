@@ -13,7 +13,8 @@ import dev.romainguy.graphics.path.toSvg
 
 class FormulaView(context: Context, attrs: AttributeSet? = null) : RelativeLayout(context, attrs) {
     var box = SequenceFormulaBox().also {
-        it.onGraphicsChanged += { s, e ->
+        it.addBox(FractionFormulaBox())
+        it.onPictureChanged += { _, _ ->
             invalidate()
         }
     }
@@ -29,7 +30,7 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : RelativeLayou
     companion object {
         val red = Paint().also {
             it.style = Paint.Style.STROKE
-            it.strokeWidth = 3f
+            it.strokeWidth = 1f
             it.color = Color.RED }
         val cyan = Paint().also {
             it.style = Paint.Style.FILL

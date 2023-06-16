@@ -33,9 +33,11 @@ class MainActivity : AppCompatActivity() {
         fv = findViewById(R.id.fv)
         nf.onButtonClicked = { id ->
             if (id == "del") {
-                fv.box.removeLastBox()
+                ((fv.box[0] as FractionFormulaBox).num.child as SequenceFormulaBox).removeLastBox()
+            } else if (id == "7") {
+                ((fv.box[0] as FractionFormulaBox).den.child as SequenceFormulaBox).addBox(0,TextFormulaBox(id))
             } else {
-                fv.box.addBox(TextFormulaBox(id))
+                ((fv.box[0] as FractionFormulaBox).num.child as SequenceFormulaBox).addBox(0,TextFormulaBox(id))
             }
         }
     }

@@ -11,6 +11,8 @@ import androidx.core.graphics.minus
 import androidx.core.graphics.plus
 import androidx.core.graphics.times
 import androidx.core.graphics.unaryMinus
+import kotlin.math.max
+import kotlin.math.min
 import kotlin.properties.ReadWriteProperty
 import kotlin.reflect.KProperty
 
@@ -21,8 +23,8 @@ class BoxProperty<S: FormulaBox, T>(private val source: S, private val defaultVa
     fun set(value: T) {
         val old = field
         field = value
-        source.updateGraphics()
         onChanged(old, value)
+        source.updateGraphics()
     }
     private val connections = mutableListOf<CallbackLink<*,*>>()
     fun <A, B> connect(callback: VCC<A, B>, mapper: (A, ValueChangedEvent<B>) -> T) {
@@ -79,7 +81,42 @@ data class BoxTransform(val origin: PointF = PointF(), val scale: Float = 1f) {
 operator fun PointF.times(scale: Float): PointF = PointF(x*scale,y*scale)
 operator fun PointF.div(scale: Float): PointF = PointF(x/scale,y/scale)
 
-abstract class FormulaBox : Iterable<FormulaBox> {
+data class Range(val start: Float = 0f, val end: Float = 0f)
+
+enum class Orientation { H, V }
+
+data class RectPoint(val tx: Float, val ty: Float) {
+    init {
+        assert((tx in 0.0..1.0 && ty in 0.0..1.0) || (tx.isNaN() && ty.isNaN()))
+    }
+
+    val isNaN
+        get() = tx.isNaN()
+
+    fun get(r: RectF): PointF = if (isNaN) {
+        PointF(Float.NaN, Float.NaN)
+    } else {
+        PointF(
+            r.left + tx * (r.right - r.left),
+            r.top + ty * (r.bottom - r.top)
+        )
+    }
+
+    companion object {
+        val TOP_LEFT = RectPoint(0f, 0f)
+        val TOP_RIGHT = RectPoint(1f, 0f)
+        val BOTTOM_RIGHT = RectPoint(1f, 1f)
+        val BOTTOM_LEFT = RectPoint(0f, 1f)
+        val CENTER = RectPoint(0.5f,0.5f)
+        val TOP_CENTER = RectPoint(0.5f, 0f)
+        val BOTTOM_CENTER = RectPoint(0.5f, 1f)
+        val CENTER_LEFT = RectPoint(0f, 0.5f)
+        val CENTER_RIGHT = RectPoint(1f, 0.5f)
+        val NAN = RectPoint(Float.NaN, Float.NaN)
+    }
+}
+
+open class FormulaBox : Iterable<FormulaBox> {
     var parent: FormulaBox? = null
         private set
     private val children = mutableListOf<FormulaBox>()
@@ -147,8 +184,8 @@ abstract class FormulaBox : Iterable<FormulaBox> {
         children[i].transform = bt
     }
     protected fun setChildTransform(b: FormulaBox, bt: BoxTransform) = setChildTransform(children.indexOf(b), bt)
-    protected fun modifyChildTransform(i: Int, t: (BoxTransform) -> BoxTransform) = setChildTransform(i, t(transform))
-    protected fun setChildTransform(b: FormulaBox, t: (BoxTransform) -> BoxTransform) = setChildTransform(b, t(transform))
+    protected fun modifyChildTransform(i: Int, t: (BoxTransform) -> BoxTransform) = setChildTransform(i, t(children[i].transform))
+    protected fun setChildTransform(b: FormulaBox, t: (BoxTransform) -> BoxTransform) = setChildTransform(b, t(b.transform))
 
     // protected open fun applyWidth(w: Float) {
     //     // val r = w/2
@@ -190,9 +227,11 @@ abstract class FormulaBox : Iterable<FormulaBox> {
     val accRealBounds
         get() = accTransform.applyOnRect(bounds)
 
-    protected open fun generateGraphics(): FormulaGraphics {
-        return FormulaGraphics()
-    }
+    protected open fun generateGraphics(): FormulaGraphics = FormulaGraphics(
+        path,
+        paint,
+        Utils.sumOfRects(map { it.realBounds })
+    )
 
     fun updateGraphics() {
         graphics = generateGraphics()
@@ -203,23 +242,52 @@ abstract class FormulaBox : Iterable<FormulaBox> {
         Orientation.V -> bounds.height()
     }
 
+    protected var isProcessing = false
+        set(value) {
+            field = value
+            if (!value && hasChangedPicture) {
+                onPictureChanged(Unit)
+            }
+        }
+    private var hasChangedPicture = false
+    val onPictureChanged = Callback<FormulaBox, Unit>(this)
+
     fun drawOnCanvas(canvas: Canvas) {
         transform.applyOnCanvas(canvas)
         canvas.drawPath(path, paint)
-        canvas.drawRect(bounds, FormulaView.red)
+        // canvas.drawRect(bounds, FormulaView.red)
         for (b in children) {
             b.drawOnCanvas(canvas)
         }
         transform.invert.applyOnCanvas(canvas)
     }
 
+    init {
+        onPictureChanged += { _, _ ->
+            if (isProcessing) {
+                hasChangedPicture = true
+            } else {
+                parent?.onPictureChanged?.invoke(Unit)
+            }
+        }
+        onGraphicsChanged += { _, e ->
+            if (e.old.path != e.new.path || e.old.paint != e.new.paint) {
+                onPictureChanged(Unit)
+            }
+        }
+        onTransformChanged += { _, _ ->
+            onPictureChanged(Unit)
+        }
+    }
+
     companion object {
         const val DEFAULT_TEXT_SIZE = 96f
-        const val DEFAULT_LINE_WIDTH = 9f
+        const val DEFAULT_TEXT_WIDTH = DEFAULT_TEXT_SIZE * 3/5
+        const val DEFAULT_LINE_WIDTH = 3f
     }
 }
 
-abstract class FormulaBoxGroup : FormulaBox() {
+open class EditableFormulaBox : FormulaBox() {
     public override fun addBox(i: Int, b: FormulaBox) = super.addBox(i, b)
     public override fun addBox(b: FormulaBox) = super.addBox(b)
     public override fun removeBoxAt(i: Int) = super.removeBoxAt(i)
@@ -243,8 +311,6 @@ class TextFormulaBox(text: String = "") : FormulaBox() {
         return FormulaGraphics(p, paint, bounds)
     }
 }
-
-data class Range(val start: Float = 0f, val end: Float = 0f)
 
 class LineFormulaBox(orientation: Orientation = Orientation.V, length: Float = DEFAULT_TEXT_SIZE) : FormulaBox() {
     val dlgOrientation = BoxProperty(this, orientation)
@@ -285,55 +351,90 @@ class LineFormulaBox(orientation: Orientation = Orientation.V, length: Float = D
     }
 }
 
-enum class Orientation { H, V }
-
-data class RectPoint(val tx: Float, val ty: Float) {
-    init {
-        assert(tx in 0.0..1.0)
-        assert(ty in 0.0..1.0)
-    }
-
-    fun get(r: RectF): PointF = PointF(
-        r.left + tx * (r.right - r.left),
-        r.top + ty * (r.bottom - r.top)
-    )
-
-    companion object {
-        val TOP_LEFT = RectPoint(0f, 0f)
-        val TOP_RIGHT = RectPoint(1f, 0f)
-        val BOTTOM_RIGHT = RectPoint(1f, 1f)
-        val BOTTOM_LEFT = RectPoint(0f, 1f)
-        val CENTER = RectPoint(0.5f,0.5f)
-        val TOP_CENTER = RectPoint(0.5f, 0f)
-        val BOTTOM_CENTER = RectPoint(0.5f, 1f)
-        val CENTER_LEFT = RectPoint(0f, 0.5f)
-        val CENTER_RIGHT = RectPoint(1f, 0.5f)
-    }
-}
-
-class SequenceFormulaBox : FormulaBoxGroup() {
+class SequenceFormulaBox : EditableFormulaBox() {
     override fun addBox(i: Int, b: FormulaBox) {
         super.addBox(i, b)
         setChildTransform(i, BoxTransform.xOffset((if (i == 0) 0f else this[i-1].let { it.transform.origin.x + it.bounds.right }) - b.bounds.left))
-        connect(b.onBoundsChanged) { s, e -> offsetFrom(i+1, (e.new.right-e.new.left)-(e.old.right-e.old.left))}
+        connect(b.onBoundsChanged) { s, e ->
+            offsetFrom(i, e.old.left-e.new.left)
+            offsetFrom(i+1, e.new.right-e.old.right)
+            updateGraphics()
+        }
         offsetFrom(i+1, b.bounds.width())
+        updateGraphics()
     }
     override fun removeBoxAt(i: Int) {
         val b = this[i]
         super.removeBoxAt(i)
         offsetFrom(i, b.bounds.width())
+        updateGraphics()
     }
 
     private fun offsetFrom(i: Int, l: Float) {
         for (j in i until count) {
             modifyChildTransform(j) { it * BoxTransform.xOffset(l) }
         }
+    }
+}
+
+class AlignFormulaBox(child: FormulaBox = FormulaBox(), rectPoint: RectPoint = RectPoint.NAN) : FormulaBox() {
+    val dlgChild = BoxProperty(this, child).also {
+        it.onChanged += { s, e ->
+            removeBox(e.old)
+            addBox(e.new)
+        }
+    }
+    var child by dlgChild
+
+    val dlgRectPoint = BoxProperty(this, rectPoint).also {
+        it.onChanged += { _, _ ->
+            alignChild()
+        }
+    }
+    var rectPoint: RectPoint by dlgRectPoint
+
+    init {
+        addBox(child)
         updateGraphics()
     }
 
-    override fun generateGraphics(): FormulaGraphics = FormulaGraphics(
-        path,
-        paint,
-        Utils.sumOfRects(map { it.realBounds })
+    override fun addBox(i: Int, b: FormulaBox) {
+        super.addBox(i, b)
+        connect(b.onBoundsChanged) { s, e ->
+            alignChild()
+            updateGraphics()
+        }
+        alignChild()
+    }
+
+    private fun alignChild() = setChildTransform(
+        0,
+        BoxTransform(-(if (!rectPoint.isNaN) rectPoint.get(child.bounds) else PointF()))
     )
+}
+
+class FractionFormulaBox : FormulaBox() {
+    val bar = LineFormulaBox(Orientation.H)
+    val num = AlignFormulaBox(SequenceFormulaBox(), RectPoint.BOTTOM_CENTER)
+    val den = AlignFormulaBox(SequenceFormulaBox(), RectPoint.TOP_CENTER)
+    init {
+        addBox(bar)
+        addBox(num)
+        addBox(den)
+        bar.range = getBarWidth()
+        bar.dlgRange.connect(num.onBoundsChanged) { _, _ -> getBarWidth() }
+        bar.dlgRange.connect(den.onBoundsChanged) { _, _ -> getBarWidth() }
+        connect(num.onBoundsChanged) { s, e ->
+            updateGraphics()
+        }
+        connect(den.onBoundsChanged) { s, e ->
+            updateGraphics()
+        }
+    }
+
+    private fun getBarWidth(): Range {
+        val w = max(num.bounds.width(), den.bounds.width()) + DEFAULT_TEXT_WIDTH / 4
+        val r = w/2
+        return Range(-r, r)
+    }
 }

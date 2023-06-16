@@ -226,6 +226,13 @@ open class FormulaBox : Iterable<FormulaBox> {
     val accRealBounds
         get() = accTransform.applyOnRect(bounds)
 
+    protected fun listenChildBoundsChange(i: Int) {
+        val b = children[i]
+        b.onBoundsChanged += { _, _ -> updateGraphics() }
+    }
+
+    protected fun listenChildBoundsChange(b: FormulaBox) = listenChildBoundsChange(children.indexOf(b))
+
     protected open fun generateGraphics(): FormulaGraphics = FormulaGraphics(
         path,
         paint,
@@ -357,8 +364,8 @@ class SequenceFormulaBox : EditableFormulaBox() {
         connect(b.onBoundsChanged) { s, e ->
             offsetFrom(i, e.old.left-e.new.left)
             offsetFrom(i+1, e.new.right-e.old.right)
-            updateGraphics()
         }
+        listenChildBoundsChange(i)
         offsetFrom(i+1, b.bounds.width())
         updateGraphics()
     }
@@ -400,8 +407,8 @@ class AlignFormulaBox(child: FormulaBox = FormulaBox(), rectPoint: RectPoint = R
         super.addBox(i, b)
         connect(b.onBoundsChanged) { s, e ->
             alignChild()
-            updateGraphics()
         }
+        listenChildBoundsChange(i)
         alignChild()
         updateGraphics()
     }
@@ -427,12 +434,8 @@ class FractionFormulaBox : FormulaBox() {
         bar.range = getBarWidth()
         bar.dlgRange.connectValue(num.onBoundsChanged) { _, _ -> getBarWidth() }
         bar.dlgRange.connectValue(den.onBoundsChanged) { _, _ -> getBarWidth() }
-        connect(num.onBoundsChanged) { s, e ->
-            updateGraphics()
-        }
-        connect(den.onBoundsChanged) { s, e ->
-            updateGraphics()
-        }
+        listenChildBoundsChange(num)
+        listenChildBoundsChange(den)
     }
 
     private fun getBarWidth(): Range {

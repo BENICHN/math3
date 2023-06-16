@@ -11,12 +11,14 @@ import androidx.core.graphics.minus
 import androidx.core.graphics.plus
 import androidx.core.graphics.times
 import androidx.core.graphics.unaryMinus
+import fr.benichn.math3.Utils.Companion.div
+import fr.benichn.math3.Utils.Companion.times
 import kotlin.math.max
 import kotlin.math.min
 import kotlin.properties.ReadWriteProperty
 import kotlin.reflect.KProperty
 
-class BoxProperty<S: FormulaBox, T>(private val source: S, private val defaultValue: T) : ReadWriteProperty<S, T> {
+class BoxProperty<S: FormulaBox, T>(private val source: S, private val defaultValue: T, val updatesGraphics: Boolean = true) : ReadWriteProperty<S, T> {
     private var field = defaultValue
     val onChanged = VCC<S, T>(source)
     fun get() = field
@@ -24,9 +26,20 @@ class BoxProperty<S: FormulaBox, T>(private val source: S, private val defaultVa
         val old = field
         field = value
         onChanged(old, value)
-        source.updateGraphics()
+        if (updatesGraphics) {
+            source.updateGraphics()
+        }
     }
     private val connections = mutableListOf<CallbackLink<*,*>>()
+    fun <A, B> connect(callback: VCC<A, B>, mapper: (A, B) -> T) {
+        connections.add(CallbackLink(callback) { s, e ->
+            set(mapper(s, e.new))
+        })
+    }
+    fun <A, B> connect(callback: VCC<A, B>, currentValue: B, mapper: (A, B) -> T) {
+        connect(callback, mapper)
+        set(mapper(callback.source, currentValue))
+    }
     fun <A, B> connect(callback: VCC<A, B>, mapper: (A, ValueChangedEvent<B>) -> T) {
         connections.add(CallbackLink(callback) { s, e ->
             set(mapper(s, e))
@@ -48,7 +61,11 @@ class BoxProperty<S: FormulaBox, T>(private val source: S, private val defaultVa
     val isConnected
         get() = connections.isEmpty()
     override fun getValue(thisRef: S, property: KProperty<*>): T = get()
-    override fun setValue(thisRef: S, property: KProperty<*>, value: T) = set(value)
+    override fun setValue(thisRef: S, property: KProperty<*>, value: T) {
+        if (!isConnected) {
+            set(value)
+        }
+    }
 }
 data class CallbackLink<S, T>(val callback: VCC<S, T>, val listener: (S, ValueChangedEvent<T>) -> Unit) {
     init {
@@ -78,8 +95,6 @@ data class BoxTransform(val origin: PointF = PointF(), val scale: Float = 1f) {
         fun scale(a: Float): BoxTransform = BoxTransform(PointF(), a)
     }
 }
-operator fun PointF.times(scale: Float): PointF = PointF(x*scale,y*scale)
-operator fun PointF.div(scale: Float): PointF = PointF(x/scale,y/scale)
 
 data class Range(val start: Float = 0f, val end: Float = 0f)
 
@@ -117,8 +132,7 @@ data class RectPoint(val tx: Float, val ty: Float) {
 }
 
 open class FormulaBox : Iterable<FormulaBox> {
-    var parent: FormulaBox? = null
-        private set
+    private var parent: FormulaBox? = null
     private val children = mutableListOf<FormulaBox>()
     protected open fun addBox(b: FormulaBox) = addBox(children.size, b)
     protected open fun addBox(i: Int, b: FormulaBox) {
@@ -187,21 +201,6 @@ open class FormulaBox : Iterable<FormulaBox> {
     protected fun modifyChildTransform(i: Int, t: (BoxTransform) -> BoxTransform) = setChildTransform(i, t(children[i].transform))
     protected fun setChildTransform(b: FormulaBox, t: (BoxTransform) -> BoxTransform) = setChildTransform(b, t(b.transform))
 
-    // protected open fun applyWidth(w: Float) {
-    //     // val r = w/2
-    //     // applyBounds(RectF(-r, bounds.top, r, bounds.bottom))
-    // }
-    // protected open fun applyHeight(h: Float) {
-    //     // val r = h/2
-    //     // applyBounds(RectF(bounds.left, -r, bounds.right, r))
-    // }
-    // // protected open fun applyBounds(bounds: RectF) {
-    // // }
-    // protected fun applySide(l: Float, o: Orientation) = when (o) {
-    //     Orientation.H -> applyWidth(l)
-    //     Orientation.V -> applyHeight(l)
-    // }
-
     val onGraphicsChanged = VCC<FormulaBox, FormulaGraphics>(this)
     var graphics: FormulaGraphics = FormulaGraphics()
         private set(value) {
@@ -255,7 +254,7 @@ open class FormulaBox : Iterable<FormulaBox> {
     fun drawOnCanvas(canvas: Canvas) {
         transform.applyOnCanvas(canvas)
         canvas.drawPath(path, paint)
-        // canvas.drawRect(bounds, FormulaView.red)
+        canvas.drawRect(bounds, FormulaView.red)
         for (b in children) {
             b.drawOnCanvas(canvas)
         }
@@ -395,7 +394,6 @@ class AlignFormulaBox(child: FormulaBox = FormulaBox(), rectPoint: RectPoint = R
 
     init {
         addBox(child)
-        updateGraphics()
     }
 
     override fun addBox(i: Int, b: FormulaBox) {
@@ -405,6 +403,7 @@ class AlignFormulaBox(child: FormulaBox = FormulaBox(), rectPoint: RectPoint = R
             updateGraphics()
         }
         alignChild()
+        updateGraphics()
     }
 
     private fun alignChild() = setChildTransform(
@@ -414,16 +413,20 @@ class AlignFormulaBox(child: FormulaBox = FormulaBox(), rectPoint: RectPoint = R
 }
 
 class FractionFormulaBox : FormulaBox() {
-    val bar = LineFormulaBox(Orientation.H)
-    val num = AlignFormulaBox(SequenceFormulaBox(), RectPoint.BOTTOM_CENTER)
-    val den = AlignFormulaBox(SequenceFormulaBox(), RectPoint.TOP_CENTER)
+    private val bar = LineFormulaBox(Orientation.H)
+    private val num = AlignFormulaBox(SequenceFormulaBox(), RectPoint.BOTTOM_CENTER)
+    private val den = AlignFormulaBox(SequenceFormulaBox(), RectPoint.TOP_CENTER)
+    val numerator
+        get() = num.child
+    val denominator
+        get() = den.child
     init {
         addBox(bar)
         addBox(num)
         addBox(den)
         bar.range = getBarWidth()
-        bar.dlgRange.connect(num.onBoundsChanged) { _, _ -> getBarWidth() }
-        bar.dlgRange.connect(den.onBoundsChanged) { _, _ -> getBarWidth() }
+        bar.dlgRange.connect(num.onBoundsChanged) { _, _: RectF -> getBarWidth() }
+        bar.dlgRange.connect(den.onBoundsChanged) { _, _: RectF -> getBarWidth() }
         connect(num.onBoundsChanged) { s, e ->
             updateGraphics()
         }

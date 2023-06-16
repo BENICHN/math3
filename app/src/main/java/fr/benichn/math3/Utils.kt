@@ -4,6 +4,7 @@ import android.animation.ValueAnimator
 import android.annotation.SuppressLint
 import android.graphics.Paint
 import android.graphics.Path
+import android.graphics.PointF
 import android.graphics.RectF
 import android.view.MotionEvent
 import android.view.View
@@ -166,6 +167,9 @@ class Utils {
         fun sumOfRects(rects: Iterable<RectF>): RectF = rects.fold(RectF()) { acc, r ->
             RectF(min(acc.left, r.left), min(acc.top, r.top), max(acc.right, r.right), max(acc.bottom, r.bottom))
         }
+
+        operator fun PointF.times(scale: Float): PointF = PointF(x*scale,y*scale)
+        operator fun PointF.div(scale: Float): PointF = PointF(x/scale,y/scale)
     }
 }
 

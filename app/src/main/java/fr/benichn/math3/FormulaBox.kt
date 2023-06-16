@@ -31,13 +31,13 @@ class BoxProperty<S: FormulaBox, T>(private val source: S, private val defaultVa
         }
     }
     private val connections = mutableListOf<CallbackLink<*,*>>()
-    fun <A, B> connect(callback: VCC<A, B>, mapper: (A, B) -> T) {
+    fun <A, B> connectValue(callback: VCC<A, B>, mapper: (A, B) -> T) {
         connections.add(CallbackLink(callback) { s, e ->
             set(mapper(s, e.new))
         })
     }
-    fun <A, B> connect(callback: VCC<A, B>, currentValue: B, mapper: (A, B) -> T) {
-        connect(callback, mapper)
+    fun <A, B> connectValue(callback: VCC<A, B>, currentValue: B, mapper: (A, B) -> T) {
+        connectValue(callback, mapper)
         set(mapper(callback.source, currentValue))
     }
     fun <A, B> connect(callback: VCC<A, B>, mapper: (A, ValueChangedEvent<B>) -> T) {
@@ -425,8 +425,8 @@ class FractionFormulaBox : FormulaBox() {
         addBox(num)
         addBox(den)
         bar.range = getBarWidth()
-        bar.dlgRange.connect(num.onBoundsChanged) { _, _: RectF -> getBarWidth() }
-        bar.dlgRange.connect(den.onBoundsChanged) { _, _: RectF -> getBarWidth() }
+        bar.dlgRange.connectValue(num.onBoundsChanged) { _, _ -> getBarWidth() }
+        bar.dlgRange.connectValue(den.onBoundsChanged) { _, _ -> getBarWidth() }
         connect(num.onBoundsChanged) { s, e ->
             updateGraphics()
         }

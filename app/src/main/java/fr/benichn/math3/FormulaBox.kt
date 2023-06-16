@@ -241,6 +241,7 @@ open class FormulaBox : Iterable<FormulaBox> {
 
     fun updateGraphics() {
         graphics = generateGraphics()
+        isProcessing = false
     }
 
     fun getSide(o: Orientation) = when (o) {
@@ -377,6 +378,7 @@ class SequenceFormulaBox : EditableFormulaBox() {
     }
 
     private fun offsetFrom(i: Int, l: Float) {
+        isProcessing = true
         for (j in i until count) {
             modifyChildTransform(j) { it * BoxTransform.xOffset(l) }
         }
@@ -413,10 +415,13 @@ class AlignFormulaBox(child: FormulaBox = FormulaBox(), rectPoint: RectPoint = R
         updateGraphics()
     }
 
-    private fun alignChild() = setChildTransform(
-        0,
-        BoxTransform(-(if (!rectPoint.isNaN) rectPoint.get(child.bounds) else PointF()))
-    )
+    private fun alignChild() {
+        isProcessing = true
+        setChildTransform(
+            0,
+            BoxTransform(-(if (!rectPoint.isNaN) rectPoint.get(child.bounds) else PointF()))
+        )
+    }
 }
 
 class FractionFormulaBox : FormulaBox() {

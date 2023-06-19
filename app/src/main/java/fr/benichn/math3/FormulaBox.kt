@@ -262,7 +262,7 @@ open class FormulaBox : Iterable<FormulaBox> {
     fun drawOnCanvas(canvas: Canvas) {
         transform.applyOnCanvas(canvas)
         canvas.drawPath(path, paint)
-        canvas.drawRect(bounds, FormulaView.red)
+        // canvas.drawRect(bounds, FormulaView.red)
         for (b in children) {
             b.drawOnCanvas(canvas)
         }
@@ -289,8 +289,9 @@ open class FormulaBox : Iterable<FormulaBox> {
 
     companion object {
         const val DEFAULT_TEXT_SIZE = 96f
+        const val DEFAULT_TEXT_RADIUS = DEFAULT_TEXT_SIZE / 2
         const val DEFAULT_TEXT_WIDTH = DEFAULT_TEXT_SIZE * 3/5
-        const val DEFAULT_LINE_WIDTH = 3f
+        const val DEFAULT_LINE_WIDTH = 4f
     }
 }
 
@@ -319,11 +320,12 @@ class TextFormulaBox(text: String = "") : FormulaBox() {
     }
 }
 
-class LineFormulaBox(orientation: Orientation = Orientation.V, length: Float = DEFAULT_TEXT_SIZE) : FormulaBox() {
+class LineFormulaBox(orientation: Orientation = Orientation.V,
+                     range: Range = Range(-DEFAULT_TEXT_RADIUS,DEFAULT_TEXT_RADIUS)) : FormulaBox() {
     val dlgOrientation = BoxProperty(this, orientation)
     var orientation by dlgOrientation
 
-    val dlgRange = BoxProperty(this, Range())
+    val dlgRange = BoxProperty(this, range)
     var range by dlgRange
 
     init {
@@ -439,6 +441,8 @@ class FractionFormulaBox : FormulaBox() {
         bar.range = getBarWidth()
         bar.dlgRange.connectValue(num.onBoundsChanged) { _, _ -> getBarWidth() }
         bar.dlgRange.connectValue(den.onBoundsChanged) { _, _ -> getBarWidth() }
+        setChildTransform(1, BoxTransform.yOffset(-DEFAULT_TEXT_SIZE * 0.15f))
+        setChildTransform(2, BoxTransform.yOffset(DEFAULT_TEXT_SIZE * 0.15f))
         listenChildBoundsChange(num)
         listenChildBoundsChange(den)
     }
@@ -447,5 +451,35 @@ class FractionFormulaBox : FormulaBox() {
         val w = max(num.bounds.width(), den.bounds.width()) + DEFAULT_TEXT_WIDTH / 4
         val r = w/2
         return Range(-r, r)
+    }
+}
+
+class BracketFormulaBox(range: Range = Range(-DEFAULT_TEXT_RADIUS,DEFAULT_TEXT_RADIUS)) : FormulaBox() {
+    val dlgRange = BoxProperty(this, range)
+    var range by dlgRange
+
+    init {
+        paint.color = Color.WHITE
+        paint.strokeWidth = DEFAULT_LINE_WIDTH
+        paint.style = Paint.Style.STROKE
+        updateGraphics()
+    }
+
+    override fun generateGraphics(): FormulaGraphics {
+        val l1 = range.start + DEFAULT_TEXT_RADIUS
+        val l2 = range.end - DEFAULT_TEXT_RADIUS
+        val r = DEFAULT_TEXT_RADIUS * 0.9f
+        val path = Path()
+        path.moveTo(0f,l2)
+        path.lineTo(0f,l1)
+        path.rCubicTo(0f, 0f, 0f,-0.75f * r, 0.5f* r, -r)
+        path.moveTo(0f,l2)
+        path.rCubicTo(0f, 0f, 0f,0.75f * r, 0.5f* r, r)
+        val bounds = RectF(-0.25f * DEFAULT_TEXT_RADIUS, range.start, 0.5f * DEFAULT_TEXT_RADIUS, range.end)
+        return FormulaGraphics(
+            path,
+            paint,
+            bounds
+        )
     }
 }

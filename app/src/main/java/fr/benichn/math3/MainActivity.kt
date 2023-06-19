@@ -32,12 +32,24 @@ class MainActivity : AppCompatActivity() {
         }
         fv = findViewById(R.id.fv)
         nf.onButtonClicked = { id ->
-            if (id == "del") {
-                ((fv.box[0] as FractionFormulaBox).numerator as SequenceFormulaBox).removeLastBox()
-            } else if (id == "7") {
-                ((fv.box[0] as FractionFormulaBox).denominator as SequenceFormulaBox).addBox(0,TextFormulaBox(id))
-            } else {
-                ((fv.box[0] as FractionFormulaBox).numerator as SequenceFormulaBox).addBox(0,TextFormulaBox(id))
+            when (id) {
+                "del" -> {
+                    ((fv.box[0] as FractionFormulaBox).numerator as SequenceFormulaBox).removeLastBox()
+                }
+                "7" -> {
+                    ((fv.box[0] as FractionFormulaBox).denominator as SequenceFormulaBox).addBox(TextFormulaBox(id))
+                }
+                "enter" -> {
+                    ((fv.box[0] as FractionFormulaBox).numerator as SequenceFormulaBox).addBox(BracketFormulaBox(
+                        Range(-1*FormulaBox.DEFAULT_TEXT_RADIUS,1*FormulaBox.DEFAULT_TEXT_RADIUS)
+                    ))
+                }
+                "recent" -> {
+                    ((fv.box[0] as FractionFormulaBox).numerator as SequenceFormulaBox).addBox(TextFormulaBox("xMhlg()"))
+                }
+                else -> {
+                    ((fv.box[0] as FractionFormulaBox).numerator as SequenceFormulaBox).addBox(TextFormulaBox(id))
+                }
             }
         }
     }

@@ -7,11 +7,12 @@ import android.graphics.Paint
 import android.graphics.Path
 import android.util.AttributeSet
 import android.util.Log
+import android.view.View
 import android.widget.RelativeLayout
 import androidx.core.graphics.PathParser
 import dev.romainguy.graphics.path.toSvg
 
-class FormulaView(context: Context, attrs: AttributeSet? = null) : RelativeLayout(context, attrs) {
+class FormulaView(context: Context, attrs: AttributeSet? = null) : View(context, attrs) {
     var box = SequenceFormulaBox().also {
         it.addBox(FractionFormulaBox())
         it.onPictureChanged += { _, _ ->

@@ -155,8 +155,8 @@ class Utils {
             val paint = Paint()
             paint.typeface = App.instance.resources.getFont(R.font.source_code_pro_light)
             paint.textSize = textSize
-            paint.getTextPath(text, 0, text.length, 0f, 0f-(paint.fontMetrics.top+paint.fontMetrics.bottom)/2, res)
-            return MeasuredPath(res, paint.measureText(text), -paint.fontMetrics.top)
+            paint.getTextPath(text, 0, text.length, 0f, 0f-(paint.fontMetrics.ascent+paint.fontMetrics.bottom)/2, res)
+            return MeasuredPath(res, paint.measureText(text), textSize)
         }
         fun getPathBounds(path: Path): RectF {
             val res = RectF()

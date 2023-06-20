@@ -137,7 +137,9 @@ enum class Side {
     R
 }
 
-data class SidedBox(val box: FormulaBox, val side: Side)
+data class SidedBox(val box: FormulaBox, val side: Side) {
+    fun toSeqCoord() : BoxSeqCoord? = box.getSeqCoord(side)
+}
 
 open class FormulaBox : Iterable<FormulaBox> {
     private var parent: FormulaBox? = null
@@ -189,27 +191,24 @@ open class FormulaBox : Iterable<FormulaBox> {
         if (parent == null) {
             childCoord
         } else {
-            val i = parent!!.children.indexOf(this)
+            val i = indexInParent!!
             parent!!.buildCoord(BoxCoord(i, childCoord))
         }
 
-    val coord: BoxCoord
-        get() = buildCoord(BoxCoord.root)
-
-    val seqCoord: BoxSeqCoord?
-        get() {
-            if (this is SequenceFormulaBox) return BoxSeqCoord(this, null)
-            else {
-                var b = this
-                var i: Int
-                while (b.parent != null) {
-                    i = b.parent!!.children.indexOf(b)
-                    b = b.parent!!
-                    if (b is SequenceFormulaBox) return BoxSeqCoord(b, i)
-                }
-                return null
+    fun getCoord(): BoxCoord = buildCoord(BoxCoord.root)
+    fun getSeqCoord(side: Side): BoxSeqCoord? {
+        if (this is SequenceFormulaBox) return BoxSeqCoord(this, null)
+        else {
+            var b = this
+            var i: Int
+            while (b.parent != null) {
+                i = b.indexInParent!!
+                b = b.parent!!
+                if (b is SequenceFormulaBox) return BoxSeqCoord(b, SidedIndex(i, side))
             }
+            return null
         }
+    }
 
     open fun findBox(x: Float, y: Float, overflow: Boolean = false) : SidedBox? {
         if (!overflow && !accRealBounds.contains(x, y)) return null
@@ -286,7 +285,7 @@ open class FormulaBox : Iterable<FormulaBox> {
     protected fun listenChildBoundsChange(b: FormulaBox) = listenChildBoundsChange(children.indexOf(b))
 
     protected open fun generateGraphics(): FormulaGraphics = FormulaGraphics(
-        path,
+        Path(),
         paint,
         Utils.sumOfRects(map { it.realBounds })
     )
@@ -321,12 +320,15 @@ open class FormulaBox : Iterable<FormulaBox> {
     fun drawOnCanvas(canvas: Canvas) {
         transform.applyOnCanvas(canvas)
         canvas.drawPath(path, paint)
-        canvas.drawRect(bounds, FormulaView.red)
+        // canvas.drawRect(bounds, FormulaView.red)
         for (b in children) {
             b.drawOnCanvas(canvas)
         }
         transform.invert.applyOnCanvas(canvas)
     }
+
+    val indexInParent
+        get() = parent?.children?.indexOf(this)
 
     init {
         onPictureChanged += { _, _ ->
@@ -348,8 +350,8 @@ open class FormulaBox : Iterable<FormulaBox> {
 
     companion object {
         const val DEFAULT_TEXT_SIZE = 96f
-        const val DEFAULT_TEXT_RADIUS = DEFAULT_TEXT_SIZE / 2
-        const val DEFAULT_TEXT_WIDTH = DEFAULT_TEXT_SIZE * 3/5
+        const val DEFAULT_TEXT_RADIUS = DEFAULT_TEXT_SIZE * 0.5f
+        const val DEFAULT_TEXT_WIDTH = DEFAULT_TEXT_SIZE * 0.6f
         const val DEFAULT_LINE_WIDTH = 4f
     }
 }
@@ -374,7 +376,7 @@ class TextFormulaBox(text: String = "") : FormulaBox() {
 
     override fun generateGraphics(): FormulaGraphics {
         val (p, w, h) = Utils.getTextPathAndSize(DEFAULT_TEXT_SIZE, text)
-        val bounds = RectF(0f, -h / 2, w, h / 2)
+        val bounds = RectF(0f, -h * 0.5f, w, h * 0.5f)
         return FormulaGraphics(p, paint, bounds)
     }
 }
@@ -420,21 +422,32 @@ class LineFormulaBox(orientation: Orientation = Orientation.V,
 }
 
 class SequenceFormulaBox : EditableFormulaBox() {
+    init {
+        paint.color = Color.WHITE
+        paint.strokeWidth = DEFAULT_LINE_WIDTH
+        paint.style = Paint.Style.STROKE
+        updateGraphics()
+    }
+
     override fun addBox(i: Int, b: FormulaBox) {
         super.addBox(i, b)
-        setChildTransform(i, BoxTransform.xOffset((if (i == 0) 0f else this[i-1].let { it.transform.origin.x + it.bounds.right }) - b.bounds.left))
+        setChildTransform(
+            i,
+            BoxTransform.xOffset((if (i == 0) 0f else this[i - 1].let { it.transform.origin.x + it.bounds.right }) - b.bounds.left)
+        )
         connect(b.onBoundsChanged) { s, e ->
-            offsetFrom(i, e.old.left-e.new.left)
-            offsetFrom(i+1, e.new.right-e.old.right)
+            val j = b.indexInParent!!
+            offsetFrom(j, e.old.left - e.new.left)
+            offsetFrom(j + 1, e.new.right - e.old.right)
         }
         listenChildBoundsChange(i)
-        offsetFrom(i+1, b.bounds.width())
+        offsetFrom(i + 1, b.bounds.width())
         updateGraphics()
     }
     override fun removeBoxAt(i: Int) {
         val b = this[i]
         super.removeBoxAt(i)
-        offsetFrom(i, b.bounds.width())
+        offsetFrom(i, -b.bounds.width())
         updateGraphics()
     }
 
@@ -444,6 +457,33 @@ class SequenceFormulaBox : EditableFormulaBox() {
             modifyChildTransform(j) { it * BoxTransform.xOffset(l) }
         }
     }
+
+    override fun generateGraphics(): FormulaGraphics =
+        if (count == 0) {
+            val rh = DEFAULT_TEXT_RADIUS
+            val w = DEFAULT_TEXT_WIDTH
+            val path = Path()
+            path.moveTo(0f, rh*0.5f)
+            path.lineTo(0f, rh)
+            path.lineTo(w*0.25f, rh)
+            path.moveTo(0f, -rh*0.5f)
+            path.lineTo(0f, -rh)
+            path.lineTo(w*0.25f, -rh)
+            path.moveTo(w, rh*0.5f)
+            path.lineTo(w, rh)
+            path.lineTo(w*0.75f, rh)
+            path.moveTo(w, -rh*0.5f)
+            path.lineTo(w, -rh)
+            path.lineTo(w*0.75f, -rh)
+            val bounds = RectF(0f, -rh, w, rh)
+            FormulaGraphics(
+                path,
+                paint,
+                bounds
+            )
+        } else {
+            super.generateGraphics()
+        }
 }
 
 class AlignFormulaBox(child: FormulaBox = FormulaBox(), rectPoint: RectPoint = RectPoint.NAN) : FormulaBox() {
@@ -504,11 +544,21 @@ class FractionFormulaBox : FormulaBox() {
         setChildTransform(2, BoxTransform.yOffset(DEFAULT_TEXT_SIZE * 0.15f))
         listenChildBoundsChange(num)
         listenChildBoundsChange(den)
+        updateGraphics()
+    }
+
+    override fun generateGraphics(): FormulaGraphics { // padding ?
+        val gr = super.generateGraphics()
+        return FormulaGraphics(
+            gr.path,
+            gr.paint,
+            RectF(gr.bounds.left - DEFAULT_TEXT_WIDTH * 0.25f, gr.bounds.top, gr.bounds.right + DEFAULT_TEXT_WIDTH * 0.25f, gr.bounds.bottom)
+        )
     }
 
     private fun getBarWidth(): Range {
-        val w = max(num.bounds.width(), den.bounds.width()) + DEFAULT_TEXT_WIDTH / 4
-        val r = w/2
+        val w = max(num.bounds.width(), den.bounds.width()) + DEFAULT_TEXT_WIDTH * 0.25f
+        val r = w * 0.5f
         return Range(-r, r)
     }
 }
@@ -562,6 +612,16 @@ sealed class Chain<out T> : Iterable<T> {
 
     fun asNode(): Node<T> = this as Node<T>
 
+    fun toList(): List<T> {
+        val a = ArrayList<T>(size)
+        var i = 0
+        for (e in this) {
+            a[i] = e
+            i++
+        }
+        return a
+    }
+
     override fun iterator() = object : Iterator<T> {
         private var next: Chain<T> = this@Chain
         override fun hasNext(): Boolean = !next.isEmpty
@@ -585,6 +645,16 @@ sealed class Chain<out T> : Iterable<T> {
             }
             return current
         }
+
+        // fun <T> withLast(source: Chain<T>, e: T): Chain<T> {
+        //     if (source.isEmpty) return Empty
+        //     val a = source.toList()
+        //     var current = Node(e, Empty)
+        //     for (i in a.size-2 downTo 0) {
+        //         current = Node(a[i], current)
+        //     }
+        //     return current
+        // }
     }
 }
 
@@ -611,15 +681,62 @@ value class BoxCoord(private val indices: Chain<Int>) {
                 }
             }
         }
+
+    // operator fun plus(i: Int) = BoxCoord(Chain.withLast(indices, indices.last()+i))
+    // operator fun minus(i: Int) = plus(-i)
+
     companion object {
         val root: BoxCoord = BoxCoord(Chain.Empty)
     }
 }
 
-data class BoxSeqCoord(val seq: SequenceFormulaBox, val index: Int?)
+data class SidedIndex(val index: Int, val side: Side) {
+    fun toR() = if (side == Side.L) SidedIndex(index-1, Side.R) else this
+    fun toL() = if (side == Side.R) SidedIndex(index+1, Side.L) else this
+}
 
-class BoxRange(val start: BoxCoord, val end: PointF)
+data class BoxSeqCoord(val seq: SequenceFormulaBox, val si: SidedIndex?) {
+    fun getPosition(): PointF {
+        val y = seq.accTransform.origin.y
+        return if (si == null) {
+            seq.accRealBounds.let { PointF(it.centerX(), y) }
+        } else {
+            seq[si.index].accRealBounds.let {
+                PointF(
+                    if (si.side == Side.L) it.left else it.right,
+                    y
+                )
+            }
+        }
+    }
+}
 
-class BoxSelector {
+class BoxCaret(val root: FormulaBox) {
+    var position: BoxSeqCoord? = null
+        set(value) {
+            field = value
+            onPictureChanged(Unit)
+        }
 
+    val onPictureChanged = Callback<BoxCaret, Unit>(this)
+    fun drawOnCanvas(canvas: Canvas) {
+        if (position != null) {
+            val p = position!!.getPosition()
+            canvas.drawLine(
+                p.x,
+                p.y - FormulaBox.DEFAULT_TEXT_RADIUS,
+                p.x,
+                p.y + FormulaBox.DEFAULT_TEXT_RADIUS,
+                paint
+            )
+        }
+    }
+
+    companion object {
+        val paint = Paint().also {
+            it.color = Color.YELLOW
+            it.style = Paint.Style.STROKE
+            it.strokeWidth = 6f
+        }
+    }
 }

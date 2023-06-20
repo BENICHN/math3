@@ -179,6 +179,11 @@ open class FormulaBox : Iterable<FormulaBox> {
     operator fun get(i: Int) = children[i]
     val count
         get() = children.size
+    val isEmpty
+        get() = children.isEmpty()
+    val lastChild
+        get() = children.last()
+
     operator fun get(c: BoxCoord): FormulaBox {
         var b = this
         for (i in c) {
@@ -210,14 +215,24 @@ open class FormulaBox : Iterable<FormulaBox> {
         }
     }
 
-    open fun findBox(x: Float, y: Float, overflow: Boolean = false) : SidedBox? {
-        if (!overflow && !accRealBounds.contains(x, y)) return null
+    fun getSide(x: Float): Side = if (x > accRealBounds.centerX()) Side.R else Side.L
+
+    open fun findChildBox(x: Float, y: Float) : FormulaBox {
         for (c in children) {
             if (c.accRealBounds.contains(x, y)) {
-                return c.findBox(x, y, true)
+                return c
             }
         }
-        return SidedBox(this, if (x > accRealBounds.centerX()) Side.R else Side.L)
+        return this
+    }
+
+    fun findBox(x: Float, y: Float) : SidedBox {
+        val c = findChildBox(x, y)
+        return if (c == this) {
+            SidedBox(this, getSide(x))
+        } else {
+            c.findBox(x, y)
+        }
     }
 
     val onTransformChanged = VCC<FormulaBox, BoxTransform>(this)
@@ -302,7 +317,7 @@ open class FormulaBox : Iterable<FormulaBox> {
         )
     }
 
-    fun getSide(o: Orientation) = when (o) {
+    fun getLength(o: Orientation) = when (o) {
         Orientation.H -> bounds.width()
         Orientation.V -> bounds.height()
     }
@@ -451,6 +466,15 @@ class SequenceFormulaBox : EditableFormulaBox() {
         updateGraphics()
     }
 
+    override fun findChildBox(x: Float, y: Float): FormulaBox {
+        for (c in this) {
+            if (x < c.accRealBounds.right) {
+                return c
+            }
+        }
+        return if (isEmpty) this else lastChild
+    }
+
     private fun offsetFrom(i: Int, l: Float) {
         isProcessing = true
         for (j in i until count) {
@@ -459,7 +483,7 @@ class SequenceFormulaBox : EditableFormulaBox() {
     }
 
     override fun generateGraphics(): FormulaGraphics =
-        if (count == 0) {
+        if (isEmpty) {
             val rh = DEFAULT_TEXT_RADIUS
             val w = DEFAULT_TEXT_WIDTH
             val path = Path()
@@ -506,6 +530,8 @@ class AlignFormulaBox(child: FormulaBox = FormulaBox(), rectPoint: RectPoint = R
         addBox(child)
     }
 
+    override fun findChildBox(x: Float, y: Float): FormulaBox = child.findChildBox(x, y)
+
     override fun addBox(i: Int, b: FormulaBox) {
         super.addBox(i, b)
         connect(b.onBoundsChanged) { s, e ->
@@ -546,6 +572,8 @@ class FractionFormulaBox : FormulaBox() {
         listenChildBoundsChange(den)
         updateGraphics()
     }
+
+    override fun findChildBox(x: Float, y: Float): FormulaBox = if (y > accTransform.origin.y) den else num
 
     override fun generateGraphics(): FormulaGraphics { // padding ?
         val gr = super.generateGraphics()
@@ -699,7 +727,7 @@ data class BoxSeqCoord(val seq: SequenceFormulaBox, val si: SidedIndex?) {
     fun getPosition(): PointF {
         val y = seq.accTransform.origin.y
         return if (si == null) {
-            seq.accRealBounds.let { PointF(it.centerX(), y) }
+            seq.accRealBounds.let { PointF(if (seq.isEmpty) it.centerX() else it.left, y) }
         } else {
             seq[si.index].accRealBounds.let {
                 PointF(

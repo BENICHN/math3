@@ -7,6 +7,7 @@ import android.graphics.Path
 import android.graphics.PointF
 import android.graphics.RectF
 import android.health.connect.datatypes.units.Length
+import androidx.core.graphics.contains
 import androidx.core.graphics.minus
 import androidx.core.graphics.plus
 import androidx.core.graphics.times
@@ -131,6 +132,13 @@ data class RectPoint(val tx: Float, val ty: Float) {
     }
 }
 
+enum class Side {
+    L,
+    R
+}
+
+data class SidedBox(val box: FormulaBox, val side: Side)
+
 open class FormulaBox : Iterable<FormulaBox> {
     private var parent: FormulaBox? = null
     private val children = mutableListOf<FormulaBox>()
@@ -169,6 +177,49 @@ open class FormulaBox : Iterable<FormulaBox> {
     operator fun get(i: Int) = children[i]
     val count
         get() = children.size
+    operator fun get(c: BoxCoord): FormulaBox {
+        var b = this
+        for (i in c) {
+            b = b[i]
+        }
+        return b
+    }
+
+    private fun buildCoord(childCoord: BoxCoord): BoxCoord =
+        if (parent == null) {
+            childCoord
+        } else {
+            val i = parent!!.children.indexOf(this)
+            parent!!.buildCoord(BoxCoord(i, childCoord))
+        }
+
+    val coord: BoxCoord
+        get() = buildCoord(BoxCoord.root)
+
+    val seqCoord: BoxSeqCoord?
+        get() {
+            if (this is SequenceFormulaBox) return BoxSeqCoord(this, null)
+            else {
+                var b = this
+                var i: Int
+                while (b.parent != null) {
+                    i = b.parent!!.children.indexOf(b)
+                    b = b.parent!!
+                    if (b is SequenceFormulaBox) return BoxSeqCoord(b, i)
+                }
+                return null
+            }
+        }
+
+    open fun findBox(x: Float, y: Float, overflow: Boolean = false) : SidedBox? {
+        if (!overflow && !accRealBounds.contains(x, y)) return null
+        for (c in children) {
+            if (c.accRealBounds.contains(x, y)) {
+                return c.findBox(x, y, true)
+            }
+        }
+        return SidedBox(this, if (x > accRealBounds.centerX()) Side.R else Side.L)
+    }
 
     val onTransformChanged = VCC<FormulaBox, BoxTransform>(this)
     var transform: BoxTransform = BoxTransform()
@@ -210,6 +261,7 @@ open class FormulaBox : Iterable<FormulaBox> {
             if (old.path != value.path) onPathChanged(old.path, value.path)
             if (old.paint != value.paint) onPaintChanged(old.paint, value.paint)
             if (old.bounds != value.bounds) onBoundsChanged(old.bounds, value.bounds)
+            isProcessing = false
         }
     val onBoundsChanged = VCC<FormulaBox, RectF>(this)
     val bounds
@@ -241,7 +293,14 @@ open class FormulaBox : Iterable<FormulaBox> {
 
     fun updateGraphics() {
         graphics = generateGraphics()
-        isProcessing = false
+    }
+
+    fun alert() {
+        graphics = FormulaGraphics(
+            path,
+            Paint(paint).also { it.color = Color.GREEN },
+            bounds
+        )
     }
 
     fun getSide(o: Orientation) = when (o) {
@@ -262,7 +321,7 @@ open class FormulaBox : Iterable<FormulaBox> {
     fun drawOnCanvas(canvas: Canvas) {
         transform.applyOnCanvas(canvas)
         canvas.drawPath(path, paint)
-        // canvas.drawRect(bounds, FormulaView.red)
+        canvas.drawRect(bounds, FormulaView.red)
         for (b in children) {
             b.drawOnCanvas(canvas)
         }
@@ -482,4 +541,85 @@ class BracketFormulaBox(range: Range = Range(-DEFAULT_TEXT_RADIUS,DEFAULT_TEXT_R
             bounds
         )
     }
+}
+
+sealed class Chain<out T> : Iterable<T> {
+    data object Empty : Chain<Nothing>() {
+        override val isEmpty: Boolean
+            get() = true
+        override fun conputeSize(): Int = 0
+    }
+    data class Node<out T>(val head: T, val tail: Chain<T>) : Chain<T>() {
+        override val isEmpty: Boolean
+            get() = false
+        override fun conputeSize(): Int = 1 + tail.size
+    }
+
+    abstract val isEmpty: Boolean
+
+    val size by lazy { conputeSize() }
+    protected abstract fun conputeSize(): Int
+
+    fun asNode(): Node<T> = this as Node<T>
+
+    override fun iterator() = object : Iterator<T> {
+        private var next: Chain<T> = this@Chain
+        override fun hasNext(): Boolean = !next.isEmpty
+        override fun next(): T {
+            if (hasNext()) {
+                val (h, t) = next as Node<T>
+                next = t
+                return h
+            } else {
+                throw NoSuchElementException("No additional element available")
+            }
+        }
+
+    }
+
+    companion object {
+        fun <T> fromList(l: List<T>): Chain<T> {
+            var current: Chain<T> = Empty
+            for (i in l.size - 1 downTo 0) {
+                current = Node(l[i], current)
+            }
+            return current
+        }
+    }
+}
+
+@JvmInline
+value class BoxCoord(private val indices: Chain<Int>) {
+    val depth
+        get() = indices.size
+    operator fun iterator() = indices.iterator()
+
+    constructor(h: Int, t: BoxCoord) : this(Chain.Node(h, t.indices))
+
+    operator fun compareTo(bc: BoxCoord): Int =
+        when {
+            indices.isEmpty && bc.indices.isEmpty -> 0
+            indices.isEmpty && !bc.indices.isEmpty -> -1
+            !indices.isEmpty && bc.indices.isEmpty -> 1
+            else -> {
+                val (h1, t1) = indices.asNode()
+                val (h2, t2) = bc.indices.asNode()
+                if (h1 == h2) {
+                    BoxCoord(t1).compareTo(BoxCoord(t2))
+                } else {
+                    0
+                }
+            }
+        }
+    companion object {
+        val root: BoxCoord = BoxCoord(Chain.Empty)
+    }
+}
+
+data class BoxSeqCoord(val seq: SequenceFormulaBox, val index: Int?)
+
+class BoxRange(val start: BoxCoord, val end: PointF)
+
+class BoxSelector {
+
 }

@@ -2,13 +2,8 @@ package fr.benichn.math3
 
 import android.app.Application
 import android.os.Bundle
-import android.util.Log
 import androidx.appcompat.app.AppCompatActivity
-import androidx.fragment.app.Fragment
-import androidx.fragment.app.FragmentActivity
 import androidx.fragment.app.commit
-import androidx.viewpager2.adapter.FragmentStateAdapter
-import androidx.viewpager2.widget.ViewPager2
 
 class App : Application() {
     init {
@@ -37,19 +32,23 @@ class MainActivity : AppCompatActivity() {
                     val p = fv.caret.position
                     if (p?.si != null && p.si != SidedIndex(0, Side.L)) {
                         val pr = p.si.toR()
-                        p.seq.removeBoxAt(pr.index)
-                        fv.caret.position = if (pr.index == 0) BoxSeqCoord(p.seq, null) else BoxSeqCoord(p.seq, SidedIndex(pr.index-1,Side.R))
+                        p.box.removeBoxAt(pr.index)
+                        fv.caret.position = if (pr.index == 0) BoxInputCoord(p.box, null) else BoxInputCoord(p.box, SidedIndex(pr.index-1,Side.R))
+                    } else if (p != null) {
+                        val newPos = p.box.delete()
+                        fv.caret.position = newPos
                     }
                 }
                 else -> {
                     val p = fv.caret.position
                     if (p != null) {
                         val i = p.si?.toL()?.index ?: 0
-                        p.seq.addBox(i, when (id) {
+                        val newBox = when (id) {
                             "over" -> FractionFormulaBox()
                             else -> TextFormulaBox(id)
-                        })
-                        fv.caret.position = BoxSeqCoord(p.seq, SidedIndex(i,Side.R))
+                        }
+                        p.box.addBox(i, newBox)
+                        fv.caret.position = newBox.getInitialCaretPos().toInputCoord()
                     }
                 }
             }

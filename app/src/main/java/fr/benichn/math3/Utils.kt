@@ -164,6 +164,8 @@ class Utils {
             return res
         }
 
+        fun sumOfRects(vararg rects: RectF): RectF = sumOfRects(rects.asIterable())
+
         fun sumOfRects(rects: Iterable<RectF>): RectF = rects.fold(RectF()) { acc, r ->
             RectF(min(acc.left, r.left), min(acc.top, r.top), max(acc.right, r.right), max(acc.bottom, r.bottom))
         }

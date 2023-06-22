@@ -10,11 +10,10 @@ import android.util.AttributeSet
 import android.util.Log
 import android.view.MotionEvent
 import android.view.View
-import android.view.ViewGroup
 import android.widget.FrameLayout
 
 class FormulaView(context: Context, attrs: AttributeSet? = null) : FrameLayout(context, attrs) {
-    var box = AlignFormulaBox(SequenceFormulaBox(), RectPoint.BOTTOM_CENTER)
+    var box = AlignFormulaBox(InputFormulaBox(), RectPoint.BOTTOM_CENTER)
     var caret = BoxCaret(box)
     val offset
         get() = PointF(width * 0.5f, height - 48f)
@@ -71,8 +70,8 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : FrameLayout(c
             val b = offset.let { box.findBox(e.x - it.x, e.y - it.y) }
             // b?.box?.alert()
             // Log.d("clic", "${e.x}, ${e.y - height*0.5f}, $b")
-            Log.d("coord", "$b ~ ${b.box.getCoord()} ~ ${b.toSeqCoord()}")
-            caret.position = b.toSeqCoord()
+            Log.d("coord", "$b ~ ${b.box.getCoord()} ~ ${b.toInputCoord()}")
+            caret.position = b.toInputCoord()
         }
         return super.onTouchEvent(e)
     }

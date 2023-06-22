@@ -6,16 +6,12 @@ import android.graphics.Paint
 import android.graphics.Path
 import android.graphics.PointF
 import android.graphics.RectF
-import android.health.connect.datatypes.units.Length
-import androidx.core.graphics.contains
-import androidx.core.graphics.minus
 import androidx.core.graphics.plus
 import androidx.core.graphics.times
 import androidx.core.graphics.unaryMinus
 import fr.benichn.math3.Utils.Companion.div
 import fr.benichn.math3.Utils.Companion.times
 import kotlin.math.max
-import kotlin.math.min
 import kotlin.properties.ReadWriteProperty
 import kotlin.reflect.KProperty
 
@@ -138,7 +134,7 @@ enum class Side {
 }
 
 data class SidedBox(val box: FormulaBox, val side: Side) {
-    fun toSeqCoord() : BoxSeqCoord? = box.getSeqCoord(side)
+    fun toInputCoord() : BoxInputCoord? = box.getInputCoord(side)
 }
 
 open class FormulaBox : Iterable<FormulaBox> {
@@ -192,6 +188,17 @@ open class FormulaBox : Iterable<FormulaBox> {
         return b
     }
 
+    fun delete(): BoxInputCoord? =
+        if (this is InputFormulaBox) {
+            parent?.delete()
+        } else {
+            val sc = getInputCoord(Side.L) // L ou R, idem
+            sc?.box?.removeBoxAt(sc.si!!.index)
+            sc?.let { BoxInputCoord(it.box, if (it.box.isEmpty) null else SidedIndex(it.si!!.index-1, Side.R)) }
+        }
+
+    open fun getInitialCaretPos(): SidedBox = SidedBox(this, Side.R)
+
     private fun buildCoord(childCoord: BoxCoord): BoxCoord =
         if (parent == null) {
             childCoord
@@ -201,15 +208,15 @@ open class FormulaBox : Iterable<FormulaBox> {
         }
 
     fun getCoord(): BoxCoord = buildCoord(BoxCoord.root)
-    fun getSeqCoord(side: Side): BoxSeqCoord? {
-        if (this is SequenceFormulaBox) return BoxSeqCoord(this, null)
+    fun getInputCoord(side: Side): BoxInputCoord? {
+        if (this is InputFormulaBox) return BoxInputCoord(this, null)
         else {
             var b = this
             var i: Int
             while (b.parent != null) {
                 i = b.indexInParent!!
                 b = b.parent!!
-                if (b is SequenceFormulaBox) return BoxSeqCoord(b, SidedIndex(i, side))
+                if (b is InputFormulaBox) return BoxInputCoord(b, SidedIndex(i, side))
             }
             return null
         }
@@ -226,10 +233,13 @@ open class FormulaBox : Iterable<FormulaBox> {
         return this
     }
 
+    protected open val alwaysEnter // ~~ rustine ~~
+        get() = false
+
     fun findBox(x: Float, y: Float) : SidedBox {
         val c = findChildBox(x, y)
-        return if (c == this) {
-            SidedBox(this, getSide(x))
+        return if (c == this || (!c.alwaysEnter && c.accRealBounds.let { x < it.left || it.right < x })) {
+            SidedBox(c, c.getSide(x))
         } else {
             c.findBox(x, y)
         }
@@ -371,14 +381,6 @@ open class FormulaBox : Iterable<FormulaBox> {
     }
 }
 
-open class EditableFormulaBox : FormulaBox() {
-    public override fun addBox(i: Int, b: FormulaBox) = super.addBox(i, b)
-    public override fun addBox(b: FormulaBox) = super.addBox(b)
-    public override fun removeBoxAt(i: Int) = super.removeBoxAt(i)
-    public override fun removeBox(b: FormulaBox) = super.removeBox(b)
-    public override fun removeLastBox() = super.removeLastBox()
-}
-
 class TextFormulaBox(text: String = "") : FormulaBox() {
     val dlgText = BoxProperty(this, text)
     var text by dlgText
@@ -436,12 +438,15 @@ class LineFormulaBox(orientation: Orientation = Orientation.V,
     }
 }
 
-class SequenceFormulaBox : EditableFormulaBox() {
+sealed class SequenceFormulaBox(vararg boxes: FormulaBox) : FormulaBox() {
     init {
         paint.color = Color.WHITE
         paint.strokeWidth = DEFAULT_LINE_WIDTH
         paint.style = Paint.Style.STROKE
         updateGraphics()
+        for (b in boxes) {
+            addBox(b)
+        }
     }
 
     override fun addBox(i: Int, b: FormulaBox) {
@@ -510,6 +515,14 @@ class SequenceFormulaBox : EditableFormulaBox() {
         }
 }
 
+class InputFormulaBox(vararg boxes: FormulaBox) : SequenceFormulaBox(*boxes) {
+    public override fun addBox(i: Int, b: FormulaBox) = super.addBox(i, b)
+    public override fun addBox(b: FormulaBox) = super.addBox(b)
+    public override fun removeBoxAt(i: Int) = super.removeBoxAt(i)
+    public override fun removeBox(b: FormulaBox) = super.removeBox(b)
+    public override fun removeLastBox() = super.removeLastBox()
+}
+
 class AlignFormulaBox(child: FormulaBox = FormulaBox(), rectPoint: RectPoint = RectPoint.NAN) : FormulaBox() {
     val dlgChild = BoxProperty(this, child).also {
         it.onChanged += { s, e ->
@@ -530,6 +543,8 @@ class AlignFormulaBox(child: FormulaBox = FormulaBox(), rectPoint: RectPoint = R
         addBox(child)
     }
 
+    override val alwaysEnter: Boolean
+        get() = true
     override fun findChildBox(x: Float, y: Float): FormulaBox = child.findChildBox(x, y)
 
     override fun addBox(i: Int, b: FormulaBox) {
@@ -551,10 +566,10 @@ class AlignFormulaBox(child: FormulaBox = FormulaBox(), rectPoint: RectPoint = R
     }
 }
 
-class FractionFormulaBox : FormulaBox() {
+class FractionFormulaBox(numChildren: Array<FormulaBox> = emptyArray(), denChildren: Array<FormulaBox> = emptyArray()) : FormulaBox() {
     private val bar = LineFormulaBox(Orientation.H)
-    private val num = AlignFormulaBox(SequenceFormulaBox(), RectPoint.BOTTOM_CENTER)
-    private val den = AlignFormulaBox(SequenceFormulaBox(), RectPoint.TOP_CENTER)
+    private val num = AlignFormulaBox(InputFormulaBox(*numChildren), RectPoint.BOTTOM_CENTER)
+    private val den = AlignFormulaBox(InputFormulaBox(*denChildren), RectPoint.TOP_CENTER)
     val numerator
         get() = num.child
     val denominator
@@ -573,7 +588,20 @@ class FractionFormulaBox : FormulaBox() {
         updateGraphics()
     }
 
-    override fun findChildBox(x: Float, y: Float): FormulaBox = if (y > accTransform.origin.y) den else num
+    override fun getInitialCaretPos(): SidedBox {
+        return numerator.getInitialCaretPos()
+    }
+
+    override fun findChildBox(x: Float, y: Float): FormulaBox =
+        if (bar.accRealBounds.let { it.left <= x && x <= it.right }) {
+            if (y > accTransform.origin.y) {
+                den
+            } else {
+                num
+            }
+        } else {
+            this
+        }
 
     override fun generateGraphics(): FormulaGraphics { // padding ?
         val gr = super.generateGraphics()
@@ -723,13 +751,13 @@ data class SidedIndex(val index: Int, val side: Side) {
     fun toL() = if (side == Side.R) SidedIndex(index+1, Side.L) else this
 }
 
-data class BoxSeqCoord(val seq: SequenceFormulaBox, val si: SidedIndex?) {
+data class BoxInputCoord(val box: InputFormulaBox, val si: SidedIndex?) {
     fun getPosition(): PointF {
-        val y = seq.accTransform.origin.y
+        val y = box.accTransform.origin.y
         return if (si == null) {
-            seq.accRealBounds.let { PointF(if (seq.isEmpty) it.centerX() else it.left, y) }
+            box.accRealBounds.let { PointF(if (box.isEmpty) it.centerX() else it.left, y) }
         } else {
-            seq[si.index].accRealBounds.let {
+            box[si.index].accRealBounds.let {
                 PointF(
                     if (si.side == Side.L) it.left else it.right,
                     y
@@ -740,7 +768,7 @@ data class BoxSeqCoord(val seq: SequenceFormulaBox, val si: SidedIndex?) {
 }
 
 class BoxCaret(val root: FormulaBox) {
-    var position: BoxSeqCoord? = null
+    var position: BoxInputCoord? = null
         set(value) {
             field = value
             onPictureChanged(Unit)

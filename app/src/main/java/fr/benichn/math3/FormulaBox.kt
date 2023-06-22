@@ -99,20 +99,13 @@ enum class Orientation { H, V }
 
 data class RectPoint(val tx: Float, val ty: Float) {
     init {
-        assert((tx in 0.0..1.0 && ty in 0.0..1.0) || (tx.isNaN() && ty.isNaN()))
+        assert((tx.isNaN() || tx in 0.0..1.0) && (ty.isNaN() || ty in 0.0..1.0))
     }
 
-    val isNaN
-        get() = tx.isNaN()
-
-    fun get(r: RectF): PointF = if (isNaN) {
-        PointF(Float.NaN, Float.NaN)
-    } else {
-        PointF(
-            r.left + tx * (r.right - r.left),
-            r.top + ty * (r.bottom - r.top)
+    fun get(r: RectF): PointF = PointF(
+            if (tx.isNaN()) 0f else r.left + tx * (r.right - r.left),
+            if (ty.isNaN()) 0f else r.top + ty * (r.bottom - r.top)
         )
-    }
 
     companion object {
         val TOP_LEFT = RectPoint(0f, 0f)
@@ -124,6 +117,10 @@ data class RectPoint(val tx: Float, val ty: Float) {
         val BOTTOM_CENTER = RectPoint(0.5f, 1f)
         val CENTER_LEFT = RectPoint(0f, 0.5f)
         val CENTER_RIGHT = RectPoint(1f, 0.5f)
+        val TOP_NAN = RectPoint(Float.NaN, 0f)
+        val BOTTOM_NAN = RectPoint(Float.NaN, 1f)
+        val NAN_LEFT = RectPoint(0f, Float.NaN)
+        val NAN_RIGHT = RectPoint(1f, Float.NaN)
         val NAN = RectPoint(Float.NaN, Float.NaN)
     }
 }
@@ -224,9 +221,9 @@ open class FormulaBox : Iterable<FormulaBox> {
 
     fun getSide(x: Float): Side = if (x > accRealBounds.centerX()) Side.R else Side.L
 
-    open fun findChildBox(x: Float, y: Float) : FormulaBox {
+    open fun findChildBox(absX: Float, absY: Float) : FormulaBox {
         for (c in children) {
-            if (c.accRealBounds.contains(x, y)) {
+            if (c.accRealBounds.contains(absX, absY)) {
                 return c
             }
         }
@@ -236,12 +233,12 @@ open class FormulaBox : Iterable<FormulaBox> {
     protected open val alwaysEnter // ~~ rustine ~~
         get() = false
 
-    fun findBox(x: Float, y: Float) : SidedBox {
-        val c = findChildBox(x, y)
-        return if (c == this || (!c.alwaysEnter && c.accRealBounds.let { x < it.left || it.right < x })) {
-            SidedBox(c, c.getSide(x))
+    fun findBox(absX: Float, absY: Float) : SidedBox {
+        val c = findChildBox(absX, absY)
+        return if (c == this || (!c.alwaysEnter && c.accRealBounds.let { absX < it.left || it.right < absX })) {
+            SidedBox(c, c.getSide(absX))
         } else {
-            c.findBox(x, y)
+            c.findBox(absX, absY)
         }
     }
 
@@ -471,9 +468,9 @@ sealed class SequenceFormulaBox(vararg boxes: FormulaBox) : FormulaBox() {
         updateGraphics()
     }
 
-    override fun findChildBox(x: Float, y: Float): FormulaBox {
+    override fun findChildBox(absX: Float, absY: Float): FormulaBox {
         for (c in this) {
-            if (x < c.accRealBounds.right) {
+            if (absX < c.accRealBounds.right) {
                 return c
             }
         }
@@ -545,7 +542,7 @@ class AlignFormulaBox(child: FormulaBox = FormulaBox(), rectPoint: RectPoint = R
 
     override val alwaysEnter: Boolean
         get() = true
-    override fun findChildBox(x: Float, y: Float): FormulaBox = child.findChildBox(x, y)
+    override fun findChildBox(absX: Float, absY: Float): FormulaBox = child.findChildBox(absX, absY)
 
     override fun addBox(i: Int, b: FormulaBox) {
         super.addBox(i, b)
@@ -561,7 +558,7 @@ class AlignFormulaBox(child: FormulaBox = FormulaBox(), rectPoint: RectPoint = R
         isProcessing = true
         setChildTransform(
             0,
-            BoxTransform(-(if (!rectPoint.isNaN) rectPoint.get(child.bounds) else PointF()))
+            BoxTransform(-(rectPoint.get(child.bounds)))
         )
     }
 }
@@ -592,9 +589,9 @@ class FractionFormulaBox(numChildren: Array<FormulaBox> = emptyArray(), denChild
         return numerator.getInitialCaretPos()
     }
 
-    override fun findChildBox(x: Float, y: Float): FormulaBox =
-        if (bar.accRealBounds.let { it.left <= x && x <= it.right }) {
-            if (y > accTransform.origin.y) {
+    override fun findChildBox(absX: Float, absY: Float): FormulaBox =
+        if (bar.accRealBounds.let { it.left <= absX && absX <= it.right }) {
+            if (absY > accTransform.origin.y) {
                 den
             } else {
                 num
@@ -752,7 +749,7 @@ data class SidedIndex(val index: Int, val side: Side) {
 }
 
 data class BoxInputCoord(val box: InputFormulaBox, val si: SidedIndex?) {
-    fun getPosition(): PointF {
+    fun getAbsPosition(): PointF {
         val y = box.accTransform.origin.y
         return if (si == null) {
             box.accRealBounds.let { PointF(if (box.isEmpty) it.centerX() else it.left, y) }
@@ -777,7 +774,7 @@ class BoxCaret(val root: FormulaBox) {
     val onPictureChanged = Callback<BoxCaret, Unit>(this)
     fun drawOnCanvas(canvas: Canvas) {
         if (position != null) {
-            val p = position!!.getPosition()
+            val p = position!!.getAbsPosition()
             canvas.drawLine(
                 p.x,
                 p.y - FormulaBox.DEFAULT_TEXT_RADIUS,

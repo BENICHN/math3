@@ -49,11 +49,11 @@ class MainActivity : AppCompatActivity() {
                             "over" -> FractionFormulaBox()
                             else -> TextFormulaBox(id)
                         }
+                        p.box.addBox(i, newBox)
                         newBox.addInitialBoxes(InitialBoxes.BeforeAfter(
                             p.box.ch.take(i),
                             p.box.ch.takeLast(p.box.ch.size - i)
                         ))
-                        p.box.addBox(i, newBox)
                         fv.caret.position = newBox.getInitialCaretPos().toInputCoord()
                     }
                 }

@@ -374,7 +374,7 @@ open class FormulaBox {
 
 sealed class InitialBoxes {
     data class BeforeAfter(val boxesBefore: List<FormulaBox>, val boxesAfter: List<FormulaBox>) : InitialBoxes()
-    data class Selection(val boxes: List<FormulaBox>)
+    data class Selection(val boxes: List<FormulaBox>) : InitialBoxes()
 }
 
 class TextFormulaBox(text: String = "") : FormulaBox() {
@@ -577,9 +577,9 @@ class FractionFormulaBox(numChildren: Array<FormulaBox> = emptyArray(), denChild
     private val num = AlignFormulaBox(InputFormulaBox(*numChildren), RectPoint.BOTTOM_CENTER)
     private val den = AlignFormulaBox(InputFormulaBox(*denChildren), RectPoint.TOP_CENTER)
     val numerator
-        get() = num.child
+        get() = num.child as InputFormulaBox
     val denominator
-        get() = den.child
+        get() = den.child as InputFormulaBox
     init {
         addBox(bar)
         addBox(num)
@@ -594,8 +594,24 @@ class FractionFormulaBox(numChildren: Array<FormulaBox> = emptyArray(), denChild
         updateGraphics()
     }
 
-    override fun getInitialCaretPos(): SidedBox {
-        return numerator.getInitialCaretPos()
+    override fun addInitialBoxes(ib: InitialBoxes) {
+        val boxes = when (ib) {
+            is InitialBoxes.BeforeAfter -> {
+                ib.boxesBefore.takeLastWhile { it !is TextFormulaBox || (it.text != "+" && it.text != "-") }
+            }
+            is InitialBoxes.Selection -> {
+                ib.boxes
+            }
+        }
+        for (b in boxes) {
+            numerator.addBox(b)
+        }
+    }
+
+    override fun getInitialCaretPos(): SidedBox = if (numerator.ch.isEmpty()) {
+        numerator.getInitialCaretPos()
+    } else {
+        denominator.getInitialCaretPos()
     }
 
     override fun findChildBox(absX: Float, absY: Float): FormulaBox =

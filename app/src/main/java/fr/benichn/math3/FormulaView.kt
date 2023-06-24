@@ -70,7 +70,7 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : FrameLayout(c
             val b = offset.let { box.findBox(e.x - it.x, e.y - it.y) }
             // b?.box?.alert()
             // Log.d("clic", "${e.x}, ${e.y - height*0.5f}, $b")
-            Log.d("coord", "$b ~ ${b.box.getCoord()} ~ ${b.toInputCoord()}")
+            Log.d("coord", "$b ~ ${b.toInputCoord()}")
             caret.position = b.toInputCoord()
         }
         return super.onTouchEvent(e)

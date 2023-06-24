@@ -175,6 +175,8 @@ class Utils {
     }
 }
 
+class ImmutableList<T>(private val inner:List<T>) : List<T> by inner
+
 data class MeasuredPath(
     val path: Path,
     val w: Float,

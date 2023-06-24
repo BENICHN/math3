@@ -30,23 +30,29 @@ class MainActivity : AppCompatActivity() {
             when (id) {
                 "del" -> {
                     val p = fv.caret.position
-                    if (p?.si != null && p.si != SidedIndex(0, Side.L)) {
-                        val pr = p.si.toR()
-                        p.box.removeBoxAt(pr.index)
-                        fv.caret.position = if (pr.index == 0) BoxInputCoord(p.box, null) else BoxInputCoord(p.box, SidedIndex(pr.index-1,Side.R))
-                    } else if (p != null) {
-                        val newPos = p.box.delete()
+                    p?.also {
+                        val (box, i) = it
+                        val newPos = if (i == 0) {
+                            box.delete()
+                        } else {
+                            box.removeBoxAt(i-1)
+                            BoxInputCoord(box, i-1)
+                        }
                         fv.caret.position = newPos
                     }
                 }
                 else -> {
                     val p = fv.caret.position
-                    if (p != null) {
-                        val i = p.si?.toL()?.index ?: 0
+                    p?.also {
+                        val (box, i) = it
                         val newBox = when (id) {
                             "over" -> FractionFormulaBox()
                             else -> TextFormulaBox(id)
                         }
+                        newBox.addInitialBoxes(InitialBoxes.BeforeAfter(
+                            p.box.ch.take(i),
+                            p.box.ch.takeLast(p.box.ch.size - i)
+                        ))
                         p.box.addBox(i, newBox)
                         fv.caret.position = newBox.getInitialCaretPos().toInputCoord()
                     }

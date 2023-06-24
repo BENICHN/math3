@@ -131,15 +131,16 @@ enum class Side {
 }
 
 data class SidedBox(val box: FormulaBox, val side: Side) {
-    fun toInputCoord() : BoxInputCoord? = box.getInputCoord(side)
+    fun toInputCoord() : BoxInputCoord? = FormulaBox.getBoxInputCoord(this)
 }
 
-open class FormulaBox : Iterable<FormulaBox> {
+open class FormulaBox {
     private var parent: FormulaBox? = null
     private val children = mutableListOf<FormulaBox>()
+    val ch = ImmutableList(children)
     protected open fun addBox(b: FormulaBox) = addBox(children.size, b)
     protected open fun addBox(i: Int, b: FormulaBox) {
-        assert(b.parent == null)
+        if (b.parent != null) b.delete()
         children.add(i, b)
         b.parent = this
     }
@@ -151,6 +152,10 @@ open class FormulaBox : Iterable<FormulaBox> {
         disconnectFrom(b)
         children.removeAt(i)
         b.parent = null
+    }
+
+    open fun addInitialBoxes(ib: InitialBoxes) {
+
     }
 
     private val connections = mutableListOf<CallbackLink<*,*>>()
@@ -168,31 +173,16 @@ open class FormulaBox : Iterable<FormulaBox> {
         }
     }
 
-    override fun iterator(): Iterator<FormulaBox> = children.iterator()
-    operator fun get(i: Int) = children[i]
-    val count
-        get() = children.size
-    val isEmpty
-        get() = children.isEmpty()
-    val lastChild
-        get() = children.last()
-
     operator fun get(c: BoxCoord): FormulaBox {
         var b = this
         for (i in c) {
-            b = b[i]
+            b = b.ch[i]
         }
         return b
     }
 
-    fun delete(): BoxInputCoord? =
-        if (this is InputFormulaBox) {
-            parent?.delete()
-        } else {
-            val sc = getInputCoord(Side.L) // L ou R, idem
-            sc?.box?.removeBoxAt(sc.si!!.index)
-            sc?.let { BoxInputCoord(it.box, if (it.box.isEmpty) null else SidedIndex(it.si!!.index-1, Side.R)) }
-        }
+    protected open fun onChildRequiresDelete(i: Int): BoxInputCoord? = delete()
+    fun delete() : BoxInputCoord? = parent?.onChildRequiresDelete(indexInParent!!)
 
     open fun getInitialCaretPos(): SidedBox = SidedBox(this, Side.R)
 
@@ -203,21 +193,6 @@ open class FormulaBox : Iterable<FormulaBox> {
             val i = indexInParent!!
             parent!!.buildCoord(BoxCoord(i, childCoord))
         }
-
-    fun getCoord(): BoxCoord = buildCoord(BoxCoord.root)
-    fun getInputCoord(side: Side): BoxInputCoord? {
-        if (this is InputFormulaBox) return BoxInputCoord(this, null)
-        else {
-            var b = this
-            var i: Int
-            while (b.parent != null) {
-                i = b.indexInParent!!
-                b = b.parent!!
-                if (b is InputFormulaBox) return BoxInputCoord(b, SidedIndex(i, side))
-            }
-            return null
-        }
-    }
 
     fun getSide(x: Float): Side = if (x > accRealBounds.centerX()) Side.R else Side.L
 
@@ -309,7 +284,7 @@ open class FormulaBox : Iterable<FormulaBox> {
     protected open fun generateGraphics(): FormulaGraphics = FormulaGraphics(
         Path(),
         paint,
-        Utils.sumOfRects(map { it.realBounds })
+        Utils.sumOfRects(ch.map { it.realBounds })
     )
 
     fun updateGraphics() {
@@ -375,7 +350,31 @@ open class FormulaBox : Iterable<FormulaBox> {
         const val DEFAULT_TEXT_RADIUS = DEFAULT_TEXT_SIZE * 0.5f
         const val DEFAULT_TEXT_WIDTH = DEFAULT_TEXT_SIZE * 0.6f
         const val DEFAULT_LINE_WIDTH = 4f
+
+        fun getBoxCoord(b: FormulaBox): BoxCoord = b.buildCoord(BoxCoord.root)
+        fun getBoxInputCoord(sb: SidedBox): BoxInputCoord? {
+            val (box, side) = sb
+            if (box is InputFormulaBox) {
+                assert(box.ch.size == 0)
+                return BoxInputCoord(box, 0)
+            }
+            else {
+                var b = box
+                var i: Int
+                while (b.parent != null) {
+                    i = b.indexInParent!!
+                    b = b.parent!!
+                    if (b is InputFormulaBox) return BoxInputCoord(b, if (side == Side.L) i else i+1)
+                }
+                return null
+            }
+        }
     }
+}
+
+sealed class InitialBoxes {
+    data class BeforeAfter(val boxesBefore: List<FormulaBox>, val boxesAfter: List<FormulaBox>) : InitialBoxes()
+    data class Selection(val boxes: List<FormulaBox>)
 }
 
 class TextFormulaBox(text: String = "") : FormulaBox() {
@@ -450,7 +449,7 @@ sealed class SequenceFormulaBox(vararg boxes: FormulaBox) : FormulaBox() {
         super.addBox(i, b)
         setChildTransform(
             i,
-            BoxTransform.xOffset((if (i == 0) 0f else this[i - 1].let { it.transform.origin.x + it.bounds.right }) - b.bounds.left)
+            BoxTransform.xOffset((if (i == 0) 0f else ch[i - 1].let { it.transform.origin.x + it.bounds.right }) - b.bounds.left)
         )
         connect(b.onBoundsChanged) { s, e ->
             val j = b.indexInParent!!
@@ -462,30 +461,21 @@ sealed class SequenceFormulaBox(vararg boxes: FormulaBox) : FormulaBox() {
         updateGraphics()
     }
     override fun removeBoxAt(i: Int) {
-        val b = this[i]
+        val b = ch[i]
         super.removeBoxAt(i)
         offsetFrom(i, -b.bounds.width())
         updateGraphics()
     }
 
-    override fun findChildBox(absX: Float, absY: Float): FormulaBox {
-        for (c in this) {
-            if (absX < c.accRealBounds.right) {
-                return c
-            }
-        }
-        return if (isEmpty) this else lastChild
-    }
-
     private fun offsetFrom(i: Int, l: Float) {
         isProcessing = true
-        for (j in i until count) {
+        for (j in i until ch.size) {
             modifyChildTransform(j) { it * BoxTransform.xOffset(l) }
         }
     }
 
     override fun generateGraphics(): FormulaGraphics =
-        if (isEmpty) {
+        if (ch.isEmpty()) {
             val rh = DEFAULT_TEXT_RADIUS
             val w = DEFAULT_TEXT_WIDTH
             val path = Path()
@@ -518,6 +508,24 @@ class InputFormulaBox(vararg boxes: FormulaBox) : SequenceFormulaBox(*boxes) {
     public override fun removeBoxAt(i: Int) = super.removeBoxAt(i)
     public override fun removeBox(b: FormulaBox) = super.removeBox(b)
     public override fun removeLastBox() = super.removeLastBox()
+
+    override fun findChildBox(absX: Float, absY: Float): FormulaBox {
+        for (c in ch) {
+            if (absX < c.accRealBounds.right) {
+                return c
+            }
+        }
+        return if (ch.isEmpty()) this else ch.last()
+    }
+
+    override fun onChildRequiresDelete(i: Int): BoxInputCoord {
+        removeBoxAt(i)
+        return BoxInputCoord(this, i)
+    }
+
+    override fun getInitialCaretPos(): SidedBox {
+        return if (ch.isEmpty()) SidedBox(this, Side.R) else SidedBox(ch.last(), Side.R)
+    }
 }
 
 class AlignFormulaBox(child: FormulaBox = FormulaBox(), rectPoint: RectPoint = RectPoint.NAN) : FormulaBox() {
@@ -543,6 +551,7 @@ class AlignFormulaBox(child: FormulaBox = FormulaBox(), rectPoint: RectPoint = R
     override val alwaysEnter: Boolean
         get() = true
     override fun findChildBox(absX: Float, absY: Float): FormulaBox = child.findChildBox(absX, absY)
+    override fun getInitialCaretPos(): SidedBox = child.getInitialCaretPos()
 
     override fun addBox(i: Int, b: FormulaBox) {
         super.addBox(i, b)
@@ -743,24 +752,23 @@ value class BoxCoord(private val indices: Chain<Int>) {
     }
 }
 
-data class SidedIndex(val index: Int, val side: Side) {
-    fun toR() = if (side == Side.L) SidedIndex(index-1, Side.R) else this
-    fun toL() = if (side == Side.R) SidedIndex(index+1, Side.L) else this
-}
+// data class SidedIndex(val index: Int, val side: Side) {
+//     fun toR() = if (side == Side.L) SidedIndex(index-1, Side.R) else this
+//     fun toL() = if (side == Side.R) SidedIndex(index+1, Side.L) else this
+// }
 
-data class BoxInputCoord(val box: InputFormulaBox, val si: SidedIndex?) {
+data class BoxInputCoord(val box: InputFormulaBox, val index: Int) {
     fun getAbsPosition(): PointF {
         val y = box.accTransform.origin.y
-        return if (si == null) {
-            box.accRealBounds.let { PointF(if (box.isEmpty) it.centerX() else it.left, y) }
+        val x = if (box.ch.isEmpty()) {
+            assert(index == 0)
+            box.accRealBounds.centerX()
+        } else if (index == box.ch.size) {
+            box.accRealBounds.right
         } else {
-            box[si.index].accRealBounds.let {
-                PointF(
-                    if (si.side == Side.L) it.left else it.right,
-                    y
-                )
-            }
+            box.ch[index].accRealBounds.left
         }
+        return PointF(x, y)
     }
 }
 
@@ -773,8 +781,8 @@ class BoxCaret(val root: FormulaBox) {
 
     val onPictureChanged = Callback<BoxCaret, Unit>(this)
     fun drawOnCanvas(canvas: Canvas) {
-        if (position != null) {
-            val p = position!!.getAbsPosition()
+        position?.also {
+            val p = it.getAbsPosition()
             canvas.drawLine(
                 p.x,
                 p.y - FormulaBox.DEFAULT_TEXT_RADIUS,

@@ -47,7 +47,13 @@ class MainActivity : AppCompatActivity() {
                                     DeletionResult(it)
                                 }
                             } else {
-                                box.ch[i-1].delete()
+                                val b = box.ch[i-1]
+                                if (b.selectBeforeDeletion) {
+                                    b.isSelected = true
+                                    DeletionResult(it)
+                                } else {
+                                    b.delete()
+                                }
                             }
                         }
                     }

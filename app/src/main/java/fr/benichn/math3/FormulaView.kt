@@ -82,9 +82,5 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : FrameLayout(c
             it.style = Paint.Style.STROKE
             it.strokeWidth = 1f
             it.color = Color.RED }
-        val cyan = Paint().also {
-            it.alpha = 100
-            it.style = Paint.Style.FILL
-            it.color = Color.CYAN }
     }
 }

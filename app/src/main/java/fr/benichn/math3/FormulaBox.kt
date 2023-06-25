@@ -202,6 +202,8 @@ open class FormulaBox {
         return b
     }
 
+    open val selectBeforeDeletion: Boolean = false
+
     protected open fun onChildRequiresDelete(b: FormulaBox): DeletionResult = delete()
     fun delete() : DeletionResult = parent?.onChildRequiresDelete(this) ?: DeletionResult()
 
@@ -338,7 +340,7 @@ open class FormulaBox {
     fun drawOnCanvas(canvas: Canvas) {
         transform.applyOnCanvas(canvas)
         if (isSelected) {
-            canvas.drawRect(bounds, FormulaView.cyan)
+            canvas.drawRect(bounds, BoxCaret.selectionPaint)
         }
         canvas.drawPath(path, paint)
         // canvas.drawRect(bounds, FormulaView.red)
@@ -648,6 +650,9 @@ class FractionFormulaBox(numChildren: Array<FormulaBox> = emptyArray(), denChild
         updateGraphics()
     }
 
+    override val selectBeforeDeletion: Boolean
+        get() = !numerator.ch.isEmpty() || !denominator.ch.isEmpty()
+
     override fun onChildRequiresDelete(b: FormulaBox): DeletionResult = when (b) {
         num -> {
             if (isSelected || (numerator.ch.isEmpty() && denominator.ch.isEmpty())) {
@@ -874,17 +879,20 @@ class BoxCaret(val root: FormulaBox) {
                     p.y - FormulaBox.DEFAULT_TEXT_RADIUS,
                     p.x,
                     p.y + FormulaBox.DEFAULT_TEXT_RADIUS,
-                    paint
+                    caretPaint
                 )
             }
         }
     }
 
     companion object {
-        val paint = Paint().also {
-            it.color = Color.YELLOW
+        val caretPaint = Paint().also {
             it.style = Paint.Style.STROKE
             it.strokeWidth = 6f
+            it.color = Color.rgb(255, 255, 0)
         }
+        val selectionPaint = Paint().also {
+            it.style = Paint.Style.FILL
+            it.color = Color.rgb(100, 100, 0) }
     }
 }

@@ -256,7 +256,7 @@ open class FormulaBox {
         if (!isSelected && this is SequenceFormulaBox) {
             val rects = ch
                 .filter { it.isSelected }
-                .map { c -> c.realBounds.let { RectF(it.left, bounds.top, it.right, bounds.bottom) } }
+                .map { c -> c.realBounds }
                 .fold(Chain.Empty) { acc : Chain<RectF>, r: RectF ->
                     when (acc) {
                         is Chain.Empty -> Chain.Node(r, Chain.Empty)

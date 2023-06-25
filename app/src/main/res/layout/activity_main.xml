@@ -11,7 +11,7 @@
         android:layout_weight="1"
         android:orientation="vertical"
         android:id="@+id/mll">
-        <fr.benichn.math3.FormulaView
+        <fr.benichn.math3.graphics.FormulaView
             android:layout_width="match_parent"
             android:layout_height="match_parent"
             android:id="@+id/fv"/>

@@ -4,6 +4,13 @@ import android.app.Application
 import android.os.Bundle
 import androidx.appcompat.app.AppCompatActivity
 import androidx.fragment.app.commit
+import fr.benichn.math3.graphics.FormulaView
+import fr.benichn.math3.graphics.boxes.FractionFormulaBox
+import fr.benichn.math3.graphics.boxes.TextFormulaBox
+import fr.benichn.math3.graphics.boxes.types.BoxInputCoord
+import fr.benichn.math3.graphics.boxes.types.DeletionResult
+import fr.benichn.math3.graphics.boxes.types.InitialBoxes
+import fr.benichn.math3.numpad.NumpadFragment
 
 class App : Application() {
     init {
@@ -78,7 +85,8 @@ class MainActivity : AppCompatActivity() {
                             else -> TextFormulaBox(id)
                         }
                         p.box.addBox(i, newBox)
-                        newBox.addInitialBoxes(InitialBoxes.BeforeAfter(
+                        newBox.addInitialBoxes(
+                            InitialBoxes.BeforeAfter(
                             p.box.ch.take(i),
                             p.box.ch.takeLast(p.box.ch.size - i)
                         ))

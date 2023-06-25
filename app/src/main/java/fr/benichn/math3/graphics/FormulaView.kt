@@ -1,4 +1,4 @@
-package fr.benichn.math3
+package fr.benichn.math3.graphics
 
 import android.content.Context
 import android.graphics.Bitmap
@@ -11,6 +11,10 @@ import android.util.Log
 import android.view.MotionEvent
 import android.view.View
 import android.widget.FrameLayout
+import fr.benichn.math3.graphics.boxes.AlignFormulaBox
+import fr.benichn.math3.graphics.boxes.InputFormulaBox
+import fr.benichn.math3.graphics.caret.BoxCaret
+import fr.benichn.math3.graphics.types.RectPoint
 
 class FormulaView(context: Context, attrs: AttributeSet? = null) : FrameLayout(context, attrs) {
     var box = AlignFormulaBox(InputFormulaBox(), RectPoint.BOTTOM_CENTER)

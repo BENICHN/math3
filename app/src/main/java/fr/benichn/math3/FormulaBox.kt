@@ -136,6 +136,8 @@ data class SidedBox(val box: FormulaBox, val side: Side) {
 
 open class FormulaBox {
     private var parent: FormulaBox? = null
+    val parentInput: InputFormulaBox?
+        get() = parent?.let { if (it is InputFormulaBox) it else it.parentInput }
     private val children = mutableListOf<FormulaBox>()
     val ch = ImmutableList(children)
     protected open fun addBox(b: FormulaBox) = addBox(children.size, b)
@@ -150,13 +152,32 @@ open class FormulaBox {
         val b = children[i]
         assert(b.parent == this)
         disconnectFrom(b)
+        setChildTransform(i, BoxTransform())
         children.removeAt(i)
         b.parent = null
     }
 
     open fun addInitialBoxes(ib: InitialBoxes) {
-
     }
+
+    var isSelected = false
+        set(value) {
+            field = value
+            for (c in ch) {
+                c.isSelected = value
+            }
+            onPictureChanged(Unit)
+        }
+
+    val selectedChildren: List<FormulaBox>
+        get() =
+            ch.flatMap {
+                if (it.isSelected) {
+                    listOf(it)
+                } else {
+                    it.selectedChildren
+                }
+            }
 
     private val connections = mutableListOf<CallbackLink<*,*>>()
     fun <A, B> connect(callback: VCC<A, B>, f: (A, ValueChangedEvent<B>) -> Unit) {
@@ -181,8 +202,8 @@ open class FormulaBox {
         return b
     }
 
-    protected open fun onChildRequiresDelete(i: Int): BoxInputCoord? = delete()
-    fun delete() : BoxInputCoord? = parent?.onChildRequiresDelete(indexInParent!!)
+    protected open fun onChildRequiresDelete(b: FormulaBox): DeletionResult = delete()
+    fun delete() : DeletionResult = parent?.onChildRequiresDelete(this) ?: DeletionResult()
 
     open fun getInitialCaretPos(): SidedBox = SidedBox(this, Side.R)
 
@@ -316,6 +337,9 @@ open class FormulaBox {
 
     fun drawOnCanvas(canvas: Canvas) {
         transform.applyOnCanvas(canvas)
+        if (isSelected) {
+            canvas.drawRect(bounds, FormulaView.cyan)
+        }
         canvas.drawPath(path, paint)
         // canvas.drawRect(bounds, FormulaView.red)
         for (b in children) {
@@ -352,6 +376,7 @@ open class FormulaBox {
         const val DEFAULT_LINE_WIDTH = 4f
 
         fun getBoxCoord(b: FormulaBox): BoxCoord = b.buildCoord(BoxCoord.root)
+        fun getBoxInputCoord(b: FormulaBox, s: Side = Side.R) = Companion.getBoxInputCoord(SidedBox(b, s))
         fun getBoxInputCoord(sb: SidedBox): BoxInputCoord? {
             val (box, side) = sb
             if (box is InputFormulaBox) {
@@ -375,6 +400,15 @@ open class FormulaBox {
 sealed class InitialBoxes {
     data class BeforeAfter(val boxesBefore: List<FormulaBox>, val boxesAfter: List<FormulaBox>) : InitialBoxes()
     data class Selection(val boxes: List<FormulaBox>) : InitialBoxes()
+}
+data class FinalBoxes(val boxesBefore: List<FormulaBox> = emptyList(), val boxesAfter: List<FormulaBox> = emptyList(), val selectBoxesBefore: Boolean = true, val selectBoxesAfter: Boolean = false) {
+    val isEmpty
+        get() = boxesBefore.isEmpty() && boxesAfter.isEmpty()
+}
+data class DeletionResult(val newPos: BoxInputCoord? = null, val finalBoxes: FinalBoxes = FinalBoxes()) {
+    fun withFinalBoxes(fb: FinalBoxes) = DeletionResult(newPos, fb)
+    fun withFinalBoxes(boxesBefore: List<FormulaBox> = emptyList(), boxesAfter: List<FormulaBox> = emptyList(), selectBoxesBefore: Boolean = true, selectBoxesAfter: Boolean = false) =
+        withFinalBoxes(FinalBoxes(boxesBefore.toList(), boxesAfter.toList(), selectBoxesBefore, selectBoxesAfter))
 }
 
 class TextFormulaBox(text: String = "") : FormulaBox() {
@@ -518,13 +552,33 @@ class InputFormulaBox(vararg boxes: FormulaBox) : SequenceFormulaBox(*boxes) {
         return if (ch.isEmpty()) this else ch.last()
     }
 
-    override fun onChildRequiresDelete(i: Int): BoxInputCoord {
+    override fun onChildRequiresDelete(b: FormulaBox): DeletionResult {
+        val i = ch.indexOf(b)
         removeBoxAt(i)
-        return BoxInputCoord(this, i)
+        return DeletionResult(BoxInputCoord(this, i))
     }
 
     override fun getInitialCaretPos(): SidedBox {
         return if (ch.isEmpty()) SidedBox(this, Side.R) else SidedBox(ch.last(), Side.R)
+    }
+
+    fun addFinalBoxes(i: Int, fb: FinalBoxes) : Int {
+        var j = i
+        for (b in fb.boxesBefore) {
+            addBox(j, b)
+            j++
+            if (fb.selectBoxesBefore) {
+               b.isSelected = true
+            }
+        }
+        for (b in fb.boxesAfter) {
+            addBox(j, b)
+            j++
+            if (fb.selectBoxesAfter) {
+               b.isSelected = true
+            }
+        }
+        return i + fb.boxesBefore.size
     }
 }
 
@@ -592,6 +646,21 @@ class FractionFormulaBox(numChildren: Array<FormulaBox> = emptyArray(), denChild
         listenChildBoundsChange(num)
         listenChildBoundsChange(den)
         updateGraphics()
+    }
+
+    override fun onChildRequiresDelete(b: FormulaBox): DeletionResult = when (b) {
+        num -> {
+            if (isSelected || (numerator.ch.isEmpty() && denominator.ch.isEmpty())) {
+                delete()
+            } else {
+                isSelected = true
+                DeletionResult(getBoxInputCoord(this))
+            }
+        }
+        den -> {
+            delete().withFinalBoxes(numerator.ch, denominator.ch)
+        }
+        else -> super.onChildRequiresDelete(b)
     }
 
     override fun addInitialBoxes(ib: InitialBoxes) {
@@ -797,15 +866,17 @@ class BoxCaret(val root: FormulaBox) {
 
     val onPictureChanged = Callback<BoxCaret, Unit>(this)
     fun drawOnCanvas(canvas: Canvas) {
-        position?.also {
-            val p = it.getAbsPosition()
-            canvas.drawLine(
-                p.x,
-                p.y - FormulaBox.DEFAULT_TEXT_RADIUS,
-                p.x,
-                p.y + FormulaBox.DEFAULT_TEXT_RADIUS,
-                paint
-            )
+        if (root.selectedChildren.isEmpty()) {
+            position?.also {
+                val p = it.getAbsPosition()
+                canvas.drawLine(
+                    p.x,
+                    p.y - FormulaBox.DEFAULT_TEXT_RADIUS,
+                    p.x,
+                    p.y + FormulaBox.DEFAULT_TEXT_RADIUS,
+                    paint
+                )
+            }
         }
     }
 

@@ -71,6 +71,7 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : FrameLayout(c
             // b?.box?.alert()
             // Log.d("clic", "${e.x}, ${e.y - height*0.5f}, $b")
             Log.d("coord", "$b ~ ${b.toInputCoord()}")
+            box.isSelected = false
             caret.position = b.toInputCoord()
         }
         return super.onTouchEvent(e)
@@ -82,6 +83,7 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : FrameLayout(c
             it.strokeWidth = 1f
             it.color = Color.RED }
         val cyan = Paint().also {
+            it.alpha = 100
             it.style = Paint.Style.FILL
             it.color = Color.CYAN }
     }

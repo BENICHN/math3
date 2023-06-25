@@ -29,16 +29,38 @@ class MainActivity : AppCompatActivity() {
         nf.onButtonClicked = { id ->
             when (id) {
                 "del" -> {
-                    val p = fv.caret.position
-                    p?.also {
-                        val (box, i) = it
-                        val newPos = if (i == 0) {
-                            box.delete()
-                        } else {
-                            box.removeBoxAt(i-1)
-                            BoxInputCoord(box, i-1)
+                    val sc = fv.box.selectedChildren
+                    val deletionResult = if (sc.isNotEmpty()) {
+                        var res = DeletionResult()
+                        for (c in sc) {
+                            res = c.delete()
                         }
-                        fv.caret.position = newPos
+                        res
+                    } else {
+                        val p = fv.caret.position
+                        p?.let {
+                            val (box, i) = it
+                            if (i == 0) {
+                                if (box.parentInput != null) {
+                                    box.delete()
+                                } else {
+                                    DeletionResult(it)
+                                }
+                            } else {
+                                box.ch[i-1].delete()
+                            }
+                        }
+                    }
+                    deletionResult?.also { dr ->
+                        val (newPos, fb) = dr
+                        fv.caret.position = newPos?.let {
+                            if (!fb.isEmpty) {
+                                val i = it.box.addFinalBoxes(it.index, fb)
+                                BoxInputCoord(it.box, i)
+                            } else {
+                                it
+                            }
+                        }
                     }
                 }
                 else -> {

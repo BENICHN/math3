@@ -17,6 +17,8 @@ import fr.benichn.math3.graphics.types.Orientation
 import fr.benichn.math3.graphics.types.Side
 import fr.benichn.math3.graphics.boxes.types.SidedBox
 import fr.benichn.math3.graphics.Utils
+import fr.benichn.math3.graphics.Utils.Companion.sumOfRects
+import fr.benichn.math3.types.Chain
 import fr.benichn.math3.types.callback.*
 
 open class FormulaBox {
@@ -224,8 +226,23 @@ open class FormulaBox {
 
     fun drawOnCanvas(canvas: Canvas) {
         transform.applyOnCanvas(canvas)
-        if (isSelected) {
-            canvas.drawRect(bounds, BoxCaret.selectionPaint)
+        if (!isSelected && this is SequenceFormulaBox) {
+            val rects = ch
+                .filter { it.isSelected }
+                .map { c -> c.realBounds.let { RectF(it.left, bounds.top, it.right, bounds.bottom) } }
+                .fold(Chain.Empty) { acc : Chain<RectF>, r: RectF ->
+                    when (acc) {
+                        is Chain.Empty -> Chain.Node(r, Chain.Empty)
+                        is Chain.Node -> if (r.left == acc.head.right) {
+                            Chain.Node(sumOfRects(r, acc.head), acc.tail)
+                        } else {
+                            Chain.Node(r, acc)
+                        }
+                    }
+                }
+            for (r in rects) {
+                canvas.drawRect(r, BoxCaret.selectionPaint)
+            }
         }
         canvas.drawPath(path, paint)
         // canvas.drawRect(bounds, FormulaView.red)

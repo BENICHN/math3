@@ -3,7 +3,7 @@ package fr.benichn.math3.graphics.caret
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
-import fr.benichn.math3.types.Callback
+import fr.benichn.math3.types.callback.*
 import fr.benichn.math3.graphics.boxes.FormulaBox
 import fr.benichn.math3.graphics.boxes.types.BoxInputCoord
 

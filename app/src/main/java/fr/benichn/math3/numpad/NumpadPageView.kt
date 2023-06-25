@@ -6,7 +6,7 @@ import android.view.View
 import android.widget.GridLayout
 import fr.benichn.math3.R
 import fr.benichn.math3.numpad.types.Direction
-import fr.benichn.math3.types.Callback
+import fr.benichn.math3.types.callback.*
 import org.json.JSONObject
 
 class NumpadPageView(context: Context, w: Int, h: Int, buttons: JSONObject) : GridLayout(

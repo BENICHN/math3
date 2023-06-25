@@ -7,7 +7,7 @@ import android.view.MotionEvent
 import fr.benichn.math3.R
 import fr.benichn.math3.numpad.types.Direction
 import fr.benichn.math3.numpad.types.SwipeTouchListener
-import fr.benichn.math3.types.Callback
+import fr.benichn.math3.types.callback.*
 
 @SuppressLint("ClickableViewAccessibility")
 class NumpadButton(context: Context, val id: String) : androidx.appcompat.widget.AppCompatImageButton(

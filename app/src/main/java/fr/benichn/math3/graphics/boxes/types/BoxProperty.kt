@@ -3,10 +3,7 @@ package fr.benichn.math3.graphics.boxes.types
 import kotlin.properties.ReadWriteProperty
 import kotlin.reflect.KProperty
 import fr.benichn.math3.graphics.boxes.FormulaBox
-import fr.benichn.math3.types.CallbackLink
-import fr.benichn.math3.types.VCC
-import fr.benichn.math3.types.ValueChangedEvent
-import fr.benichn.math3.types.invoke
+import fr.benichn.math3.types.callback.*
 
 class BoxProperty<S: FormulaBox, T>(private val source: S, private val defaultValue: T, val updatesGraphics: Boolean = true) :
     ReadWriteProperty<S, T> {

@@ -9,8 +9,6 @@ import fr.benichn.math3.graphics.caret.BoxCaret
 import fr.benichn.math3.graphics.boxes.types.BoxCoord
 import fr.benichn.math3.graphics.boxes.types.BoxInputCoord
 import fr.benichn.math3.graphics.boxes.types.BoxTransform
-import fr.benichn.math3.types.Callback
-import fr.benichn.math3.types.CallbackLink
 import fr.benichn.math3.graphics.boxes.types.DeletionResult
 import fr.benichn.math3.graphics.boxes.types.FormulaGraphics
 import fr.benichn.math3.types.ImmutableList
@@ -19,9 +17,7 @@ import fr.benichn.math3.graphics.types.Orientation
 import fr.benichn.math3.graphics.types.Side
 import fr.benichn.math3.graphics.boxes.types.SidedBox
 import fr.benichn.math3.graphics.Utils
-import fr.benichn.math3.types.ValueChangedEvent
-import fr.benichn.math3.types.VCC
-import fr.benichn.math3.types.invoke
+import fr.benichn.math3.types.callback.*
 
 open class FormulaBox {
     private var parent: FormulaBox? = null

@@ -14,59 +14,24 @@ import android.widget.FrameLayout
 import fr.benichn.math3.graphics.boxes.AlignFormulaBox
 import fr.benichn.math3.graphics.boxes.InputFormulaBox
 import fr.benichn.math3.graphics.caret.BoxCaret
+import fr.benichn.math3.graphics.caret.CaretPosition
 import fr.benichn.math3.graphics.types.RectPoint
 
-class FormulaView(context: Context, attrs: AttributeSet? = null) : FrameLayout(context, attrs) {
-    var box = AlignFormulaBox(InputFormulaBox(), RectPoint.BOTTOM_CENTER)
-    var caret = BoxCaret(box)
+class FormulaView(context: Context, attrs: AttributeSet? = null) : View(context, attrs) {
+    var box = AlignFormulaBox(InputFormulaBox(), RectPoint.BOTTOM_CENTER).also { it.createCaret() }
     val offset
         get() = PointF(width * 0.5f, height - 48f)
-    private val boxView = object : View(context) {
-        private lateinit var cache: Bitmap
-        private var hasPictureChanged = true
-        fun pictureHasChanged() {
-            hasPictureChanged = true
-        }
-        override fun onDraw(canvas: Canvas) {
-            super.onDraw(canvas)
-            if (hasPictureChanged) {
-                cache = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
-                val cv = Canvas(cache)
-                offset.let { cv.translate(it.x, it.y) }
-                box.drawOnCanvas(cv)
-                hasPictureChanged = false
-            }
-            canvas.drawBitmap(cache, 0f, 0f, null)
-        }
+
+    override fun onDraw(canvas: Canvas) {
+        super.onDraw(canvas)
+        offset.let { canvas.translate(it.x, it.y) }
+        box.drawOnCanvas(canvas)
     }
-    private val caretView = object : View(context) {
-        private lateinit var cache: Bitmap
-        private var hasPictureChanged = true
-        fun pictureHasChanged() {
-            hasPictureChanged = true
-        }
-        override fun onDraw(canvas: Canvas) {
-            super.onDraw(canvas)
-            if (hasPictureChanged) {
-                cache = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
-                val cv = Canvas(cache)
-                offset.let { cv.translate(it.x, it.y) }
-                caret.drawOnCanvas(cv)
-                hasPictureChanged = false
-            }
-            canvas.drawBitmap(cache, 0f, 0f, null)
-        }
-    }
+
     init {
         setWillNotDraw(false)
         box.onPictureChanged += { _, _ ->
-            boxView.pictureHasChanged()
-            boxView.invalidate() }
-        caret.onPictureChanged += { _, _ ->
-            caretView.pictureHasChanged()
-            caretView.invalidate() }
-        addView(boxView)
-        addView(caretView)
+            invalidate() }
     }
 
     override fun onTouchEvent(e: MotionEvent): Boolean {
@@ -74,9 +39,9 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : FrameLayout(c
             val b = offset.let { box.findBox(e.x - it.x, e.y - it.y) }
             // b?.box?.alert()
             // Log.d("clic", "${e.x}, ${e.y - height*0.5f}, $b")
-            Log.d("coord", "$b ~ ${b.toInputCoord()}")
+            Log.d("coord", "$b ~ ${b.toCaretPosition()}")
             box.isSelected = false
-            caret.position = b.toInputCoord()
+            box.caret!!.position = b.toCaretPosition()
         }
         return super.onTouchEvent(e)
     }

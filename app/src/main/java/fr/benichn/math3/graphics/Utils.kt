@@ -28,8 +28,12 @@ class Utils {
 
         fun sumOfRects(vararg rects: RectF): RectF = sumOfRects(rects.asIterable())
 
-        fun sumOfRects(rects: Iterable<RectF>): RectF = rects.fold(RectF()) { acc, r ->
-            RectF(min(acc.left, r.left), min(acc.top, r.top), max(acc.right, r.right), max(acc.bottom, r.bottom))
+        fun sumOfRects(rects: Iterable<RectF>): RectF = rects.fold(RectF(Float.NaN, Float.NaN, Float.NaN, Float.NaN)) { acc, r ->
+            RectF(
+                if (acc.left.isNaN()) r.left else min(acc.left, r.left),
+                if (acc.top.isNaN()) r.top else min(acc.top, r.top),
+                if (acc.right.isNaN()) r.right else max(acc.right, r.right),
+                if (acc.bottom.isNaN()) r.bottom else max(acc.bottom, r.bottom))
         }
 
         operator fun PointF.times(scale: Float): PointF = PointF(x*scale,y*scale)

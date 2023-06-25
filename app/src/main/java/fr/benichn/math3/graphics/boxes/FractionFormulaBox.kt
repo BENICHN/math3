@@ -9,6 +9,7 @@ import fr.benichn.math3.graphics.types.Orientation
 import fr.benichn.math3.graphics.boxes.types.Range
 import fr.benichn.math3.graphics.types.RectPoint
 import fr.benichn.math3.graphics.boxes.types.SidedBox
+import fr.benichn.math3.graphics.caret.CaretPosition
 import kotlin.math.max
 
 class FractionFormulaBox(numChildren: Array<FormulaBox> = emptyArray(), denChildren: Array<FormulaBox> = emptyArray()) : FormulaBox() {
@@ -42,7 +43,7 @@ class FractionFormulaBox(numChildren: Array<FormulaBox> = emptyArray(), denChild
                 delete()
             } else {
                 isSelected = true
-                DeletionResult(getBoxInputCoord(this))
+                DeletionResult(getCaretPositionFromSidedBox(this))
             }
         }
         den -> {

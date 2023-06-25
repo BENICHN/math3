@@ -18,18 +18,45 @@ import fr.benichn.math3.graphics.types.Side
 import fr.benichn.math3.graphics.boxes.types.SidedBox
 import fr.benichn.math3.graphics.Utils
 import fr.benichn.math3.graphics.Utils.Companion.sumOfRects
+import fr.benichn.math3.graphics.caret.CaretPosition
 import fr.benichn.math3.types.Chain
 import fr.benichn.math3.types.callback.*
 
 open class FormulaBox {
     private var parent: FormulaBox? = null
+        set(value) {
+            if (value != null) {
+                assert(caret == null)
+            }
+            field = value
+        }
     val parentInput: InputFormulaBox?
         get() = parent?.let { if (it is InputFormulaBox) it else it.parentInput }
+    val isRoot
+        get() = parent == null
+
+    var caret: BoxCaret? = null
+        get() = if (isRoot) field else parent!!.caret
+        private set
+
+    fun createCaret() {
+        assert(isRoot)
+        val cr = BoxCaret(this)
+        cr.onPositionChanged += { _, _ ->
+            onPictureChanged(Unit)
+        }
+        caret = cr
+    }
+
+    fun removeCaret() {
+        caret = null
+    }
+
     private val children = mutableListOf<FormulaBox>()
     val ch = ImmutableList(children)
     protected open fun addBox(b: FormulaBox) = addBox(children.size, b)
     protected open fun addBox(i: Int, b: FormulaBox) {
-        if (b.parent != null) b.delete()
+        if (!b.isRoot) b.delete()
         children.add(i, b)
         b.parent = this
     }
@@ -250,6 +277,23 @@ open class FormulaBox {
             b.drawOnCanvas(canvas)
         }
         transform.invert.applyOnCanvas(canvas)
+        if (isRoot) caret?.let {
+            it.position.also { cp ->
+                when (cp) {
+                    is CaretPosition.None -> { }
+                    is CaretPosition.Single ->  {
+                        val p = cp.ic.getAbsPosition()
+                        canvas.drawLine(
+                            p.x,
+                            p.y - FormulaBox.DEFAULT_TEXT_RADIUS,
+                            p.x,
+                            p.y + FormulaBox.DEFAULT_TEXT_RADIUS,
+                            BoxCaret.caretPaint
+                        )
+                    }
+                }
+            }
+        }
     }
 
     val indexInParent
@@ -279,23 +323,23 @@ open class FormulaBox {
         const val DEFAULT_TEXT_WIDTH = DEFAULT_TEXT_SIZE * 0.6f
         const val DEFAULT_LINE_WIDTH = 4f
 
-        fun getBoxCoord(b: FormulaBox): BoxCoord = b.buildCoord(BoxCoord.root)
-        fun getBoxInputCoord(b: FormulaBox, s: Side = Side.R) = Companion.getBoxInputCoord(SidedBox(b, s))
-        fun getBoxInputCoord(sb: SidedBox): BoxInputCoord? {
+        // fun getBoxCoord(b: FormulaBox): BoxCoord = b.buildCoord(BoxCoord.root)
+        fun getCaretPositionFromSidedBox(b: FormulaBox, s: Side = Side.R) = getCaretPositionFromSidedBox(SidedBox(b, s))
+        fun getCaretPositionFromSidedBox(sb: SidedBox): CaretPosition {
             val (box, side) = sb
             if (box is InputFormulaBox) {
                 assert(box.ch.size == 0)
-                return BoxInputCoord(box, 0)
+                return CaretPosition.Single(BoxInputCoord(box, 0))
             }
             else {
                 var b = box
                 var i: Int
-                while (b.parent != null) {
+                while (!b.isRoot) {
                     i = b.indexInParent!!
                     b = b.parent!!
-                    if (b is InputFormulaBox) return BoxInputCoord(b, if (side == Side.L) i else i+1)
+                    if (b is InputFormulaBox) return CaretPosition.Single(BoxInputCoord(b, if (side == Side.L) i else i+1))
                 }
-                return null
+                return CaretPosition.None
             }
         }
     }

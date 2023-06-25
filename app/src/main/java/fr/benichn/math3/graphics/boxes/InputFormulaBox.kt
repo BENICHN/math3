@@ -5,6 +5,7 @@ import fr.benichn.math3.graphics.boxes.types.DeletionResult
 import fr.benichn.math3.graphics.boxes.types.FinalBoxes
 import fr.benichn.math3.graphics.types.Side
 import fr.benichn.math3.graphics.boxes.types.SidedBox
+import fr.benichn.math3.graphics.caret.CaretPosition
 
 class InputFormulaBox(vararg boxes: FormulaBox) : SequenceFormulaBox(*boxes) {
     public override fun addBox(i: Int, b: FormulaBox) = super.addBox(i, b)
@@ -25,7 +26,7 @@ class InputFormulaBox(vararg boxes: FormulaBox) : SequenceFormulaBox(*boxes) {
     override fun onChildRequiresDelete(b: FormulaBox): DeletionResult {
         val i = ch.indexOf(b)
         removeBoxAt(i)
-        return DeletionResult(BoxInputCoord(this, i))
+        return DeletionResult(CaretPosition.Single(BoxInputCoord(this, i)))
     }
 
     override fun getInitialCaretPos(): SidedBox {

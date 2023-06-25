@@ -8,27 +8,14 @@ import fr.benichn.math3.graphics.boxes.FormulaBox
 import fr.benichn.math3.graphics.boxes.types.BoxInputCoord
 
 class BoxCaret(val root: FormulaBox) {
-    var position: BoxInputCoord? = null
+    var position: CaretPosition = CaretPosition.None
         set(value) {
+            val old = value
             field = value
-            onPictureChanged(Unit)
+            onPositionChanged(old, value)
         }
 
-    val onPictureChanged = Callback<BoxCaret, Unit>(this)
-    fun drawOnCanvas(canvas: Canvas) {
-        if (root.selectedChildren.isEmpty()) {
-            position?.also {
-                val p = it.getAbsPosition()
-                canvas.drawLine(
-                    p.x,
-                    p.y - FormulaBox.DEFAULT_TEXT_RADIUS,
-                    p.x,
-                    p.y + FormulaBox.DEFAULT_TEXT_RADIUS,
-                    caretPaint
-                )
-            }
-        }
-    }
+    val onPositionChanged = VCC<BoxCaret, CaretPosition>(this)
 
     companion object {
         val caretPaint = Paint().also {

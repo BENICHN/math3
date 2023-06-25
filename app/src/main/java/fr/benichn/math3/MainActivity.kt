@@ -10,6 +10,7 @@ import fr.benichn.math3.graphics.boxes.TextFormulaBox
 import fr.benichn.math3.graphics.boxes.types.BoxInputCoord
 import fr.benichn.math3.graphics.boxes.types.DeletionResult
 import fr.benichn.math3.graphics.boxes.types.InitialBoxes
+import fr.benichn.math3.graphics.caret.CaretPosition
 import fr.benichn.math3.numpad.NumpadFragment
 
 class App : Application() {
@@ -44,53 +45,62 @@ class MainActivity : AppCompatActivity() {
                         }
                         res
                     } else {
-                        val p = fv.caret.position
-                        p?.let {
-                            val (box, i) = it
-                            if (i == 0) {
-                                if (box.parentInput != null) {
-                                    box.delete()
+                        when (val p = fv.box.caret!!.position) {
+                            is CaretPosition.None -> {
+                                DeletionResult()
+                            }
+
+                            is CaretPosition.Single -> {
+                                val (box, i) = p.ic
+                                if (i == 0) {
+                                    if (box.parentInput != null) {
+                                        box.delete()
+                                    } else {
+                                        DeletionResult(p)
+                                    }
                                 } else {
-                                    DeletionResult(it)
-                                }
-                            } else {
-                                val b = box.ch[i-1]
-                                if (b.selectBeforeDeletion) {
-                                    b.isSelected = true
-                                    DeletionResult(it)
-                                } else {
-                                    b.delete()
+                                    val b = box.ch[i - 1]
+                                    if (b.selectBeforeDeletion) {
+                                        b.isSelected = true
+                                        DeletionResult(p)
+                                    } else {
+                                        b.delete()
+                                    }
                                 }
                             }
                         }
                     }
-                    deletionResult?.also { dr ->
-                        val (newPos, fb) = dr
-                        fv.caret.position = newPos?.let {
+                    val (newPos, fb) = deletionResult
+                    fv.box.caret!!.position = when (newPos) {
+                        is CaretPosition.None -> { CaretPosition.None }
+                        is CaretPosition.Single -> {
                             if (!fb.isEmpty) {
-                                val i = it.box.addFinalBoxes(it.index, fb)
-                                BoxInputCoord(it.box, i)
+                                val i = newPos.ic.box.addFinalBoxes(newPos.ic.index, fb)
+                                CaretPosition.Single(BoxInputCoord(newPos.ic.box, i))
                             } else {
-                                it
+                                newPos
                             }
                         }
                     }
                 }
                 else -> {
-                    val p = fv.caret.position
-                    p?.also {
-                        val (box, i) = it
-                        val newBox = when (id) {
-                            "over" -> FractionFormulaBox()
-                            else -> TextFormulaBox(id)
+                    val p = fv.box.caret!!.position
+                    when (p) {
+                        is CaretPosition.None -> { }
+                        is CaretPosition.Single -> {
+                            val (box, i) = p.ic
+                            val newBox = when (id) {
+                                "over" -> FractionFormulaBox()
+                                else -> TextFormulaBox(id)
+                            }
+                            box.addBox(i, newBox)
+                            newBox.addInitialBoxes(
+                                InitialBoxes.BeforeAfter(
+                                    box.ch.take(i),
+                                    box.ch.takeLast(box.ch.size - i)
+                                ))
+                            fv.box.caret!!.position = newBox.getInitialCaretPos().toCaretPosition()
                         }
-                        p.box.addBox(i, newBox)
-                        newBox.addInitialBoxes(
-                            InitialBoxes.BeforeAfter(
-                            p.box.ch.take(i),
-                            p.box.ch.takeLast(p.box.ch.size - i)
-                        ))
-                        fv.caret.position = newBox.getInitialCaretPos().toInputCoord()
                     }
                 }
             }

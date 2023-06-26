@@ -7,10 +7,10 @@ import android.graphics.RectF
 import fr.benichn.math3.graphics.boxes.types.BoxProperty
 import fr.benichn.math3.graphics.boxes.types.FormulaGraphics
 import fr.benichn.math3.graphics.types.Orientation
-import fr.benichn.math3.graphics.boxes.types.Range
+import fr.benichn.math3.graphics.boxes.types.RangeF
 
 class LineFormulaBox(orientation: Orientation = Orientation.V,
-                     range: Range = Range(-DEFAULT_TEXT_RADIUS,DEFAULT_TEXT_RADIUS)
+                     range: RangeF = RangeF(-DEFAULT_TEXT_RADIUS,DEFAULT_TEXT_RADIUS)
 ) : FormulaBox() {
     val dlgOrientation = BoxProperty(this, orientation)
     var orientation by dlgOrientation

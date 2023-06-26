@@ -6,9 +6,9 @@ import android.graphics.Path
 import android.graphics.RectF
 import fr.benichn.math3.graphics.boxes.types.BoxProperty
 import fr.benichn.math3.graphics.boxes.types.FormulaGraphics
-import fr.benichn.math3.graphics.boxes.types.Range
+import fr.benichn.math3.graphics.boxes.types.RangeF
 
-class BracketFormulaBox(range: Range = Range(-DEFAULT_TEXT_RADIUS,DEFAULT_TEXT_RADIUS)) : FormulaBox() {
+class BracketFormulaBox(range: RangeF = RangeF(-DEFAULT_TEXT_RADIUS,DEFAULT_TEXT_RADIUS)) : FormulaBox() {
     val dlgRange = BoxProperty(this, range)
     var range by dlgRange
 

@@ -6,10 +6,9 @@ import fr.benichn.math3.graphics.boxes.types.DeletionResult
 import fr.benichn.math3.graphics.boxes.types.FormulaGraphics
 import fr.benichn.math3.graphics.boxes.types.InitialBoxes
 import fr.benichn.math3.graphics.types.Orientation
-import fr.benichn.math3.graphics.boxes.types.Range
+import fr.benichn.math3.graphics.boxes.types.RangeF
 import fr.benichn.math3.graphics.types.RectPoint
 import fr.benichn.math3.graphics.boxes.types.SidedBox
-import fr.benichn.math3.graphics.caret.CaretPosition
 import kotlin.math.max
 
 class FractionFormulaBox(numChildren: Array<FormulaBox> = emptyArray(), denChildren: Array<FormulaBox> = emptyArray()) : FormulaBox() {
@@ -42,8 +41,7 @@ class FractionFormulaBox(numChildren: Array<FormulaBox> = emptyArray(), denChild
             if (isSelected || (numerator.ch.isEmpty() && denominator.ch.isEmpty())) {
                 delete()
             } else {
-                isSelected = true
-                DeletionResult(getCaretPositionFromSidedBox(this))
+                DeletionResult.fromSelection(this)
             }
         }
         den -> {
@@ -92,9 +90,9 @@ class FractionFormulaBox(numChildren: Array<FormulaBox> = emptyArray(), denChild
         )
     }
 
-    private fun getBarWidth(): Range {
+    private fun getBarWidth(): RangeF {
         val w = max(num.bounds.width(), den.bounds.width()) + DEFAULT_TEXT_WIDTH * 0.25f
         val r = w * 0.5f
-        return Range(-r, r)
+        return RangeF(-r, r)
     }
 }

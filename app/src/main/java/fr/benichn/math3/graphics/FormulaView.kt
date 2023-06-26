@@ -18,7 +18,10 @@ import fr.benichn.math3.graphics.caret.CaretPosition
 import fr.benichn.math3.graphics.types.RectPoint
 
 class FormulaView(context: Context, attrs: AttributeSet? = null) : View(context, attrs) {
-    var box = AlignFormulaBox(InputFormulaBox(), RectPoint.BOTTOM_CENTER).also { it.createCaret() }
+    var box = AlignFormulaBox(InputFormulaBox(), RectPoint.BOTTOM_CENTER)
+        private set
+    var caret: BoxCaret
+        private set
     val offset
         get() = PointF(width * 0.5f, height - 48f)
 
@@ -32,6 +35,7 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : View(context,
         setWillNotDraw(false)
         box.onPictureChanged += { _, _ ->
             invalidate() }
+        caret = box.createCaret()
     }
 
     override fun onTouchEvent(e: MotionEvent): Boolean {
@@ -40,8 +44,7 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : View(context,
             // b?.box?.alert()
             // Log.d("clic", "${e.x}, ${e.y - height*0.5f}, $b")
             Log.d("coord", "$b ~ ${b.toCaretPosition()}")
-            box.isSelected = false
-            box.caret!!.position = b.toCaretPosition()
+            caret.position = b.toCaretPosition()
         }
         return super.onTouchEvent(e)
     }

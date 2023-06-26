@@ -1,8 +1,8 @@
 package fr.benichn.math3.graphics.boxes
 
-import fr.benichn.math3.graphics.boxes.types.BoxInputCoord
 import fr.benichn.math3.graphics.boxes.types.DeletionResult
 import fr.benichn.math3.graphics.boxes.types.FinalBoxes
+import fr.benichn.math3.graphics.boxes.types.Range
 import fr.benichn.math3.graphics.types.Side
 import fr.benichn.math3.graphics.boxes.types.SidedBox
 import fr.benichn.math3.graphics.caret.CaretPosition
@@ -26,29 +26,23 @@ class InputFormulaBox(vararg boxes: FormulaBox) : SequenceFormulaBox(*boxes) {
     override fun onChildRequiresDelete(b: FormulaBox): DeletionResult {
         val i = ch.indexOf(b)
         removeBoxAt(i)
-        return DeletionResult(CaretPosition.Single(BoxInputCoord(this, i)))
+        return DeletionResult(CaretPosition.Single(this, i))
     }
 
     override fun getInitialCaretPos(): SidedBox {
         return if (ch.isEmpty()) SidedBox(this, Side.R) else SidedBox(ch.last(), Side.R)
     }
 
-    fun addFinalBoxes(i: Int, fb: FinalBoxes) : Int {
-        var j = i
-        for (b in fb.boxesBefore) {
-            addBox(j, b)
-            j++
-            if (fb.selectBoxesBefore) {
-                b.isSelected = true
-            }
+    fun addFinalBoxes(i: Int, fb: FinalBoxes) : CaretPosition {
+        for ((j, b) in fb.boxesBefore.union(fb.boxesAfter).withIndex()) {
+            addBox(i+j, b)
         }
-        for (b in fb.boxesAfter) {
-            addBox(j, b)
-            j++
-            if (fb.selectBoxesAfter) {
-                b.isSelected = true
-            }
+        return if (!fb.selectBoxesAfter && !fb.selectBoxesBefore) {
+            CaretPosition.Single(this, i + fb.boxesBefore.size)
+        } else {
+            CaretPosition.Selection(this, Range(
+                if (fb.selectBoxesBefore) i else i + fb.boxesBefore.size,
+                if (fb.selectBoxesAfter) i + fb.boxesBefore.size + fb.boxesAfter.size else i + fb.boxesBefore.size))
         }
-        return i + fb.boxesBefore.size
     }
 }

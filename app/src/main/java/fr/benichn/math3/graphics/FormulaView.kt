@@ -34,12 +34,18 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : View(context,
             invalidate() }
         caret = box.createCaret()
     }
+    var caretPosOnDown: CaretPosition.Single? = null
+    var isMovingCaret = false
     var selectionStartSingle: CaretPosition.Single? = null
-    private fun findBox(e: MotionEvent) = offset.let { box.findBox(e.x - it.x, e.y - it.y) }
+    private fun getRootPos(e: MotionEvent) = offset.let { PointF(e.x - it.x, e.y - it.y) }
+    private fun findBox(e: MotionEvent) = box.findBox(getRootPos(e))
 
     private val gestureDetector = GestureDetectorCompat(context, object : OnGestureListener {
         override fun onDown(e: MotionEvent): Boolean {
-            Log.d("down", e.toString())
+            val s = findBox(e).toSingle()
+            if (s == caret.position) {
+                caretPosOnDown = s
+            }
             return true
         }
 
@@ -57,7 +63,10 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : View(context,
         }
 
         override fun onLongPress(e: MotionEvent) {
-            selectionStartSingle = findBox(e).toSingle()
+            if (!isMovingCaret) {
+                caretPosOnDown = null
+                selectionStartSingle = findBox(e).toSingle()
+            }
         }
 
         override fun onFling(e1: MotionEvent?, e2: MotionEvent, vX: Float, vY: Float): Boolean {
@@ -72,20 +81,43 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : View(context,
         box.drawOnCanvas(canvas)
     }
 
-    override fun onTouchEvent(e: MotionEvent): Boolean = selectionStartSingle?.let {
-        if (e.action == MotionEvent.ACTION_MOVE) {
-            Log.d("scrol", e.toString())
-            val p = findBox(e).toSingle()
-            selectionStartSingle?.let { sp ->
-                caret.position = p?.let { FormulaBox.getSelectionFromSingles(sp, it) } ?: CaretPosition.None }
-            true
-        } else if (e.action == MotionEvent.ACTION_UP) {
-            selectionStartSingle = null
-            true
-        } else {
-            false
-        }
-    } ?: gestureDetector.onTouchEvent(e)
+    override fun onTouchEvent(e: MotionEvent): Boolean =
+        selectionStartSingle?.let { sp ->
+            when (e.action) {
+                MotionEvent.ACTION_MOVE -> {
+                    caret.position = findBox(e).toSingle()?.let { p -> FormulaBox.getSelectionFromSingles(sp, p) } ?: CaretPosition.None
+                    caret.absolutePosition = getRootPos(e)
+                    true
+                }
+                MotionEvent.ACTION_UP -> {
+                    selectionStartSingle = null
+                    caret.absolutePosition = null
+                    true
+                }
+                else -> {
+                    gestureDetector.onTouchEvent(e)
+                }
+            }
+        } ?: caretPosOnDown?.let { cp ->
+            when (e.action) {
+                MotionEvent.ACTION_MOVE -> {
+                    val p = findBox(e).toCaretPosition()
+                    if (p != caretPosOnDown) isMovingCaret = true
+                    caret.position = p
+                    caret.absolutePosition = getRootPos(e)
+                    true
+                }
+                MotionEvent.ACTION_UP -> {
+                    isMovingCaret = false
+                    caretPosOnDown = null
+                    caret.absolutePosition = null
+                    true
+                }
+                else -> {
+                    gestureDetector.onTouchEvent(e)
+                }
+            }
+        } ?: gestureDetector.onTouchEvent(e)
 
     companion object {
         val red = Paint().also {

@@ -4,6 +4,7 @@ import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.Path
+import android.graphics.PointF
 import android.graphics.RectF
 import fr.benichn.math3.graphics.caret.BoxCaret
 import fr.benichn.math3.graphics.boxes.types.BoxCoord
@@ -51,7 +52,7 @@ open class FormulaBox {
     fun createCaret(): BoxCaret {
         assert(isRoot)
         val cr = BoxCaret()
-        cr.onPositionChanged += { _, _ ->
+        cr.onPictureChanged += { _, _ ->
             notifyPictureChanged()
         }
         caret = cr
@@ -99,25 +100,6 @@ open class FormulaBox {
         }
         return  -1
     }
-
-    // var isSelected = false
-    //     set(value) {
-    //         field = value
-    //         for (c in ch) {
-    //             c.isSelected = value
-    //         }
-    //         onPictureChanged(Unit)
-    //     }
-//
-    // val selectedChildren: List<FormulaBox>
-    //     get() =
-    //         ch.flatMap {
-    //             if (it.isSelected) {
-    //                 listOf(it)
-    //             } else {
-    //                 it.selectedChildren
-    //             }
-    //         }
 
     private val connections = mutableListOf<CallbackLink<*, *>>()
     fun <A, B> connect(listener: VCL<A, B>, f: (A, ValueChangedEvent<B>) -> Unit) {
@@ -171,6 +153,7 @@ open class FormulaBox {
     protected open val alwaysEnter // ~~ rustine ~~
         get() = false
 
+    fun findBox(absPos: PointF) = findBox(absPos.x, absPos.y)
     fun findBox(absX: Float, absY: Float) : SidedBox {
         val c = findChildBox(absX, absY)
         return if (c == this || (!c.alwaysEnter && c.accRealBounds.let { absX < it.left || it.right < absX })) {
@@ -277,7 +260,7 @@ open class FormulaBox {
         set(value) {
             field = value
             if (!value && hasChangedPicture) {
-                notifyPictureChanged(Unit)
+                notifyPictureChanged()
             }
         }
     private var hasChangedPicture = false
@@ -318,20 +301,24 @@ open class FormulaBox {
             b.drawOnCanvas(canvas)
         }
         transform.invert.applyOnCanvas(canvas)
-        if (isRoot) p?.also {
-            when (it) {
-                is CaretPosition.None -> { }
-                is CaretPosition.Single ->  {
-                    val pos = it.getAbsPosition()
-                    canvas.drawLine(
-                        pos.x,
-                        pos.y - DEFAULT_TEXT_RADIUS,
-                        pos.x,
-                        pos.y + DEFAULT_TEXT_RADIUS,
-                        BoxCaret.caretPaint
-                    )
+        if (isRoot) {
+            p?.also {
+                when (it) {
+                    is CaretPosition.None -> {}
+                    is CaretPosition.Single -> {
+                        val pos = it.getAbsPosition()
+                        BoxCaret.drawCaretAtPos(
+                            canvas,
+                            pos,
+                            caret!!.absolutePosition != null
+                        )
+                    }
+
+                    is CaretPosition.Selection -> {}
                 }
-                is CaretPosition.Selection -> { }
+            }
+            caret?.absolutePosition?.also {
+                BoxCaret.drawCaretAtPos(canvas, it)
             }
         }
     }

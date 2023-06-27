@@ -5,6 +5,7 @@ import android.os.Bundle
 import androidx.appcompat.app.AppCompatActivity
 import androidx.fragment.app.commit
 import fr.benichn.math3.graphics.FormulaView
+import fr.benichn.math3.graphics.boxes.FormulaBox
 import fr.benichn.math3.graphics.boxes.FractionFormulaBox
 import fr.benichn.math3.graphics.boxes.InputFormulaBox
 import fr.benichn.math3.graphics.boxes.TextFormulaBox
@@ -46,7 +47,9 @@ class MainActivity : AppCompatActivity() {
                             is CaretPosition.Single -> {
                                 val (box, i) = p
                                 if (i == 0) {
-                                    if (!box.isInputRoot) {
+                                    fun isInputRoot(b: FormulaBox): Boolean =
+                                        b.parent?.let { if (it is InputFormulaBox) false else isInputRoot(it) } ?: true
+                                    if (!isInputRoot(box)) {
                                         box.delete()
                                     } else {
                                         DeletionResult(p)

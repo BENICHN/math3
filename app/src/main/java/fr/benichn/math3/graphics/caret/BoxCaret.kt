@@ -16,29 +16,16 @@ class BoxCaret(/* val root: FormulaBox */) {
     var absolutePosition by dlgAbsolutePosition
     val onAbsolutePositionChanged = dlgPosition.onChanged
 
+    var fixedX: Float? = null
+
     private val notifyPictureChanged = Callback<BoxCaret, Unit>(this)
     val onPictureChanged = notifyPictureChanged.Listener()
 
-    // fun select(b: FormulaBox) {
-    //     val s = FormulaBox.getSelectionFromBox(b)
-    //     val newPos = when (val p = position) {
-    //         is CaretPosition.Selection -> {
-    //             s?.let {
-    //                 FormulaBox.mergeSelections(p, it)
-    //             }
-    //         }
-    //         else -> {
-    //             s
-    //         }
-    //     }  ?: CaretPosition.None
-    //     position = newPos
-    // }
-
-    // fun unSelect(b: FormulaBox) {
-    //
-    // }
-
     companion object {
+        val ballPaint = Paint().also {
+            it.style = Paint.Style.FILL
+            it.color = Color.rgb(255, 255, 0)
+        }
         val caretPaint = Paint().also {
             it.style = Paint.Style.STROKE
             it.strokeWidth = 6f
@@ -53,12 +40,12 @@ class BoxCaret(/* val root: FormulaBox */) {
             it.style = Paint.Style.FILL
             it.color = Color.rgb(100, 100, 0) }
 
-        fun drawCaretAtPos(canvas: Canvas, pos: PointF, trans: Boolean = false) {
+        fun drawCaretAtPos(canvas: Canvas, pos: PointF, trans: Boolean = false, height: Float = FormulaBox.DEFAULT_TEXT_RADIUS) {
             canvas.drawLine(
                 pos.x,
-                pos.y - FormulaBox.DEFAULT_TEXT_RADIUS,
+                pos.y - height,
                 pos.x,
-                pos.y + FormulaBox.DEFAULT_TEXT_RADIUS,
+                pos.y + height,
                 if (trans) caretPaintTrans else caretPaint
             )
         }

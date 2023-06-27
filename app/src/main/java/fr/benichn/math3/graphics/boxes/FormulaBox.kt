@@ -22,28 +22,29 @@ import fr.benichn.math3.graphics.boxes.types.Range
 import fr.benichn.math3.graphics.caret.CaretPosition
 import fr.benichn.math3.types.Chain
 import fr.benichn.math3.types.callback.*
+import kotlin.math.abs
 
 open class FormulaBox {
-    private var parent: FormulaBox? = null
-        set(value) {
+    var parent: FormulaBox? = null
+        private set(value) {
             if (value != null) {
                 assert(caret == null)
             }
             field = value
         }
+    val root: FormulaBox
+        get() = parent?.root ?: this
     val isRoot
         get() = parent == null
-    val isInputRoot: Boolean
-        get() = parent?.let { if (it is InputFormulaBox) false else it.isInputRoot } ?: true
 
-    private data class ParentWithIndex(val parent: FormulaBox, val index: Int)
-    private val parentWithIndex
+    data class ParentWithIndex(val box: FormulaBox, val index: Int)
+    val parentWithIndex
         get() = parent?.let { ParentWithIndex(it, it.ch.indexOf(this)) }
     private fun buildParents(tail: Chain<ParentWithIndex>): Chain<ParentWithIndex> =
         parent?.let{ it.buildParents(Chain.Node(ParentWithIndex(it, it.ch.indexOf(this)), tail)) } ?: tail
-    private val parents: Chain<ParentWithIndex>
+    val parents: Chain<ParentWithIndex>
         get() = buildParents(Chain.Empty)
-    private val parentsAndThis
+    val parentsAndThis
         get() = buildParents(Chain.singleton(ParentWithIndex(this, -1)))
 
     private var caret: BoxCaret? = null
@@ -96,7 +97,7 @@ open class FormulaBox {
 
     fun deepIndexOf(b: FormulaBox): Int {
         for (p in b.parents) {
-            if (p.parent == this) return p.index
+            if (p.box == this) return p.index
         }
         return  -1
     }
@@ -270,55 +271,60 @@ open class FormulaBox {
 
     fun drawOnCanvas(canvas: Canvas) {
         transform.applyOnCanvas(canvas)
-        // if (!isSelected && this is SequenceFormulaBox) {
-        //     val rects = ch
-        //         .filter { it.isSelected }
-        //         .map { c -> c.realBounds }
-        //         .fold(Chain.Empty) { acc : Chain<RectF>, r: RectF ->
-        //             when (acc) {
-        //                 is Chain.Empty -> Chain.Node(r, Chain.Empty)
-        //                 is Chain.Node -> if (r.left == acc.head.right) {
-        //                     Chain.Node(sumOfRects(r, acc.head), acc.tail)
-        //                 } else {
-        //                     Chain.Node(r, acc)
-        //                 }
-        //             }
-        //         }
-        //     for (r in rects) {
-        //         canvas.drawRect(r, BoxCaret.selectionPaint)
-        //     }
-        // }
+
         val p = caret?.position
-        if (p is CaretPosition.Selection) {
-            if (p.box == this) {
-                val r = sumOfRects(p.selectedBoxes.map { it.realBounds })
-                canvas.drawRect(r, BoxCaret.selectionPaint)
+        if (isRoot) {
+            when (p) {
+                is CaretPosition.Selection -> {
+                    canvas.drawRect(p.bounds, BoxCaret.selectionPaint)
+                }
+                else -> { }
             }
         }
+
         canvas.drawPath(path, paint)
         // canvas.drawRect(bounds, FormulaView.red)
         for (b in children) {
             b.drawOnCanvas(canvas)
         }
-        transform.invert.applyOnCanvas(canvas)
-        if (isRoot) {
-            p?.also {
-                when (it) {
-                    is CaretPosition.None -> {}
-                    is CaretPosition.Single -> {
-                        val pos = it.getAbsPosition()
-                        BoxCaret.drawCaretAtPos(
-                            canvas,
-                            pos,
-                            caret!!.absolutePosition != null
-                        )
-                    }
 
-                    is CaretPosition.Selection -> {}
+        transform.invert.applyOnCanvas(canvas)
+
+        if (isRoot) {
+            when (p) {
+                is CaretPosition.None -> {
                 }
+                is CaretPosition.Single -> {
+                    val pos = p.getAbsPosition()
+                    BoxCaret.drawCaretAtPos(
+                        canvas,
+                        pos,
+                        caret!!.absolutePosition != null
+                    )
+                }
+                is CaretPosition.Selection -> {
+                    val r = p.bounds
+                    fun drawSelectionEnding(x: Float) {
+                        canvas.drawLine(x, r.top, x, r.bottom, BoxCaret.caretPaint)
+                        // canvas.drawCircle(x, r.top, SELECTION_CARET_RADIUS, BoxCaret.ballPaint)
+                    }
+                    val fx = caret!!.fixedX
+                    if (fx == null) {
+                        drawSelectionEnding(r.left)
+                        drawSelectionEnding(r.right)
+                    } else {
+                        val x = if (abs(r.left - fx) <= abs(r.right - fx)) r.left else r.right
+                        drawSelectionEnding(x)
+                    }
+                }
+                else -> { }
             }
             caret?.absolutePosition?.also {
-                BoxCaret.drawCaretAtPos(canvas, it)
+                if (caret!!.fixedX == null) {
+                    BoxCaret.drawCaretAtPos(canvas, it, height = DEFAULT_TEXT_RADIUS /* + CARET_OVERFLOW_RADIUS */)
+                } else {
+                    BoxCaret.drawCaretAtPos(canvas, it, height = (p as CaretPosition.Selection).bounds.height() * 0.5f /* + CARET_OVERFLOW_RADIUS */)
+                }
             }
         }
     }
@@ -349,74 +355,7 @@ open class FormulaBox {
         const val DEFAULT_TEXT_RADIUS = DEFAULT_TEXT_SIZE * 0.5f
         const val DEFAULT_TEXT_WIDTH = DEFAULT_TEXT_SIZE * 0.6f
         const val DEFAULT_LINE_WIDTH = 4f
-
-        // fun getBoxCoord(b: FormulaBox): BoxCoord = b.buildCoord(BoxCoord.root)
-        // fun getCaretPositionFromSidedBox(b: FormulaBox, s: Side = Side.R) = getCaretPositionFromSidedBox(SidedBox(b, s))
-        fun getSingleFromSidedBox(sb: SidedBox): CaretPosition.Single? {
-            val (box, side) = sb
-            if (box is InputFormulaBox) {
-                assert(box.ch.size == 0) // en theorie la input ne peut pas etre cliquée si elle n'est pas vide
-                return CaretPosition.Single(box, 0)
-            }
-            else {
-                var b = box
-                var i: Int
-                while (!b.isRoot) {
-                    i = b.indexInParent!!
-                    b = b.parent!!
-                    if (b is InputFormulaBox) return CaretPosition.Single(b, if (side == Side.L) i else i+1)
-                }
-                return null
-            }
-        }
-
-        fun mergeSelections(s1: CaretPosition.Selection, s2: CaretPosition.Selection): CaretPosition.Selection? {
-            val s1Sequences = getBoxSequences(s1.box)
-            val s2Sequences = getBoxSequences(s2.box)
-            val commonParent = s1Sequences.zip(s2Sequences).lastOrNull { (p1, p2) -> p1.parent == p2.parent }
-
-            fun retrieveRange(s: CaretPosition.Selection, p: ParentWithIndex) : Range =
-                if (p.parent == s.box) {
-                    s.indexRange
-                } else {
-                    Range(p.index, p.index+1)
-                }
-
-            return commonParent?.let { (p1, p2) ->
-                val box = p1.parent as SequenceFormulaBox
-                val r1 = retrieveRange(s1, p1)
-                val r2 = retrieveRange(s2, p2)
-                val r = Range.sum(r1, r2)
-                CaretPosition.Selection(box, r)
-            }
-        }
-
-        // private fun getSequenceSequences(box: SequenceFormulaBox) =
-        //     (box as FormulaBox).buildParents(Chain.singleton(ParentWithIndex(box, index))).filter { it.parent is SequenceFormulaBox }
-        private fun getBoxSequences(b: FormulaBox) =
-            b.parentsAndThis.filter { it.parent is SequenceFormulaBox }
-
-        private fun getBoxParentSequenceWithIndex(b: FormulaBox): ParentWithIndex? =
-            b.parentWithIndex?.let {
-                if (it.parent is SequenceFormulaBox) {
-                    it
-                }
-                else {
-                    getBoxParentSequenceWithIndex(it.parent)
-                }
-            }
-
-        fun getSelectionFromBox(b: FormulaBox): CaretPosition.Selection? =
-            getBoxParentSequenceWithIndex(b)?.let { (p, i) -> CaretPosition.Selection(p as SequenceFormulaBox, Range(i, i+1)) }
-
-        fun getSelectionFromSingles(p1: CaretPosition.Single, p2: CaretPosition.Single): CaretPosition.Selection? {
-            val s1 = getSelectionFromSingle(p1)
-            val s2 = getSelectionFromSingle(p2)
-            return mergeSelections(s1, s2)
-        }
-
-        fun getSelectionFromSingle(p: CaretPosition.Single) =
-            CaretPosition.Selection(p.box, Range(p.index, p.index))
-
+        const val SELECTION_CARET_RADIUS = 14f
+        const val CARET_OVERFLOW_RADIUS = 18f
     }
 }

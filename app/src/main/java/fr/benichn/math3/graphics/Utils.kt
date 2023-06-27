@@ -38,5 +38,11 @@ class Utils {
 
         operator fun PointF.times(scale: Float): PointF = PointF(x*scale,y*scale)
         operator fun PointF.div(scale: Float): PointF = PointF(x/scale,y/scale)
+
+        fun squareDistFromLineToPoint(lineX: Float, lineYStart: Float, lineYEnd: Float, x: Float, y: Float): Float {
+            val dx = x - lineX
+            val dy = max(0f, y - lineYEnd) + max(0f, lineYStart - y)
+            return dx * dx + dy * dy
+        }
     }
 }

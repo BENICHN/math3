@@ -17,7 +17,7 @@ data class DeletionResult(val newPos: CaretPosition = CaretPosition.None, val fi
         )
 
     companion object {
-        fun fromSelection(b: FormulaBox) = DeletionResult(FormulaBox.getSelectionFromBox(b) ?: CaretPosition.None)
+        fun fromSelection(b: FormulaBox) = DeletionResult(CaretPosition.Selection.fromBox(b) ?: CaretPosition.None)
         // fun fromSidedBox(b: FormulaBox, s: Side = Side.R) = DeletionResult(FormulaBox.getCaretPositionFromSidedBox(b, s))
         // fun fromSidedBox(sb: SidedBox) = DeletionResult(FormulaBox.getCaretPositionFromSidedBox(sb))
     }

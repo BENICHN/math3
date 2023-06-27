@@ -42,6 +42,8 @@ open class FormulaBox {
         parent?.let{ it.buildParents(Chain.Node(ParentWithIndex(it, it.ch.indexOf(this)), tail)) } ?: tail
     private val parents: Chain<ParentWithIndex>
         get() = buildParents(Chain.Empty)
+    private val parentsAndThis
+        get() = buildParents(Chain.singleton(ParentWithIndex(this, -1)))
 
     private var caret: BoxCaret? = null
         get() = if (isRoot) field else parent!!.caret
@@ -362,11 +364,11 @@ open class FormulaBox {
         const val DEFAULT_LINE_WIDTH = 4f
 
         // fun getBoxCoord(b: FormulaBox): BoxCoord = b.buildCoord(BoxCoord.root)
-        fun getCaretPositionFromSidedBox(b: FormulaBox, s: Side = Side.R) = getCaretPositionFromSidedBox(SidedBox(b, s))
-        fun getCaretPositionFromSidedBox(sb: SidedBox): CaretPosition {
+        // fun getCaretPositionFromSidedBox(b: FormulaBox, s: Side = Side.R) = getCaretPositionFromSidedBox(SidedBox(b, s))
+        fun getSingleFromSidedBox(sb: SidedBox): CaretPosition.Single? {
             val (box, side) = sb
             if (box is InputFormulaBox) {
-                assert(box.ch.size == 0)
+                assert(box.ch.size == 0) // en theorie la input ne peut pas etre cliquée si elle n'est pas vide
                 return CaretPosition.Single(box, 0)
             }
             else {
@@ -377,15 +379,22 @@ open class FormulaBox {
                     b = b.parent!!
                     if (b is InputFormulaBox) return CaretPosition.Single(b, if (side == Side.L) i else i+1)
                 }
-                return CaretPosition.None
+                return null
             }
         }
 
         fun mergeSelections(s1: CaretPosition.Selection, s2: CaretPosition.Selection): CaretPosition.Selection? {
-            if (s1.box.ch.isEmpty() || s2.box.ch.isEmpty()) return null
-            val s1ParentSequences = s1.box.ch[0].parents.filter { it.parent is SequenceFormulaBox }
-            val s2ParentSequences = s2.box.ch[0].parents.filter { it.parent is SequenceFormulaBox }
-            val commonParent = s1ParentSequences.zip(s2ParentSequences).lastOrNull { (p1, p2) -> p1.parent == p2.parent }
+            val s1Sequences = getBoxSequences(s1.box)
+            val s2Sequences = getBoxSequences(s2.box)
+            val commonParent = s1Sequences.zip(s2Sequences).lastOrNull { (p1, p2) -> p1.parent == p2.parent }
+
+            fun retrieveRange(s: CaretPosition.Selection, p: ParentWithIndex) : Range =
+                if (p.parent == s.box) {
+                    s.indexRange
+                } else {
+                    Range(p.index, p.index+1)
+                }
+
             return commonParent?.let { (p1, p2) ->
                 val box = p1.parent as SequenceFormulaBox
                 val r1 = retrieveRange(s1, p1)
@@ -395,31 +404,32 @@ open class FormulaBox {
             }
         }
 
-        private fun retrieveRange(s: CaretPosition.Selection, p: ParentWithIndex) : Range =
-            if (p.parent == s.box) {
-                s.indexRange
-            } else {
-                Range(p.index, p.index)
-            }
+        // private fun getSequenceSequences(box: SequenceFormulaBox) =
+        //     (box as FormulaBox).buildParents(Chain.singleton(ParentWithIndex(box, index))).filter { it.parent is SequenceFormulaBox }
+        private fun getBoxSequences(b: FormulaBox) =
+            b.parentsAndThis.filter { it.parent is SequenceFormulaBox }
 
-        private fun getParentSequenceWithIndex(b: FormulaBox): ParentWithIndex? =
+        private fun getBoxParentSequenceWithIndex(b: FormulaBox): ParentWithIndex? =
             b.parentWithIndex?.let {
                 if (it.parent is SequenceFormulaBox) {
                     it
                 }
                 else {
-                    getParentSequenceWithIndex(it.parent)
+                    getBoxParentSequenceWithIndex(it.parent)
                 }
             }
 
         fun getSelectionFromBox(b: FormulaBox): CaretPosition.Selection? =
-            getParentSequenceWithIndex(b)?.let { (p, i) -> CaretPosition.Selection(p as SequenceFormulaBox, Range(i, i+1)) }
+            getBoxParentSequenceWithIndex(b)?.let { (p, i) -> CaretPosition.Selection(p as SequenceFormulaBox, Range(i, i+1)) }
 
-        // fun getSelectionFromBoxes(b1: FormulaBox, b2: FormulaBox): CaretPosition.Selection? {
-        //     val s1 = getSelectionFromBox(b1)
-        //     val s2 = getSelectionFromBox(b2)
-        //     return if (s1 != null && s2 != null) mergeSelections(s1, s2) else null
-        // }
+        fun getSelectionFromSingles(p1: CaretPosition.Single, p2: CaretPosition.Single): CaretPosition.Selection? {
+            val s1 = getSelectionFromSingle(p1)
+            val s2 = getSelectionFromSingle(p2)
+            return mergeSelections(s1, s2)
+        }
+
+        fun getSelectionFromSingle(p: CaretPosition.Single) =
+            CaretPosition.Selection(p.box, Range(p.index, p.index))
 
     }
 }

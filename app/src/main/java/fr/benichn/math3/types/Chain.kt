@@ -50,5 +50,6 @@ sealed class Chain<out T> : Iterable<T> {
             }
             return current
         }
+        fun <T> singleton(e: T): Node<T> = Node(e, Empty)
     }
 }

@@ -8,34 +8,35 @@ import fr.benichn.math3.types.callback.*
 class BoxProperty<S: FormulaBox, T>(private val source: S, private val defaultValue: T, val updatesGraphics: Boolean = true) :
     ReadWriteProperty<S, T> {
     private var field = defaultValue
-    val onChanged = VCC<S, T>(source)
+    private val notifyChanged = VCC<S, T>(source)
+    val onChanged = notifyChanged.Listener()
     fun get() = field
     fun set(value: T) {
         val old = field
         field = value
-        onChanged(old, value)
+        notifyChanged(old, value)
         if (updatesGraphics) {
             source.updateGraphics()
         }
     }
     private val connections = mutableListOf<CallbackLink<*, *>>()
-    fun <A, B> connectValue(callback: VCC<A, B>, mapper: (A, B) -> T) {
-        connections.add(CallbackLink(callback) { s, e ->
+    fun <A, B> connectValue(listener: VCL<A, B>, mapper: (A, B) -> T) {
+        connections.add(CallbackLink(listener) { s, e ->
             set(mapper(s, e.new))
         })
     }
-    fun <A, B> connectValue(callback: VCC<A, B>, currentValue: B, mapper: (A, B) -> T) {
-        connectValue(callback, mapper)
-        set(mapper(callback.source, currentValue))
+    fun <A, B> connectValue(listener: VCL<A, B>, currentValue: B, mapper: (A, B) -> T) {
+        connectValue(listener, mapper)
+        set(mapper(listener.source, currentValue))
     }
-    fun <A, B> connect(callback: VCC<A, B>, mapper: (A, ValueChangedEvent<B>) -> T) {
-        connections.add(CallbackLink(callback) { s, e ->
+    fun <A, B> connect(listener: VCL<A, B>, mapper: (A, ValueChangedEvent<B>) -> T) {
+        connections.add(CallbackLink(listener) { s, e ->
             set(mapper(s, e))
         })
     }
-    fun <A, B> disconnect(callback: VCC<A, B>) {
+    fun <A, B> disconnect(listener: VCL<A, B>) {
         connections.removeIf {
-            if (it.callback == callback) {
+            if (it.listener == listener) {
                 it.disconnect()
                 true
             } else {

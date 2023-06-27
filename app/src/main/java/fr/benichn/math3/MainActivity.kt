@@ -6,6 +6,7 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.fragment.app.commit
 import fr.benichn.math3.graphics.FormulaView
 import fr.benichn.math3.graphics.boxes.FractionFormulaBox
+import fr.benichn.math3.graphics.boxes.InputFormulaBox
 import fr.benichn.math3.graphics.boxes.TextFormulaBox
 import fr.benichn.math3.graphics.boxes.types.DeletionResult
 import fr.benichn.math3.graphics.boxes.types.InitialBoxes
@@ -82,16 +83,20 @@ class MainActivity : AppCompatActivity() {
                     }
                 }
                 else -> {
+                    var initialBoxes: InitialBoxes? = null
                     val pos = when (val p = fv.caret.position) {
                         is CaretPosition.None -> { null }
                         is CaretPosition.Single -> {
                             p
                         }
                         is CaretPosition.Selection -> {
+                            initialBoxes = InitialBoxes.Selection(p.selectedBoxes)
                             for (c in p.selectedBoxes) {
                                 c.delete()
                             }
-                            CaretPosition.Single(p.box, p.indexRange.start)
+                            when (p.box) {
+                                is InputFormulaBox -> CaretPosition.Single(p.box, p.indexRange.start)
+                            }
                         }
                     }
                     pos?.also {
@@ -101,7 +106,7 @@ class MainActivity : AppCompatActivity() {
                             else -> TextFormulaBox(id)
                         }
                         box.addBox(i, newBox)
-                        newBox.addInitialBoxes(
+                        newBox.addInitialBoxes(initialBoxes ?:
                             InitialBoxes.BeforeAfter(
                                 box.ch.take(i),
                                 box.ch.takeLast(box.ch.size - i)

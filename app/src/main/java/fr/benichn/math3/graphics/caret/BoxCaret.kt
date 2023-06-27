@@ -6,33 +6,34 @@ import android.graphics.Paint
 import fr.benichn.math3.types.callback.*
 import fr.benichn.math3.graphics.boxes.FormulaBox
 
-class BoxCaret(val root: FormulaBox) {
+class BoxCaret(/* val root: FormulaBox */) {
     var position: CaretPosition = CaretPosition.None
         set(value) {
             val old = field
             field = value
-            onPositionChanged(old, value)
+            notifyPositionChanged(old, value)
         }
 
-    val onPositionChanged = VCC<BoxCaret, CaretPosition>(this)
+    private val notifyPositionChanged = VCC<BoxCaret, CaretPosition>(this)
+    val onPositionChanged = notifyPositionChanged.Listener()
 
-    fun select(b: FormulaBox) {
-        val s = FormulaBox.getSelectionFromBox(b)
-        val newPos = when (val p = position) {
-            is CaretPosition.Selection -> {
-                s?.let {
-                    FormulaBox.mergeSelections(p, it)
-                }
-            }
-            else -> {
-                s
-            }
-        }  ?: CaretPosition.None
-        position = newPos
-    }
+    // fun select(b: FormulaBox) {
+    //     val s = FormulaBox.getSelectionFromBox(b)
+    //     val newPos = when (val p = position) {
+    //         is CaretPosition.Selection -> {
+    //             s?.let {
+    //                 FormulaBox.mergeSelections(p, it)
+    //             }
+    //         }
+    //         else -> {
+    //             s
+    //         }
+    //     }  ?: CaretPosition.None
+    //     position = newPos
+    // }
 
     // fun unSelect(b: FormulaBox) {
-// 
+    //
     // }
 
     companion object {

@@ -16,20 +16,21 @@ class NumpadButton(context: Context, val id: String) : androidx.appcompat.widget
         R.style.numpad_btn
     ), null, R.style.numpad_btn
 ) {
-    val onSwipe = Callback<NumpadButton, Direction>(this)
+    private val notifySwipe = Callback<NumpadButton, Direction>(this)
+    val onSwipe = notifySwipe.Listener()
     init {
         setOnTouchListener(object : SwipeTouchListener() {
             override fun onSwipeBottom() {
-                onSwipe(Direction.Down)
+                notifySwipe(Direction.Down)
             }
             override fun onSwipeLeft() {
-                onSwipe(Direction.Left)
+                notifySwipe(Direction.Left)
             }
             override fun onSwipeRight() {
-                onSwipe(Direction.Right)
+                notifySwipe(Direction.Right)
             }
             override fun onSwipeTop() {
-                onSwipe(Direction.Up)
+                notifySwipe(Direction.Up)
             }
         })
         stateListAnimator = null

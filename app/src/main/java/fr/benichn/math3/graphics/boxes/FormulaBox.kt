@@ -48,9 +48,9 @@ open class FormulaBox {
 
     fun createCaret(): BoxCaret {
         assert(isRoot)
-        val cr = BoxCaret(this)
+        val cr = BoxCaret()
         cr.onPositionChanged += { _, _ ->
-            onPictureChanged(Unit)
+            notifyPictureChanged()
         }
         caret = cr
         return cr
@@ -118,12 +118,12 @@ open class FormulaBox {
     //         }
 
     private val connections = mutableListOf<CallbackLink<*, *>>()
-    fun <A, B> connect(callback: VCC<A, B>, f: (A, ValueChangedEvent<B>) -> Unit) {
-        connections.add(CallbackLink(callback, f))
+    fun <A, B> connect(listener: VCL<A, B>, f: (A, ValueChangedEvent<B>) -> Unit) {
+        connections.add(CallbackLink(listener, f))
     }
     fun disconnectFrom(b: FormulaBox) {
         connections.removeIf {
-            if (it.callback.source == b) {
+            if (it.listener.source == b) {
                 it.disconnect()
                 true
             } else {
@@ -178,12 +178,13 @@ open class FormulaBox {
         }
     }
 
-    val onTransformChanged = VCC<FormulaBox, BoxTransform>(this)
+    private val notifyTransformChanged = VCC<FormulaBox, BoxTransform>(this)
+    val onTransformChanged = notifyTransformChanged.Listener()
     var transform: BoxTransform = BoxTransform()
         private set(value) {
             val old = field
             field = value
-            onTransformChanged(old, value)
+            notifyTransformChanged(old, value)
             updateAccTransform()
         }
 
@@ -191,12 +192,13 @@ open class FormulaBox {
         accTransform = transform * parent!!.accTransform
     }
 
-    val onAccTransformChanged = VCC<FormulaBox, BoxTransform>(this)
+    private val notifyAccTransformChanged = VCC<FormulaBox, BoxTransform>(this)
+    val onAccTransformChanged = notifyAccTransformChanged.Listener()
     var accTransform: BoxTransform = BoxTransform()
         private set(value) {
             val old = field
             field = value
-            onAccTransformChanged(old, value)
+            notifyAccTransformChanged(old, value)
             for (b in children) {
                 b.updateAccTransform()
             }
@@ -209,24 +211,28 @@ open class FormulaBox {
     protected fun modifyChildTransform(i: Int, t: (BoxTransform) -> BoxTransform) = setChildTransform(i, t(children[i].transform))
     protected fun setChildTransform(b: FormulaBox, t: (BoxTransform) -> BoxTransform) = setChildTransform(b, t(b.transform))
 
-    val onGraphicsChanged = VCC<FormulaBox, FormulaGraphics>(this)
+    private val notifyGraphicsChanged = VCC<FormulaBox, FormulaGraphics>(this)
+    val onGraphicsChanged = notifyGraphicsChanged.Listener()
     var graphics: FormulaGraphics = FormulaGraphics()
         private set(value) {
             val old = field
             field = value
-            onGraphicsChanged(old, value)
-            if (old.path != value.path) onPathChanged(old.path, value.path)
-            if (old.paint != value.paint) onPaintChanged(old.paint, value.paint)
-            if (old.bounds != value.bounds) onBoundsChanged(old.bounds, value.bounds)
+            notifyGraphicsChanged(old, value)
+            if (old.path != value.path) notifyPathChanged(old.path, value.path)
+            if (old.paint != value.paint) notifyPaintChanged(old.paint, value.paint)
+            if (old.bounds != value.bounds) notifyBoundsChanged(old.bounds, value.bounds)
             isProcessing = false
         }
-    val onBoundsChanged = VCC<FormulaBox, RectF>(this)
+    private val notifyBoundsChanged = VCC<FormulaBox, RectF>(this)
+    val onBoundsChanged = notifyBoundsChanged.Listener()
     val bounds
         get() = graphics.bounds
-    val onPathChanged = VCC<FormulaBox, Path>(this)
+    private val notifyPathChanged = VCC<FormulaBox, Path>(this)
+    val onPathChanged = notifyPathChanged.Listener()
     val path
         get() = graphics.path
-    val onPaintChanged = VCC<FormulaBox, Paint>(this)
+    private val notifyPaintChanged = VCC<FormulaBox, Paint>(this)
+    val onPaintChanged = notifyPaintChanged.Listener()
     val paint
         get() = graphics.paint
 
@@ -269,11 +275,13 @@ open class FormulaBox {
         set(value) {
             field = value
             if (!value && hasChangedPicture) {
-                onPictureChanged(Unit)
+                notifyPictureChanged(Unit)
             }
         }
     private var hasChangedPicture = false
-    val onPictureChanged = Callback<FormulaBox, Unit>(this)
+
+    private val notifyPictureChanged = Callback<FormulaBox, Unit>(this)
+    val onPictureChanged = notifyPictureChanged.Listener()
 
     fun drawOnCanvas(canvas: Canvas) {
         transform.applyOnCanvas(canvas)
@@ -334,16 +342,16 @@ open class FormulaBox {
             if (isProcessing) {
                 hasChangedPicture = true
             } else {
-                parent?.onPictureChanged?.invoke(Unit)
+                parent?.notifyPictureChanged?.invoke()
             }
         }
         onGraphicsChanged += { _, e ->
             if (e.old.path != e.new.path || e.old.paint != e.new.paint) {
-                onPictureChanged(Unit)
+                notifyPictureChanged()
             }
         }
         onTransformChanged += { _, _ ->
-            onPictureChanged(Unit)
+            notifyPictureChanged()
         }
     }
 
@@ -375,11 +383,11 @@ open class FormulaBox {
 
         fun mergeSelections(s1: CaretPosition.Selection, s2: CaretPosition.Selection): CaretPosition.Selection? {
             if (s1.box.ch.isEmpty() || s2.box.ch.isEmpty()) return null
-            val s1ParentInputs = s1.box.ch[0].parents.filter { it.parent is InputFormulaBox }
-            val s2ParentInputs = s2.box.ch[0].parents.filter { it.parent is InputFormulaBox }
-            val commonParent = s1ParentInputs.zip(s2ParentInputs).lastOrNull { (p1, p2) -> p1.parent == p2.parent }
+            val s1ParentSequences = s1.box.ch[0].parents.filter { it.parent is SequenceFormulaBox }
+            val s2ParentSequences = s2.box.ch[0].parents.filter { it.parent is SequenceFormulaBox }
+            val commonParent = s1ParentSequences.zip(s2ParentSequences).lastOrNull { (p1, p2) -> p1.parent == p2.parent }
             return commonParent?.let { (p1, p2) ->
-                val box = p1.parent as InputFormulaBox
+                val box = p1.parent as SequenceFormulaBox
                 val r1 = retrieveRange(s1, p1)
                 val r2 = retrieveRange(s2, p2)
                 val r = Range.sum(r1, r2)
@@ -394,18 +402,18 @@ open class FormulaBox {
                 Range(p.index, p.index)
             }
 
-        private fun getParentInputWithIndex(b: FormulaBox): ParentWithIndex? =
+        private fun getParentSequenceWithIndex(b: FormulaBox): ParentWithIndex? =
             b.parentWithIndex?.let {
-                if (it.parent is InputFormulaBox) {
+                if (it.parent is SequenceFormulaBox) {
                     it
                 }
                 else {
-                    getParentInputWithIndex(it.parent)
+                    getParentSequenceWithIndex(it.parent)
                 }
             }
 
         fun getSelectionFromBox(b: FormulaBox): CaretPosition.Selection? =
-            getParentInputWithIndex(b)?.let { (p, i) -> CaretPosition.Selection(p as InputFormulaBox, Range(i, i+1)) }
+            getParentSequenceWithIndex(b)?.let { (p, i) -> CaretPosition.Selection(p as SequenceFormulaBox, Range(i, i+1)) }
 
         // fun getSelectionFromBoxes(b1: FormulaBox, b2: FormulaBox): CaretPosition.Selection? {
         //     val s1 = getSelectionFromBox(b1)

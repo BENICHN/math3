@@ -15,8 +15,10 @@ class NumpadPageView(context: Context, w: Int, h: Int, buttons: JSONObject) : Gr
         R.style.numpad_page
     ), null, R.style.numpad_page
 ) {
-    val onSwipe = Callback<NumpadPageView, Direction>(this)
-    val onButtonClicked = Callback<NumpadPageView, String>(this)
+    private val notifySwipe = Callback<NumpadPageView, Direction>(this)
+    val onSwipe = notifySwipe.Listener()
+    private val notifyButtonClicked = Callback<NumpadPageView, String>(this)
+    val onButtonClicked = notifyButtonClicked.Listener()
 
     fun hline(columnCount: Int, index: Int): View {
         return View(context).apply {
@@ -54,10 +56,10 @@ class NumpadPageView(context: Context, w: Int, h: Int, buttons: JSONObject) : Gr
             for (j in 1..w) {
                 val b = NumpadButton(context, buttons.getString("${i},${j}"))
                 b.setOnClickListener {
-                    onButtonClicked(b.id)
+                    notifyButtonClicked(b.id)
                 }
                 b.onSwipe += { s, d ->
-                    onSwipe(d)
+                    notifySwipe(d)
                 }
                 b.layoutParams = LayoutParams(
                     spec((2 * i - 1), 1, 1.0f),

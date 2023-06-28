@@ -1,6 +1,7 @@
 package fr.benichn.math3.graphics.caret
 
 import android.graphics.PointF
+import android.graphics.RectF
 import fr.benichn.math3.graphics.Utils
 import fr.benichn.math3.graphics.boxes.FormulaBox
 import fr.benichn.math3.graphics.boxes.InputFormulaBox
@@ -50,7 +51,14 @@ sealed class CaretPosition {
             get() = box.ch.subList(indexRange.start, indexRange.end).toList()
 
         val bounds
-            get() = Utils.sumOfRects(selectedBoxes.map { it.accRealBounds })
+            get() = Utils.sumOfRects(selectedBoxes.map { it.accRealBounds }).let { r ->
+                if (r.left.isNaN() && indexRange.start == indexRange.end) {
+                    box.accRealBounds.let {
+                        val x = leftSingle?.getAbsPosition()?.x
+                        if (x == null) r else RectF(x, it.top, x, it.bottom)
+                    }
+                } else r
+            }
 
         val isMutable
             get() = box is InputFormulaBox

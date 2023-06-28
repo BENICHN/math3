@@ -211,6 +211,17 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : View(context,
                     selectionStartSingle = null
                     caret.absolutePosition = null
                     caret.fixedX = null
+                    when (val p = caret.position) {
+                        is CaretPosition.Selection -> {
+                            if (p.isMutable && p.indexRange.start == p.indexRange.end) {
+                                caret.position = CaretPosition.Single(
+                                    p.box as InputFormulaBox,
+                                    p.indexRange.start
+                                )
+                            }
+                        }
+                        else -> { }
+                    }
                 }
 
                 else -> {
@@ -255,6 +266,17 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : View(context,
                     selectionModificationStart = null
                     caret.absolutePosition = null
                     caret.fixedX = null
+                    when (val p = caret.position) {
+                        is CaretPosition.Selection -> {
+                            if (p.isMutable && p.indexRange.start == p.indexRange.end) {
+                                caret.position = CaretPosition.Single(
+                                    p.box as InputFormulaBox,
+                                    p.indexRange.start
+                                )
+                            }
+                        }
+                        else -> { }
+                    }
                 }
 
                 else -> {

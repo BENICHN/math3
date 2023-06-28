@@ -34,13 +34,28 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : View(context,
         box.onPictureChanged += { _, _ ->
             invalidate() }
         caret = box.createCaret()
+        caret.onPositionChanged += { _, e ->
+            when (e.new) {
+                is CaretPosition.None, is CaretPosition.Single -> {
+                    if (fixedXOnDown != null) {
+                        isMovingCaret = false
+                        fixedXOnDown = null
+                        selectionModificationStart = null
+                    }
+                    selectionStartSingle = null
+                    caret.fixedX = null
+                    caret.absolutePosition = null
+                }
+                else -> { }
+            }
+        }
     }
     var caretPosOnDown: CaretPosition.Single? = null
     var fixedXOnDown: Float? = null
     var selectionModificationStart: CaretPosition.Single? = null
     var isMovingCaret = false
     var selectionStartSingle: CaretPosition.Single? = null
-    private fun getRootPos(e: MotionEvent) = offset.let { PointF(e.x - it.x, e.y - it.y) }
+    private fun getRootPos(e: MotionEvent) = offset.run { PointF(e.x - x, e.y - y) }
     private fun findBox(e: MotionEvent) = box.findBox(getRootPos(e))
 
     private val gestureDetector = GestureDetectorCompat(context, object : OnGestureListener {
@@ -53,13 +68,15 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : View(context,
                 }
                 p is CaretPosition.Selection && p.isMutable -> {
                     val pos = getRootPos(e)
-                    p.bounds.also {
-                        if (Utils.squareDistFromLineToPoint(it.right, it.top, it.bottom, pos.x, pos.y) < MAX_TOUCH_DIST_SQ) {
-                            fixedXOnDown = it.left
+                    p.bounds.apply {
+                        if (Utils.squareDistFromLineToPoint(right, top, bottom, pos.x, pos.y) < MAX_TOUCH_DIST_SQ) {
+                            fixedXOnDown = left
                             selectionModificationStart = p.leftSingle
-                        } else if (Utils.squareDistFromLineToPoint(it.left, it.top, it.bottom, pos.x, pos.y) < MAX_TOUCH_DIST_SQ) {
-                            fixedXOnDown = it.right
+                        } else if (Utils.squareDistFromLineToPoint(left, top, bottom, pos.x, pos.y) < MAX_TOUCH_DIST_SQ) {
+                            fixedXOnDown = right
                             selectionModificationStart = p.rightSingle
+                        } else if (contains(pos.x, pos.y)) {
+
                         }
                     }
                 }
@@ -96,7 +113,8 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : View(context,
 
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
-        offset.let { canvas.translate(it.x, it.y) }
+        canvas.drawColor(backgroundPaint.color)
+        offset.apply { canvas.translate(x, y) }
         box.drawOnCanvas(canvas)
     }
 
@@ -160,10 +178,19 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : View(context,
         } ?: gestureDetector.onTouchEvent(e)
 
     companion object {
-        val red = Paint().also {
-            it.style = Paint.Style.STROKE
-            it.strokeWidth = 1f
-            it.color = Color.RED }
+        val red = Paint().apply {
+            style = Paint.Style.STROKE
+            strokeWidth = 1f
+            color = Color.RED }
+        val backgroundPaint = Paint().apply {
+            style = Paint.Style.FILL
+            color = Color.BLACK
+        }
+        val magnifierBorder = Paint().apply {
+            style = Paint.Style.STROKE
+            strokeWidth = 1f
+            color = Color.LTGRAY
+        }
 
         val MAX_TOUCH_DIST_SQ = 18f.pow(2)
     }

@@ -22,23 +22,23 @@ class BoxCaret(/* val root: FormulaBox */) {
     val onPictureChanged = notifyPictureChanged.Listener()
 
     companion object {
-        val ballPaint = Paint().also {
-            it.style = Paint.Style.FILL
-            it.color = Color.rgb(255, 255, 0)
+        val ballPaint = Paint().apply {
+            style = Paint.Style.FILL
+            color = Color.rgb(255, 255, 0)
         }
-        val caretPaint = Paint().also {
-            it.style = Paint.Style.STROKE
-            it.strokeWidth = 6f
-            it.color = Color.rgb(255, 255, 0)
+        val caretPaint = Paint().apply {
+            style = Paint.Style.STROKE
+            strokeWidth = 6f
+            color = Color.rgb(255, 255, 0)
         }
-        val caretPaintTrans = Paint().also {
-            it.style = Paint.Style.STROKE
-            it.strokeWidth = 6f
-            it.color = Color.argb(127, 255, 255, 0)
+        val caretPaintTrans = Paint().apply {
+            style = Paint.Style.STROKE
+            strokeWidth = 6f
+            color = Color.argb(127, 255, 255, 0)
         }
-        val selectionPaint = Paint().also {
-            it.style = Paint.Style.FILL
-            it.color = Color.rgb(100, 100, 0) }
+        val selectionPaint = Paint().apply {
+            style = Paint.Style.FILL
+            color = Color.rgb(100, 100, 0) }
 
         fun drawCaretAtPos(canvas: Canvas, pos: PointF, trans: Boolean = false, height: Float = FormulaBox.DEFAULT_TEXT_RADIUS) {
             canvas.drawLine(

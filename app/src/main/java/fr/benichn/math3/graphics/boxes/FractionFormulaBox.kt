@@ -71,7 +71,7 @@ class FractionFormulaBox(numChildren: Array<FormulaBox> = emptyArray(), denChild
     }
 
     override fun findChildBox(absX: Float, absY: Float): FormulaBox =
-        if (bar.accRealBounds.let { it.left <= absX && absX <= it.right }) {
+        if (bar.accRealBounds.run { left <= absX && absX <= right }) {
             if (absY > accTransform.origin.y) {
                 den
             } else {

@@ -1,11 +1,14 @@
 package fr.benichn.math3.graphics.boxes
 
+import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.Path
 import android.graphics.PointF
 import android.graphics.RectF
+import androidx.core.graphics.withClip
+import fr.benichn.math3.graphics.FormulaView
 import fr.benichn.math3.graphics.caret.BoxCaret
 import fr.benichn.math3.graphics.boxes.types.BoxCoord
 import fr.benichn.math3.graphics.boxes.types.BoxTransform
@@ -157,7 +160,7 @@ open class FormulaBox {
     fun findBox(absPos: PointF) = findBox(absPos.x, absPos.y)
     fun findBox(absX: Float, absY: Float) : SidedBox {
         val c = findChildBox(absX, absY)
-        return if (c == this || (!c.alwaysEnter && c.accRealBounds.let { absX < it.left || it.right < absX })) {
+        return if (c == this || (!c.alwaysEnter && c.accRealBounds.run { absX < left || right < absX })) {
             SidedBox(c, c.getSide(absX))
         } else {
             c.findBox(absX, absY)
@@ -207,7 +210,6 @@ open class FormulaBox {
             if (old.path != value.path) notifyPathChanged(old.path, value.path)
             if (old.paint != value.paint) notifyPaintChanged(old.paint, value.paint)
             if (old.bounds != value.bounds) notifyBoundsChanged(old.bounds, value.bounds)
-            isProcessing = false
         }
     private val notifyBoundsChanged = VCC<FormulaBox, RectF>(this)
     val onBoundsChanged = notifyBoundsChanged.Listener()
@@ -244,89 +246,106 @@ open class FormulaBox {
         graphics = generateGraphics()
     }
 
-    fun alert() {
-        graphics = FormulaGraphics(
-            path,
-            Paint(paint).also { it.color = Color.GREEN },
-            bounds
-        )
-    }
-
     fun getLength(o: Orientation) = when (o) {
         Orientation.H -> bounds.width()
         Orientation.V -> bounds.height()
     }
-
-    protected var isProcessing = false
-        set(value) {
-            field = value
-            if (!value && hasChangedPicture) {
-                notifyPictureChanged()
-            }
-        }
-    private var hasChangedPicture = false
 
     private val notifyPictureChanged = Callback<FormulaBox, Unit>(this)
     val onPictureChanged = notifyPictureChanged.Listener()
 
     fun drawOnCanvas(canvas: Canvas) {
         transform.applyOnCanvas(canvas)
-
         val p = caret?.position
-        if (isRoot) {
-            when (p) {
-                is CaretPosition.Selection -> {
-                    canvas.drawRect(p.bounds, BoxCaret.selectionPaint)
+
+        fun draw() {
+            if (isRoot) { // dessin du rectangle de selection
+                when (p) {
+                    is CaretPosition.Selection -> {
+                        canvas.drawRect(p.bounds, BoxCaret.selectionPaint)
+                    }
+
+                    else -> {}
                 }
-                else -> { }
+            }
+
+            canvas.drawPath(path, paint)
+            // canvas.drawRect(bounds, FormulaView.red)
+            for (b in children) {
+                b.drawOnCanvas(canvas)
+            }
+
+            if (isRoot) { // dessin des curseurs
+                when (p) {
+                    is CaretPosition.None -> {
+                    }
+
+                    is CaretPosition.Single -> {
+                        val pos = p.getAbsPosition()
+                        BoxCaret.drawCaretAtPos(
+                            canvas,
+                            pos,
+                            caret!!.absolutePosition != null
+                        )
+                    }
+
+                    is CaretPosition.Selection -> {
+                        val r = p.bounds
+                        fun drawSelectionEnding(x: Float) {
+                            canvas.drawLine(x, r.top, x, r.bottom, BoxCaret.caretPaint)
+                            // canvas.drawCircle(x, r.top, SELECTION_CARET_RADIUS, BoxCaret.ballPaint)
+                        }
+
+                        val fx = caret!!.fixedX
+                        if (fx == null) {
+                            drawSelectionEnding(r.left)
+                            drawSelectionEnding(r.right)
+                        } else {
+                            val x = if (abs(r.left - fx) <= abs(r.right - fx)) r.left else r.right
+                            drawSelectionEnding(x)
+                        }
+                    }
+
+                    else -> {}
+                }
+                caret?.absolutePosition?.also { ap -> // dessin de la position absolue des curseurs
+                    when (p) {
+                        is CaretPosition.Single -> {
+                            BoxCaret.drawCaretAtPos(
+                                canvas,
+                                ap,
+                                height = DEFAULT_TEXT_RADIUS /* + CARET_OVERFLOW_RADIUS */
+                            )
+                        }
+
+                        is CaretPosition.Selection -> {
+                            BoxCaret.drawCaretAtPos(
+                                canvas,
+                                ap,
+                                height = p.bounds.height() * 0.5f /* + CARET_OVERFLOW_RADIUS */
+                            )
+                        }
+
+                        else -> {}
+                    }
+                }
             }
         }
+        draw()
 
-        canvas.drawPath(path, paint)
-        // canvas.drawRect(bounds, FormulaView.red)
-        for (b in children) {
-            b.drawOnCanvas(canvas)
+        if (isRoot) caret?.absolutePosition?.also { ap ->
+            canvas.translate(0f, -DEFAULT_TEXT_RADIUS*4)
+            val rx = DEFAULT_TEXT_WIDTH * 3
+            val ry = DEFAULT_TEXT_SIZE * 0.75f
+            val r = RectF(ap.x - rx, ap.y - ry, ap.x + rx, ap.y + ry)
+            canvas.drawRoundRect(r, MAGNIFIER_RADIUS, MAGNIFIER_RADIUS, FormulaView.backgroundPaint)
+            canvas.drawRoundRect(r, MAGNIFIER_RADIUS, MAGNIFIER_RADIUS, FormulaView.magnifierBorder)
+            canvas.withClip(r) {
+                draw()
+            }
         }
 
         transform.invert.applyOnCanvas(canvas)
-
-        if (isRoot) {
-            when (p) {
-                is CaretPosition.None -> {
-                }
-                is CaretPosition.Single -> {
-                    val pos = p.getAbsPosition()
-                    BoxCaret.drawCaretAtPos(
-                        canvas,
-                        pos,
-                        caret!!.absolutePosition != null
-                    )
-                }
-                is CaretPosition.Selection -> {
-                    val r = p.bounds
-                    fun drawSelectionEnding(x: Float) {
-                        canvas.drawLine(x, r.top, x, r.bottom, BoxCaret.caretPaint)
-                        // canvas.drawCircle(x, r.top, SELECTION_CARET_RADIUS, BoxCaret.ballPaint)
-                    }
-                    val fx = caret!!.fixedX
-                    if (fx == null) {
-                        drawSelectionEnding(r.left)
-                        drawSelectionEnding(r.right)
-                    } else {
-                        val x = if (abs(r.left - fx) <= abs(r.right - fx)) r.left else r.right
-                        drawSelectionEnding(x)
-                    }
-                }
-                else -> { }
-            }
-            caret?.absolutePosition?.also {
-                if (caret!!.fixedX == null) {
-                    BoxCaret.drawCaretAtPos(canvas, it, height = DEFAULT_TEXT_RADIUS /* + CARET_OVERFLOW_RADIUS */)
-                } else {
-                    BoxCaret.drawCaretAtPos(canvas, it, height = (p as CaretPosition.Selection).bounds.height() * 0.5f /* + CARET_OVERFLOW_RADIUS */)
-                }
-            }
-        }
     }
 
     val indexInParent
@@ -334,11 +353,7 @@ open class FormulaBox {
 
     init {
         onPictureChanged += { _, _ ->
-            if (isProcessing) {
-                hasChangedPicture = true
-            } else {
-                parent?.notifyPictureChanged?.invoke()
-            }
+            parent?.notifyPictureChanged?.invoke()
         }
         onGraphicsChanged += { _, e ->
             if (e.old.path != e.new.path || e.old.paint != e.new.paint) {
@@ -357,5 +372,6 @@ open class FormulaBox {
         const val DEFAULT_LINE_WIDTH = 4f
         const val SELECTION_CARET_RADIUS = 14f
         const val CARET_OVERFLOW_RADIUS = 18f
+        const val MAGNIFIER_RADIUS = 18f
     }
 }

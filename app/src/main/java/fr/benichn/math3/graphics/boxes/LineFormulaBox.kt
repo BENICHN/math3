@@ -28,9 +28,9 @@ class LineFormulaBox(orientation: Orientation = Orientation.V,
     override fun generateGraphics(): FormulaGraphics = when (orientation) {
         Orientation.H -> {
             FormulaGraphics(
-                Path().also {
-                    it.moveTo(range.start, 0f)
-                    it.lineTo(range.end, 0f)
+                Path().apply {
+                    moveTo(range.start, 0f)
+                    lineTo(range.end, 0f)
                 },
                 paint,
                 RectF(range.start, 0f, range.end, 0f)
@@ -39,9 +39,9 @@ class LineFormulaBox(orientation: Orientation = Orientation.V,
 
         Orientation.V -> {
             FormulaGraphics(
-                Path().also {
-                    it.moveTo(0f, range.start)
-                    it.lineTo(0f, range.end)
+                Path().apply {
+                    moveTo(0f, range.start)
+                    lineTo(0f, range.end)
                 },
                 paint,
                 RectF(0f, range.start, 0f, range.end)

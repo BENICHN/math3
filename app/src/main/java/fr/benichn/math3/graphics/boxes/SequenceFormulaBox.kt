@@ -22,7 +22,7 @@ sealed class SequenceFormulaBox(vararg boxes: FormulaBox) : FormulaBox() {
         super.addBox(i, b)
         setChildTransform(
             i,
-            BoxTransform.xOffset((if (i == 0) 0f else ch[i - 1].let { it.transform.origin.x + it.bounds.right }) - b.bounds.left)
+            BoxTransform.xOffset((if (i == 0) 0f else ch[i - 1].run { transform.origin.x + bounds.right }) - b.bounds.left)
         )
         connect(b.onBoundsChanged) { s, e ->
             val j = b.indexInParent!!
@@ -41,7 +41,6 @@ sealed class SequenceFormulaBox(vararg boxes: FormulaBox) : FormulaBox() {
     }
 
     private fun offsetFrom(i: Int, l: Float) {
-        isProcessing = true
         for (j in i until ch.size) {
             modifyChildTransform(j) { it * BoxTransform.xOffset(l) }
         }

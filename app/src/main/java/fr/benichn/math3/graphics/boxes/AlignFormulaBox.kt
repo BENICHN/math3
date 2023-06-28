@@ -7,16 +7,16 @@ import fr.benichn.math3.graphics.types.RectPoint
 import fr.benichn.math3.graphics.boxes.types.SidedBox
 
 class AlignFormulaBox(child: FormulaBox = FormulaBox(), rectPoint: RectPoint = RectPoint.NAN) : FormulaBox() {
-    val dlgChild = BoxProperty(this, child).also {
-        it.onChanged += { s, e ->
+    val dlgChild = BoxProperty(this, child).apply {
+        onChanged += { s, e ->
             removeBox(e.old)
             addBox(e.new)
         }
     }
     var child by dlgChild
 
-    val dlgRectPoint = BoxProperty(this, rectPoint).also {
-        it.onChanged += { _, _ ->
+    val dlgRectPoint = BoxProperty(this, rectPoint).apply {
+        onChanged += { _, _ ->
             alignChild()
         }
     }
@@ -42,7 +42,6 @@ class AlignFormulaBox(child: FormulaBox = FormulaBox(), rectPoint: RectPoint = R
     }
 
     private fun alignChild() {
-        isProcessing = true
         setChildTransform(
             0,
             BoxTransform(-(rectPoint.get(child.bounds)))

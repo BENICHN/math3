@@ -7,7 +7,7 @@ import android.graphics.RectF
 import fr.benichn.math3.graphics.boxes.types.BoxTransform
 import fr.benichn.math3.graphics.boxes.types.FormulaGraphics
 
-sealed class SequenceFormulaBox(vararg boxes: FormulaBox) : FormulaBox() {
+sealed class SeqFormulaBox(vararg boxes: FormulaBox) : FormulaBox() {
     init {
         paint.color = Color.WHITE
         paint.strokeWidth = DEFAULT_LINE_WIDTH
@@ -72,4 +72,13 @@ sealed class SequenceFormulaBox(vararg boxes: FormulaBox) : FormulaBox() {
         } else {
             super.generateGraphics()
         }
+}
+
+class SequenceFormulaBox(vararg boxes: FormulaBox) : SeqFormulaBox(*boxes)
+class MutableSequenceFormulaBox(vararg boxes: FormulaBox) : SeqFormulaBox(*boxes) {
+    public override fun addBox(i: Int, b: FormulaBox) = super.addBox(i, b)
+    public override fun addBox(b: FormulaBox) = super.addBox(b)
+    public override fun removeBoxAt(i: Int) = super.removeBoxAt(i)
+    public override fun removeBox(b: FormulaBox) = super.removeBox(b)
+    public override fun removeLastBox() = super.removeLastBox()
 }

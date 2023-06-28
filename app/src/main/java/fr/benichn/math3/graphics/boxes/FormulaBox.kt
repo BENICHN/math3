@@ -105,9 +105,9 @@ open class FormulaBox {
         return  -1
     }
 
-    private val connections = mutableListOf<CallbackLink<*, *>>()
+    private val connections = mutableListOf<VCCLink<*, *>>()
     fun <A, B> connect(listener: VCL<A, B>, f: (A, ValueChangedEvent<B>) -> Unit) {
-        connections.add(CallbackLink(listener, f))
+        connections.add(VCCLink(listener, f))
     }
     fun disconnectFrom(b: FormulaBox) {
         connections.removeIf {
@@ -333,16 +333,15 @@ open class FormulaBox {
         }
         draw()
 
-        if (isRoot) caret?.absolutePosition?.also { ap ->
-            canvas.translate(0f, -DEFAULT_TEXT_RADIUS*4)
-            val rx = DEFAULT_TEXT_WIDTH * 3
-            val ry = DEFAULT_TEXT_SIZE * 0.75f
-            val r = RectF(ap.x - rx, ap.y - ry, ap.x + rx, ap.y + ry)
-            canvas.drawRoundRect(r, MAGNIFIER_RADIUS, MAGNIFIER_RADIUS, FormulaView.backgroundPaint)
-            canvas.drawRoundRect(r, MAGNIFIER_RADIUS, MAGNIFIER_RADIUS, FormulaView.magnifierBorder)
-            canvas.withClip(r) {
+        if (isRoot /* && caret?.position is CaretPosition.Single */) caret?.absolutePosition?.also { ap ->
+            canvas.translate(ap.x, ap.y-DEFAULT_TEXT_RADIUS*4)
+            canvas.drawPath(magnifierPath, FormulaView.backgroundPaint)
+            canvas.drawPath(magnifierPath, FormulaView.magnifierBorder)
+            canvas.withClip(magnifierPath) {
+                canvas.translate(-ap.x, -ap.y)
                 draw()
             }
+            canvas.translate(0f, DEFAULT_TEXT_RADIUS*4)
         }
 
         transform.invert.applyOnCanvas(canvas)
@@ -372,6 +371,12 @@ open class FormulaBox {
         const val DEFAULT_LINE_WIDTH = 4f
         const val SELECTION_CARET_RADIUS = 14f
         const val CARET_OVERFLOW_RADIUS = 18f
-        const val MAGNIFIER_RADIUS = 18f
+        const val MAGNIFIER_RADIUS = DEFAULT_TEXT_SIZE
+        val magnifierPath = Path().apply {
+            val rx = DEFAULT_TEXT_WIDTH * 3
+            val ry = DEFAULT_TEXT_SIZE * 0.75f
+            val r = RectF(-rx, -ry, rx, ry)
+            addRoundRect(r, MAGNIFIER_RADIUS, MAGNIFIER_RADIUS, Path.Direction.CCW)
+        }
     }
 }

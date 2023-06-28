@@ -7,7 +7,7 @@ import fr.benichn.math3.graphics.types.Side
 import fr.benichn.math3.graphics.boxes.types.SidedBox
 import fr.benichn.math3.graphics.caret.CaretPosition
 
-class InputFormulaBox(vararg boxes: FormulaBox) : SequenceFormulaBox(*boxes) {
+class InputFormulaBox(vararg boxes: FormulaBox) : SeqFormulaBox(*boxes) {
     public override fun addBox(i: Int, b: FormulaBox) = super.addBox(i, b)
     public override fun addBox(b: FormulaBox) = super.addBox(b)
     public override fun removeBoxAt(i: Int) = super.removeBoxAt(i)

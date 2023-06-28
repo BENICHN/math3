@@ -19,9 +19,9 @@ class BoxProperty<S: FormulaBox, T>(private val source: S, private val defaultVa
             source.updateGraphics()
         }
     }
-    private val connections = mutableListOf<CallbackLink<*, *>>()
+    private val connections = mutableListOf<VCCLink<*, *>>()
     fun <A, B> connectValue(listener: VCL<A, B>, mapper: (A, B) -> T) {
-        connections.add(CallbackLink(listener) { s, e ->
+        connections.add(VCCLink(listener) { s, e ->
             set(mapper(s, e.new))
         })
     }
@@ -30,7 +30,7 @@ class BoxProperty<S: FormulaBox, T>(private val source: S, private val defaultVa
         set(mapper(listener.source, currentValue))
     }
     fun <A, B> connect(listener: VCL<A, B>, mapper: (A, ValueChangedEvent<B>) -> T) {
-        connections.add(CallbackLink(listener) { s, e ->
+        connections.add(VCCLink(listener) { s, e ->
             set(mapper(s, e))
         })
     }

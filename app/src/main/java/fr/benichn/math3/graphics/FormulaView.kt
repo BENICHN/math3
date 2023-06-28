@@ -1,31 +1,58 @@
 package fr.benichn.math3.graphics
 
 import android.content.Context
-import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.PointF
 import android.util.AttributeSet
-import android.util.Log
 import android.view.GestureDetector.OnGestureListener
 import android.view.MotionEvent
 import android.view.View
-import android.widget.FrameLayout
+import androidx.core.graphics.plus
 import androidx.core.view.GestureDetectorCompat
 import fr.benichn.math3.graphics.boxes.AlignFormulaBox
 import fr.benichn.math3.graphics.boxes.FormulaBox
 import fr.benichn.math3.graphics.boxes.InputFormulaBox
+import fr.benichn.math3.graphics.boxes.TextFormulaBox
 import fr.benichn.math3.graphics.boxes.types.DeletionResult
 import fr.benichn.math3.graphics.boxes.types.InitialBoxes
 import fr.benichn.math3.graphics.caret.BoxCaret
 import fr.benichn.math3.graphics.caret.CaretPosition
+import fr.benichn.math3.graphics.caret.ContextMenu
+import fr.benichn.math3.graphics.caret.ContextMenuEntry
 import fr.benichn.math3.graphics.types.RectPoint
+import fr.benichn.math3.types.callback.CallbackLink
 import kotlin.math.pow
 
 class FormulaView(context: Context, attrs: AttributeSet? = null) : View(context, attrs) {
     private var box = AlignFormulaBox(InputFormulaBox(), RectPoint.BOTTOM_CENTER)
     private var caret: BoxCaret
+
+    private data class ContextMenuWithOrigin(
+        val contextMenu: ContextMenu,
+        val origin: PointF
+    ) {
+        val bounds
+            get() = contextMenu.box.bounds + origin
+    }
+    private var contextMenuConnection: CallbackLink<FormulaBox, Unit>? = null
+    private var contextMenuWithOrigin: ContextMenuWithOrigin? = null
+        set(value) {
+            contextMenuConnection?.disconnect()
+            contextMenuConnection = null
+            field = value
+            value?.let {
+                contextMenuConnection = CallbackLink(it.contextMenu.onPictureChanged) { _, _ ->
+                    invalidate()
+                }
+            }
+            invalidate()
+        }
+    private val contextMenu
+        get() = contextMenuWithOrigin?.contextMenu
+    private var currentContextMenuEntry: ContextMenuEntry? = null
+
     private val offset
         get() = PointF(width * 0.5f, height - 48f)
 
@@ -63,20 +90,29 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : View(context,
             val s = findBox(e).toSingle()
             val p = caret.position
             when {
-                p == s -> {
+                p == s -> { // => p is Single
                     caretPosOnDown = s
                 }
                 p is CaretPosition.Selection && p.isMutable -> {
                     val pos = getRootPos(e)
-                    p.bounds.apply {
+                    contextMenuWithOrigin?.bounds?.let {
+                        if (it.contains(pos.x, pos.y)) {
+                            val entry = contextMenu!!.findEntry(pos)
+                            currentContextMenuEntry = entry
+                        }
+                    } ?: p.bounds.apply {
                         if (Utils.squareDistFromLineToPoint(right, top, bottom, pos.x, pos.y) < MAX_TOUCH_DIST_SQ) {
+                            contextMenuWithOrigin = null
                             fixedXOnDown = left
                             selectionModificationStart = p.leftSingle
                         } else if (Utils.squareDistFromLineToPoint(left, top, bottom, pos.x, pos.y) < MAX_TOUCH_DIST_SQ) {
+                            contextMenuWithOrigin = null
                             fixedXOnDown = right
                             selectionModificationStart = p.rightSingle
                         } else if (contains(pos.x, pos.y)) {
-
+                        }
+                        else {
+                            contextMenuWithOrigin = null
                         }
                     }
                 }
@@ -89,8 +125,17 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : View(context,
         }
 
         override fun onSingleTapUp(e: MotionEvent): Boolean {
-            val b = findBox(e)
-            caret.position = b.toCaretPosition()
+            val p = caret.position
+            val pos = getRootPos(e)
+            if (p is CaretPosition.Selection && p.bounds.contains(pos.x, pos.y)) {
+                contextMenuWithOrigin = ContextMenuWithOrigin(
+                    selectionContextMenu,
+                    RectPoint.TOP_CENTER.get(p.bounds)
+                )
+            } else {
+                val b = findBox(e)
+                caret.position = b.toCaretPosition()
+            }
             return true
         }
 
@@ -125,6 +170,7 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : View(context,
                 }
                 when (p.box) {
                     is InputFormulaBox -> CaretPosition.Single(p.box, p.indexRange.start)
+                    else -> null
                 }
             }
         }
@@ -194,6 +240,10 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : View(context,
         canvas.drawColor(backgroundPaint.color)
         offset.apply { canvas.translate(x, y) }
         box.drawOnCanvas(canvas)
+        contextMenuWithOrigin?.let {
+            it.origin.apply { canvas.translate(x, y) }
+            it.contextMenu.box.drawOnCanvas(canvas)
+        }
     }
 
     override fun onTouchEvent(e: MotionEvent): Boolean {
@@ -283,6 +333,15 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : View(context,
                 }
             }
             true
+        } ?: currentContextMenuEntry?.let {
+            when (e.action) {
+                MotionEvent.ACTION_UP -> {
+                    if (it == contextMenu!!.findEntry(getRootPos(e))) {
+                        it.action(caret.position)
+                    }
+                    contextMenuWithOrigin = null
+                }
+            }
         }
         gestureDetector.onTouchEvent(e)
         return true
@@ -295,7 +354,7 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : View(context,
             color = Color.RED }
         val backgroundPaint = Paint().apply {
             style = Paint.Style.FILL
-            color = Color.BLACK
+            color = Color.DKGRAY
         }
         val magnifierBorder = Paint().apply {
             style = Paint.Style.STROKE
@@ -304,5 +363,11 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : View(context,
         }
 
         val MAX_TOUCH_DIST_SQ = 18f.pow(2)
+
+        val selectionContextMenu = ContextMenu(
+            ContextMenuEntry.create<CaretPosition.Selection>(TextFormulaBox("copy")) {  },
+            ContextMenuEntry.create<CaretPosition.Selection>(TextFormulaBox("cut")) {  },
+            ContextMenuEntry.create<CaretPosition.Selection>(TextFormulaBox("paste")) {  }
+        )
     }
 }

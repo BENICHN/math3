@@ -5,7 +5,7 @@ import android.graphics.RectF
 import fr.benichn.math3.graphics.Utils
 import fr.benichn.math3.graphics.boxes.FormulaBox
 import fr.benichn.math3.graphics.boxes.InputFormulaBox
-import fr.benichn.math3.graphics.boxes.SequenceFormulaBox
+import fr.benichn.math3.graphics.boxes.SeqFormulaBox
 import fr.benichn.math3.graphics.boxes.types.Range
 import fr.benichn.math3.graphics.boxes.types.SidedBox
 import fr.benichn.math3.graphics.types.Side
@@ -46,7 +46,7 @@ sealed class CaretPosition {
             }
         }
     }
-    data class Selection(val box: SequenceFormulaBox, val indexRange: Range) : CaretPosition() {
+    data class Selection(val box: SeqFormulaBox, val indexRange: Range) : CaretPosition() {
         val selectedBoxes
             get() = box.ch.subList(indexRange.start, indexRange.end).toList()
 
@@ -87,7 +87,7 @@ sealed class CaretPosition {
                     }
 
                 return commonParent?.let { (p1, p2) ->
-                    val box = p1.box as SequenceFormulaBox
+                    val box = p1.box as SeqFormulaBox
                     val r1 = retrieveRange(s1, p1)
                     val r2 = retrieveRange(s2, p2)
                     val r = Range.sum(r1, r2)
@@ -96,11 +96,11 @@ sealed class CaretPosition {
             }
 
             private fun getBoxSequences(b: FormulaBox) =
-                b.parentsAndThis.filter { it.box is SequenceFormulaBox }
+                b.parentsAndThis.filter { it.box is SeqFormulaBox }
 
             private fun getBoxParentSequenceWithIndex(b: FormulaBox): FormulaBox.ParentWithIndex? =
                 b.parentWithIndex?.let {
-                    if (it.box is SequenceFormulaBox) {
+                    if (it.box is SeqFormulaBox) {
                         it
                     }
                     else {
@@ -109,7 +109,7 @@ sealed class CaretPosition {
                 }
 
             fun fromBox(b: FormulaBox): Selection? =
-                getBoxParentSequenceWithIndex(b)?.let { (p, i) -> Selection(p as SequenceFormulaBox, Range(i, i+1)) }
+                getBoxParentSequenceWithIndex(b)?.let { (p, i) -> Selection(p as SeqFormulaBox, Range(i, i+1)) }
 
             fun fromSingles(p1: Single, p2: Single): Selection? {
                 val s1 = fromSingle(p1)

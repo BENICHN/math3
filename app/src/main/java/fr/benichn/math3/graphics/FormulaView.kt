@@ -118,7 +118,7 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : View(context,
         box.drawOnCanvas(canvas)
     }
 
-    override fun onTouchEvent(e: MotionEvent): Boolean =
+    override fun onTouchEvent(e: MotionEvent): Boolean {
         selectionStartSingle?.let { sp ->
             when (e.action) {
                 MotionEvent.ACTION_MOVE -> {
@@ -128,11 +128,13 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : View(context,
                     caret.position = findBox(e).toSingle()?.let { p -> CaretPosition.Selection.fromSingles(sp, p) } ?: CaretPosition.None
                     caret.absolutePosition = getRootPos(e)
                 }
+
                 MotionEvent.ACTION_UP -> {
                     selectionStartSingle = null
                     caret.absolutePosition = null
                     caret.fixedX = null
                 }
+
                 else -> {
                 }
             }
@@ -141,15 +143,19 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : View(context,
             when (e.action) {
                 MotionEvent.ACTION_MOVE -> {
                     val p = findBox(e).toCaretPosition()
-                    if (p != caretPosOnDown) isMovingCaret = true
+                    if (p != cp) {
+                        isMovingCaret = true
+                    }
                     caret.position = p
                     caret.absolutePosition = getRootPos(e)
                 }
+
                 MotionEvent.ACTION_UP -> {
                     isMovingCaret = false
                     caretPosOnDown = null
                     caret.absolutePosition = null
                 }
+
                 else -> {
                 }
             }
@@ -164,6 +170,7 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : View(context,
                     caret.position = findBox(e).toSingle()?.let { p -> CaretPosition.Selection.fromSingles(selectionModificationStart!!, p) } ?: CaretPosition.None
                     caret.absolutePosition = getRootPos(e)
                 }
+
                 MotionEvent.ACTION_UP -> {
                     isMovingCaret = false
                     fixedXOnDown = null
@@ -171,11 +178,15 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : View(context,
                     caret.absolutePosition = null
                     caret.fixedX = null
                 }
+
                 else -> {
                 }
             }
             true
-        } ?: gestureDetector.onTouchEvent(e)
+        }
+        gestureDetector.onTouchEvent(e)
+        return true
+    }
 
     companion object {
         val red = Paint().apply {

@@ -11,20 +11,6 @@ import fr.benichn.math3.graphics.boxes.types.Padding
 import fr.benichn.math3.graphics.types.RectPoint
 import fr.benichn.math3.types.ImmutableList
 
-data class ContextMenuEntry(
-    val box: FormulaBox,
-    val action: (Any) -> Unit
-) {
-    companion object {
-        inline fun <reified T> create(box: FormulaBox, crossinline action: (T) -> Unit) =
-            ContextMenuEntry(box) {
-                if (it is T) {
-                    action(it)
-                }
-            }
-    }
-}
-
 class ContextMenu(vararg entries: ContextMenuEntry) {
     private val entries = mutableListOf<ContextMenuEntry>()
     val ent = ImmutableList(this.entries)

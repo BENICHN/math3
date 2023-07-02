@@ -6,6 +6,7 @@ import android.graphics.Path
 import android.graphics.RectF
 import fr.benichn.math3.graphics.boxes.types.BoxProperty
 import fr.benichn.math3.graphics.boxes.types.FormulaGraphics
+import fr.benichn.math3.graphics.boxes.types.PathPainting
 import fr.benichn.math3.graphics.boxes.types.RangeF
 
 class BracketFormulaBox(range: RangeF = RangeF(-DEFAULT_TEXT_RADIUS,DEFAULT_TEXT_RADIUS)) : FormulaBox() {
@@ -13,9 +14,6 @@ class BracketFormulaBox(range: RangeF = RangeF(-DEFAULT_TEXT_RADIUS,DEFAULT_TEXT
     var range by dlgRange
 
     init {
-        paint.color = Color.WHITE
-        paint.strokeWidth = DEFAULT_LINE_WIDTH
-        paint.style = Paint.Style.STROKE
         updateGraphics()
     }
 
@@ -32,7 +30,7 @@ class BracketFormulaBox(range: RangeF = RangeF(-DEFAULT_TEXT_RADIUS,DEFAULT_TEXT
         val bounds = RectF(-0.25f * DEFAULT_TEXT_RADIUS, range.start, 0.5f * DEFAULT_TEXT_RADIUS, range.end)
         return FormulaGraphics(
             path,
-            paint,
+            PathPainting.Stroke(DEFAULT_LINE_WIDTH),
             bounds
         )
     }

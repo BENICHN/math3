@@ -1,9 +1,13 @@
 package fr.benichn.math3.graphics.caret
 
+import android.graphics.Color
 import android.graphics.PointF
-import fr.benichn.math3.graphics.boxes.AlignFormulaBox
 import fr.benichn.math3.graphics.boxes.FormulaBox
 import fr.benichn.math3.graphics.boxes.InputFormulaBox
+import fr.benichn.math3.graphics.boxes.TransformerFormulaBox
+import fr.benichn.math3.graphics.boxes.types.BoundsTransformer
+import fr.benichn.math3.graphics.boxes.types.BoxTransform
+import fr.benichn.math3.graphics.boxes.types.Padding
 import fr.benichn.math3.graphics.types.RectPoint
 import fr.benichn.math3.types.ImmutableList
 
@@ -25,8 +29,10 @@ class ContextMenu(vararg entries: ContextMenuEntry) {
     private val entries = mutableListOf<ContextMenuEntry>()
     val ent = ImmutableList(this.entries)
 
-    private val input = InputFormulaBox()
-    val box = AlignFormulaBox(input, RectPoint.BOTTOM_CENTER)
+    private val input = InputFormulaBox().also { it.background = Color.WHITE }
+    val box = TransformerFormulaBox(input,
+        BoundsTransformer.Constant(BoxTransform.scale(0.5f)) *
+                BoundsTransformer.Align(RectPoint.BOTTOM_CENTER))
     val onPictureChanged
         get() = box.onPictureChanged
 
@@ -39,6 +45,8 @@ class ContextMenu(vararg entries: ContextMenuEntry) {
     fun addEntry(entry: ContextMenuEntry) = addEntry(entries.size, entry)
     fun addEntry(i: Int, entry: ContextMenuEntry) {
         entries.add(i, entry)
+        entry.box.padding = Padding(FormulaBox.DEFAULT_TEXT_RADIUS)
+        entry.box.foreground = Color.BLACK
         input.addBox(i, entry.box)
     }
 

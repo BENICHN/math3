@@ -11,10 +11,11 @@ import android.view.MotionEvent
 import android.view.View
 import androidx.core.graphics.plus
 import androidx.core.view.GestureDetectorCompat
-import fr.benichn.math3.graphics.boxes.AlignFormulaBox
+import fr.benichn.math3.graphics.boxes.TransformerFormulaBox
 import fr.benichn.math3.graphics.boxes.FormulaBox
 import fr.benichn.math3.graphics.boxes.InputFormulaBox
 import fr.benichn.math3.graphics.boxes.TextFormulaBox
+import fr.benichn.math3.graphics.boxes.types.BoundsTransformer
 import fr.benichn.math3.graphics.boxes.types.DeletionResult
 import fr.benichn.math3.graphics.boxes.types.InitialBoxes
 import fr.benichn.math3.graphics.caret.BoxCaret
@@ -26,7 +27,7 @@ import fr.benichn.math3.types.callback.CallbackLink
 import kotlin.math.pow
 
 class FormulaView(context: Context, attrs: AttributeSet? = null) : View(context, attrs) {
-    private var box = AlignFormulaBox(InputFormulaBox(), RectPoint.BOTTOM_CENTER)
+    private var box = TransformerFormulaBox(InputFormulaBox(), BoundsTransformer.Align(RectPoint.BOTTOM_CENTER))
     private var caret: BoxCaret
 
     private data class ContextMenuWithOrigin(

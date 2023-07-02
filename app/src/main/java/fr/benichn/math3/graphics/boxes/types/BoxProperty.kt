@@ -48,7 +48,7 @@ class BoxProperty<S: FormulaBox, T>(private val source: S, private val defaultVa
         }
     }
     val isConnected
-        get() = connections.isEmpty()
+        get() = connections.isNotEmpty()
     override fun getValue(thisRef: S, property: KProperty<*>): T = get()
     override fun setValue(thisRef: S, property: KProperty<*>, value: T) {
         if (!isConnected) {

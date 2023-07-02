@@ -1,10 +1,12 @@
 package fr.benichn.math3.graphics.boxes
 
 import android.graphics.RectF
+import fr.benichn.math3.graphics.boxes.types.BoundsTransformer
 import fr.benichn.math3.graphics.boxes.types.BoxTransform
 import fr.benichn.math3.graphics.boxes.types.DeletionResult
 import fr.benichn.math3.graphics.boxes.types.FormulaGraphics
 import fr.benichn.math3.graphics.boxes.types.InitialBoxes
+import fr.benichn.math3.graphics.boxes.types.Padding
 import fr.benichn.math3.graphics.types.Orientation
 import fr.benichn.math3.graphics.boxes.types.RangeF
 import fr.benichn.math3.graphics.types.RectPoint
@@ -13,8 +15,8 @@ import kotlin.math.max
 
 class FractionFormulaBox(numChildren: Array<FormulaBox> = emptyArray(), denChildren: Array<FormulaBox> = emptyArray()) : FormulaBox() {
     private val bar = LineFormulaBox(Orientation.H)
-    private val num = AlignFormulaBox(InputFormulaBox(*numChildren), RectPoint.BOTTOM_CENTER)
-    private val den = AlignFormulaBox(InputFormulaBox(*denChildren), RectPoint.TOP_CENTER)
+    private val num = TransformerFormulaBox(InputFormulaBox(*numChildren), BoundsTransformer.Align(RectPoint.BOTTOM_CENTER))
+    private val den = TransformerFormulaBox(InputFormulaBox(*denChildren), BoundsTransformer.Align(RectPoint.TOP_CENTER))
     val numerator
         get() = num.child as InputFormulaBox
     val denominator
@@ -85,8 +87,8 @@ class FractionFormulaBox(numChildren: Array<FormulaBox> = emptyArray(), denChild
         val gr = super.generateGraphics()
         return FormulaGraphics(
             gr.path,
-            gr.paint,
-            RectF(gr.bounds.left - DEFAULT_TEXT_WIDTH * 0.25f, gr.bounds.top, gr.bounds.right + DEFAULT_TEXT_WIDTH * 0.25f, gr.bounds.bottom)
+            gr.painting,
+            Padding(DEFAULT_TEXT_WIDTH * 0.25f, 0f).applyOnRect(gr.bounds)
         )
     }
 

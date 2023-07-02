@@ -6,6 +6,7 @@ import android.graphics.Path
 import android.graphics.RectF
 import fr.benichn.math3.graphics.boxes.types.BoxProperty
 import fr.benichn.math3.graphics.boxes.types.FormulaGraphics
+import fr.benichn.math3.graphics.boxes.types.PathPainting
 import fr.benichn.math3.graphics.types.Orientation
 import fr.benichn.math3.graphics.boxes.types.RangeF
 
@@ -19,9 +20,6 @@ class LineFormulaBox(orientation: Orientation = Orientation.V,
     var range by dlgRange
 
     init {
-        paint.color = Color.WHITE
-        paint.strokeWidth = DEFAULT_LINE_WIDTH
-        paint.style = Paint.Style.STROKE
         updateGraphics()
     }
 
@@ -32,7 +30,7 @@ class LineFormulaBox(orientation: Orientation = Orientation.V,
                     moveTo(range.start, 0f)
                     lineTo(range.end, 0f)
                 },
-                paint,
+                PathPainting.Stroke(DEFAULT_LINE_WIDTH),
                 RectF(range.start, 0f, range.end, 0f)
             )
         }
@@ -43,7 +41,7 @@ class LineFormulaBox(orientation: Orientation = Orientation.V,
                     moveTo(0f, range.start)
                     lineTo(0f, range.end)
                 },
-                paint,
+                PathPainting.Stroke(DEFAULT_LINE_WIDTH),
                 RectF(0f, range.start, 0f, range.end)
             )
         }

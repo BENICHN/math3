@@ -9,9 +9,6 @@ import fr.benichn.math3.graphics.boxes.types.FormulaGraphics
 
 sealed class SeqFormulaBox(vararg boxes: FormulaBox) : FormulaBox() {
     init {
-        paint.color = Color.WHITE
-        paint.strokeWidth = DEFAULT_LINE_WIDTH
-        paint.style = Paint.Style.STROKE
         updateGraphics()
         for (b in boxes) {
             addBox(b)
@@ -45,33 +42,6 @@ sealed class SeqFormulaBox(vararg boxes: FormulaBox) : FormulaBox() {
             modifyChildTransform(j) { it * BoxTransform.xOffset(l) }
         }
     }
-
-    override fun generateGraphics(): FormulaGraphics =
-        if (ch.isEmpty()) {
-            val rh = DEFAULT_TEXT_RADIUS
-            val w = DEFAULT_TEXT_WIDTH
-            val path = Path()
-            path.moveTo(0f, rh*0.5f)
-            path.lineTo(0f, rh)
-            path.lineTo(w*0.25f, rh)
-            path.moveTo(0f, -rh*0.5f)
-            path.lineTo(0f, -rh)
-            path.lineTo(w*0.25f, -rh)
-            path.moveTo(w, rh*0.5f)
-            path.lineTo(w, rh)
-            path.lineTo(w*0.75f, rh)
-            path.moveTo(w, -rh*0.5f)
-            path.lineTo(w, -rh)
-            path.lineTo(w*0.75f, -rh)
-            val bounds = RectF(0f, -rh, w, rh)
-            FormulaGraphics(
-                path,
-                paint,
-                bounds
-            )
-        } else {
-            super.generateGraphics()
-        }
 }
 
 class SequenceFormulaBox(vararg boxes: FormulaBox) : SeqFormulaBox(*boxes)

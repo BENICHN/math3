@@ -1,7 +1,11 @@
 package fr.benichn.math3.graphics.boxes
 
+import android.graphics.Path
+import android.graphics.RectF
 import fr.benichn.math3.graphics.boxes.types.DeletionResult
 import fr.benichn.math3.graphics.boxes.types.FinalBoxes
+import fr.benichn.math3.graphics.boxes.types.FormulaGraphics
+import fr.benichn.math3.graphics.boxes.types.PathPainting
 import fr.benichn.math3.graphics.boxes.types.Range
 import fr.benichn.math3.graphics.types.Side
 import fr.benichn.math3.graphics.boxes.types.SidedBox
@@ -45,4 +49,31 @@ class InputFormulaBox(vararg boxes: FormulaBox) : SeqFormulaBox(*boxes) {
                 if (fb.selectBoxesAfter) i + fb.boxesBefore.size + fb.boxesAfter.size else i + fb.boxesBefore.size))
         }
     }
+
+    override fun generateGraphics(): FormulaGraphics =
+        if (ch.isEmpty()) {
+            val rh = DEFAULT_TEXT_RADIUS
+            val w = DEFAULT_TEXT_WIDTH
+            val path = Path()
+            path.moveTo(0f, rh*0.5f)
+            path.lineTo(0f, rh)
+            path.lineTo(w*0.25f, rh)
+            path.moveTo(0f, -rh*0.5f)
+            path.lineTo(0f, -rh)
+            path.lineTo(w*0.25f, -rh)
+            path.moveTo(w, rh*0.5f)
+            path.lineTo(w, rh)
+            path.lineTo(w*0.75f, rh)
+            path.moveTo(w, -rh*0.5f)
+            path.lineTo(w, -rh)
+            path.lineTo(w*0.75f, -rh)
+            val bounds = RectF(0f, -rh, w, rh)
+            FormulaGraphics(
+                path,
+                PathPainting.Stroke(DEFAULT_LINE_WIDTH),
+                bounds
+            )
+        } else {
+            super.generateGraphics()
+        }
 }

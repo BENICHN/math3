@@ -1,12 +1,10 @@
 package fr.benichn.math3.graphics.boxes
 
-import androidx.core.graphics.unaryMinus
+import fr.benichn.math3.graphics.boxes.types.BoundsTransformer
 import fr.benichn.math3.graphics.boxes.types.BoxProperty
-import fr.benichn.math3.graphics.boxes.types.BoxTransform
-import fr.benichn.math3.graphics.types.RectPoint
 import fr.benichn.math3.graphics.boxes.types.SidedBox
 
-class AlignFormulaBox(child: FormulaBox = FormulaBox(), rectPoint: RectPoint = RectPoint.NAN) : FormulaBox() {
+class TransformerFormulaBox(child: FormulaBox = FormulaBox(), transformer: BoundsTransformer = BoundsTransformer.Id) : FormulaBox() {
     val dlgChild = BoxProperty(this, child).apply {
         onChanged += { s, e ->
             removeBox(e.old)
@@ -15,12 +13,12 @@ class AlignFormulaBox(child: FormulaBox = FormulaBox(), rectPoint: RectPoint = R
     }
     var child by dlgChild
 
-    val dlgRectPoint = BoxProperty(this, rectPoint).apply {
+    val dlgTransformer = BoxProperty(this, transformer).apply {
         onChanged += { _, _ ->
-            alignChild()
+            transformChild()
         }
     }
-    var rectPoint: RectPoint by dlgRectPoint
+    var transformer by dlgTransformer
 
     init {
         addBox(child)
@@ -34,17 +32,17 @@ class AlignFormulaBox(child: FormulaBox = FormulaBox(), rectPoint: RectPoint = R
     override fun addBox(i: Int, b: FormulaBox) {
         super.addBox(i, b)
         connect(b.onBoundsChanged) { s, e ->
-            alignChild()
+            transformChild()
         }
         listenChildBoundsChange(i)
-        alignChild()
+        transformChild()
         updateGraphics()
     }
 
-    private fun alignChild() {
+    private fun transformChild() {
         setChildTransform(
             0,
-            BoxTransform(-(rectPoint.get(child.bounds)))
+            transformer(child.bounds)
         )
     }
 }

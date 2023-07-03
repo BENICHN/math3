@@ -125,6 +125,7 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : View(context,
 
         override fun onDown() {
             downSingle = box.findBox(lastPos).toSingle()
+            caret.absolutePosition = lastPos
             downSingle?.getAbsPosition()?.let { caret.fixedX = it.x }
         }
 
@@ -157,6 +158,7 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : View(context,
                 Side.L -> p.rightSingle
                 Side.R -> p.leftSingle
             }
+            caret.absolutePosition = lastPos
             fixedSingle?.getAbsPosition()?.let { caret.fixedX = it.x }
         }
 
@@ -199,6 +201,39 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : View(context,
             contextMenu = getSelectionContextMenu().apply {
                 origin = RectPoint.TOP_CENTER.get((caret.position as CaretPosition.Selection).bounds)
             }
+        }
+
+        override fun beforeFinish(replacement: TouchAction?) {
+        }
+
+    }
+
+    private inner class ContextMenuAction : FormulaViewAction() {
+        var downEntry: ContextMenuEntry? = null
+
+        override fun onDown() {
+            downEntry = contextMenu!!.findEntry(lastPos)
+            downEntry?.let {
+                it.box.background = Color.LTGRAY
+            }
+        }
+
+        override fun onLongDown() {
+        }
+
+        override fun onMove() {
+            val entry = contextMenu!!.findEntry(lastPos)
+            downEntry?.let {
+                it.box.background = if (it == entry) Color.LTGRAY else Color.WHITE
+            }
+        }
+
+        override fun onUp() {
+            val entry = contextMenu!!.findEntry(lastPos)
+            if (downEntry == entry) {
+                entry?.action?.invoke(caret.position)
+            }
+            contextMenu = null
         }
 
         override fun beforeFinish(replacement: TouchAction?) {
@@ -304,32 +339,44 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : View(context,
 
     override fun onTouchEvent(e: MotionEvent): Boolean {
         if (touchAction == null) {
-            when (e.actionMasked) {
-                MotionEvent.ACTION_DOWN -> {
-                    val pos = getRootPos(e)
-                    touchAction = when(val p = caret.position) {
-                        is CaretPosition.Single -> {
-                            when (p.getElement(pos)) {
-                                CaretPosition.Single.Element.BAR ->
-                                    MoveCaretAction()
-                                CaretPosition.Single.Element.NONE ->
-                                    PlaceCaretAction()
+            val pos = getRootPos(e)
+            contextMenu?.also {
+                when (it.findElement(pos)) {
+                    ContextMenu.Element.INTERIOR -> {
+                        touchAction = ContextMenuAction()
+                    }
+                    ContextMenu.Element.NONE -> {
+                        contextMenu = null
+                    }
+                }
+            }
+            if (touchAction == null) {
+                when (e.actionMasked) {
+                    MotionEvent.ACTION_DOWN -> {
+                        touchAction = when(val p = caret.position) {
+                            is CaretPosition.Single -> {
+                                when (p.getElement(pos)) {
+                                    CaretPosition.Single.Element.BAR ->
+                                        MoveCaretAction()
+                                    CaretPosition.Single.Element.NONE ->
+                                        PlaceCaretAction()
+                                }
                             }
-                        }
-                        is CaretPosition.None -> {
-                            PlaceCaretAction()
-                        }
-                        is CaretPosition.Selection -> {
-                            when (p.getElement(pos)) {
-                                CaretPosition.Selection.Element.LEFT_BAR -> ModifySelectionAction(Side.L)
-                                CaretPosition.Selection.Element.RIGHT_BAR -> ModifySelectionAction(Side.R)
-                                CaretPosition.Selection.Element.INTERIOR -> SelectionInteriorAction()
-                                CaretPosition.Selection.Element.NONE -> PlaceCaretAction()
+                            is CaretPosition.None -> {
+                                PlaceCaretAction()
+                            }
+                            is CaretPosition.Selection -> {
+                                when (p.getElement(pos)) {
+                                    CaretPosition.Selection.Element.LEFT_BAR -> ModifySelectionAction(Side.L)
+                                    CaretPosition.Selection.Element.RIGHT_BAR -> ModifySelectionAction(Side.R)
+                                    CaretPosition.Selection.Element.INTERIOR -> SelectionInteriorAction()
+                                    CaretPosition.Selection.Element.NONE -> PlaceCaretAction()
+                                }
                             }
                         }
                     }
+                    else -> { }
                 }
-                else -> { }
             }
         }
         runTouchAction(e)

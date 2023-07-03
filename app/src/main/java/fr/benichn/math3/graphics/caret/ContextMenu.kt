@@ -49,6 +49,15 @@ class ContextMenu(vararg entries: ContextMenuEntry) {
         input.removeBoxAt(i)
     }
 
+    fun findElement(p: PointF) =
+        if (box.bounds.contains(p.x, p.y)) Element.INTERIOR
+        else Element.NONE
+
+    enum class Element {
+        INTERIOR,
+        NONE
+    }
+
     fun findEntry(p: PointF) = findEntry(p.x, p.y)
     fun findEntry(x: Float, y: Float): ContextMenuEntry? =
         if (box.bounds.contains(x, y)) {

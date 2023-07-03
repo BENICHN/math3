@@ -51,8 +51,9 @@ abstract class TouchAction(val getPos: (MotionEvent) -> PointF = { e -> PointF(e
             val pos = getPos(e)
             when (e.actionMasked) {
                 MotionEvent.ACTION_DOWN -> {
-                    assert(!isLaunched)
-                    launch(e)
+                    if (!isLaunched) {
+                        launch(e)
+                    }
                 }
                 MotionEvent.ACTION_MOVE -> {
                     if (isLaunched) {

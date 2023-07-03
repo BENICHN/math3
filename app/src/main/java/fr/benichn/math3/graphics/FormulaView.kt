@@ -183,6 +183,29 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : View(context,
 
     }
 
+    private inner class SelectionInteriorAction : FormulaViewAction() {
+        override fun onDown() {
+        }
+
+        override fun onLongDown() {
+            replace(CreateSelectionAction().also { it.launch(downPosition, downIndex) })
+        }
+
+        override fun onMove() {
+            replace(MoveViewAction().also { it.launch(downPosition, downIndex) })
+        }
+
+        override fun onUp() {
+            contextMenu = getSelectionContextMenu().apply {
+                origin = RectPoint.TOP_CENTER.get((caret.position as CaretPosition.Selection).bounds)
+            }
+        }
+
+        override fun beforeFinish(replacement: TouchAction?) {
+        }
+
+    }
+
     init {
         setWillNotDraw(false)
         box.onPictureChanged += { _, _ ->
@@ -300,7 +323,7 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : View(context,
                             when (p.getElement(pos)) {
                                 CaretPosition.Selection.Element.LEFT_BAR -> ModifySelectionAction(Side.L)
                                 CaretPosition.Selection.Element.RIGHT_BAR -> ModifySelectionAction(Side.R)
-                                CaretPosition.Selection.Element.INTERIOR -> MoveViewAction()
+                                CaretPosition.Selection.Element.INTERIOR -> SelectionInteriorAction()
                                 CaretPosition.Selection.Element.NONE -> PlaceCaretAction()
                             }
                         }
@@ -309,10 +332,17 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : View(context,
                 else -> { }
             }
         }
+        runTouchAction(e)
+        return true
+    }
+
+    private fun runTouchAction(e: MotionEvent) {
         touchAction?.also {
             it.onTouchEvent(e)
+            if (touchAction != it) { // en cas de remplacement
+                runTouchAction(e)
+            }
         }
-        return true
     }
 
     companion object {
@@ -330,7 +360,7 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : View(context,
             color = Color.LTGRAY
         }
 
-        fun selectionContextMenu() = ContextMenu(
+        fun getSelectionContextMenu() = ContextMenu(
             ContextMenuEntry.create<CaretPosition.Selection>(TextFormulaBox("copy")) {  },
             ContextMenuEntry.create<CaretPosition.Selection>(TextFormulaBox("cut")) {  },
             ContextMenuEntry.create<CaretPosition.Selection>(TextFormulaBox("paste")) {  }

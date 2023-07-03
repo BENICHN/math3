@@ -6,6 +6,7 @@ import android.graphics.Paint
 import android.graphics.PointF
 import fr.benichn.math3.types.callback.*
 import fr.benichn.math3.graphics.boxes.FormulaBox
+import kotlin.math.pow
 
 class BoxCaret(/* val root: FormulaBox */) {
     private val dlgPosition = ObservableProperty<BoxCaret, CaretPosition>(this, CaretPosition.None) { _, _, -> notifyPictureChanged() }
@@ -20,6 +21,74 @@ class BoxCaret(/* val root: FormulaBox */) {
 
     private val notifyPictureChanged = Callback<BoxCaret, Unit>(this)
     val onPictureChanged = notifyPictureChanged.Listener()
+
+    fun preDrawOnCanvas(canvas: Canvas) {
+        when (val p = position) {
+            is CaretPosition.Selection -> {
+                canvas.drawRect(p.bounds, selectionPaint)
+            }
+            else -> {}
+        }
+    }
+
+    fun postDrawOnCanvas(canvas: Canvas) {
+        val p = position
+
+        fun drawBar(pos: PointF, radius: Float, transparent: Boolean) {
+            canvas.drawLine(
+                pos.x,
+                pos.y-radius,
+                pos.x,
+                pos.y+radius,
+                if (transparent) caretPaintTrans else caretPaint
+            )
+        }
+
+        when (p) {
+            is CaretPosition.None -> {
+            }
+            is CaretPosition.Single -> {
+                val pos = p.getAbsPosition()
+                drawBar(
+                    pos,
+                    p.radius,
+                    absolutePosition != null
+                )
+            }
+            is CaretPosition.Selection -> {
+                val r = p.bounds
+                fun drawSelectionEnding(x: Float) {
+                    canvas.drawLine(x, r.top, x, r.bottom, caretPaint)
+                    // canvas.drawCircle(x, r.top, SELECTION_CARET_RADIUS, BoxCaret.ballPaint)
+                }
+                fixedX?.also {
+                    val ap = absolutePosition!!
+                    val x = if (ap.x > it) r.left else r.right
+                    drawSelectionEnding(x)
+                } ?: run {
+                    drawSelectionEnding(r.left)
+                    drawSelectionEnding(r.right)
+                }
+            }
+        }
+        absolutePosition?.also { ap ->
+            when (p) {
+                is CaretPosition.Single, is CaretPosition.None -> {
+                    drawBar(
+                        ap,
+                        (p as? CaretPosition.Single)?.radius ?: FormulaBox.DEFAULT_TEXT_RADIUS,
+                        false)
+                }
+                is CaretPosition.Selection -> {
+                    drawBar(
+                        ap,
+                        p.bounds.height() * 0.5f,
+                        false
+                    )
+                }
+            }
+        }
+    }
 
     companion object {
         val ballPaint = Paint().apply {
@@ -40,14 +109,6 @@ class BoxCaret(/* val root: FormulaBox */) {
             style = Paint.Style.FILL
             color = Color.rgb(100, 100, 0) }
 
-        fun drawCaretAtPos(canvas: Canvas, pos: PointF, trans: Boolean = false, height: Float = FormulaBox.DEFAULT_TEXT_RADIUS) {
-            canvas.drawLine(
-                pos.x,
-                pos.y - height,
-                pos.x,
-                pos.y + height,
-                if (trans) caretPaintTrans else caretPaint
-            )
-        }
+        val MAX_TOUCH_DIST_SQ = 18f.pow(2)
     }
 }

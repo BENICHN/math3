@@ -44,5 +44,7 @@ class Utils {
             val dy = max(0f, y - lineYEnd) + max(0f, lineYStart - y)
             return dx * dx + dy * dy
         }
+
+        fun l2(p: PointF) = p.x * p.x + p.y * p.y
     }
 }

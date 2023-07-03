@@ -8,11 +8,16 @@ import fr.benichn.math3.graphics.boxes.InputFormulaBox
 import fr.benichn.math3.graphics.boxes.SeqFormulaBox
 import fr.benichn.math3.graphics.boxes.types.Range
 import fr.benichn.math3.graphics.boxes.types.SidedBox
+import fr.benichn.math3.graphics.caret.BoxCaret.Companion.MAX_TOUCH_DIST_SQ
 import fr.benichn.math3.graphics.types.Side
 
 sealed class CaretPosition {
     data object None : CaretPosition()
+
     data class Single(val box: InputFormulaBox, val index: Int) : CaretPosition() {
+        val radius
+            get() = box.accTransform.scale * FormulaBox.DEFAULT_TEXT_RADIUS
+
         fun getAbsPosition(): PointF {
             val y = box.accTransform.origin.y
             val x = if (box.ch.isEmpty()) {
@@ -24,6 +29,28 @@ sealed class CaretPosition {
                 box.ch[index].accRealBounds.left
             }
             return PointF(x, y)
+        }
+
+        fun getElement(absPos: PointF): Element {
+            val pos = getAbsPosition()
+            val r = radius
+            return if (Utils.squareDistFromLineToPoint(
+                    pos.x,
+                    pos.y - r,
+                    pos.y + r,
+                    absPos.x,
+                    absPos.y
+                ) < MAX_TOUCH_DIST_SQ
+            ) {
+                Element.BAR
+            } else {
+                Element.NONE
+            }
+        }
+
+        enum class Element {
+            BAR,
+            NONE
         }
 
         companion object {
@@ -46,6 +73,7 @@ sealed class CaretPosition {
             }
         }
     }
+
     data class Selection(val box: SeqFormulaBox, val indexRange: Range) : CaretPosition() {
         val selectedBoxes
             get() = box.ch.subList(indexRange.start, indexRange.end).toList()
@@ -71,6 +99,40 @@ sealed class CaretPosition {
         fun contains(b: FormulaBox): Boolean {
             val i = box.deepIndexOf(b)
             return indexRange.start <= i && i < indexRange.end
+        }
+
+        fun getElement(absPos: PointF) =
+            bounds.apply {
+                if (Utils.squareDistFromLineToPoint(
+                        right,
+                        top,
+                        bottom,
+                        absPos.x,
+                        absPos.y
+                    ) < MAX_TOUCH_DIST_SQ
+                ) {
+                    Element.RIGHT_BAR
+                } else if (Utils.squareDistFromLineToPoint(
+                        left,
+                        top,
+                        bottom,
+                        absPos.x,
+                        absPos.y
+                    ) < MAX_TOUCH_DIST_SQ
+                ) {
+                    Element.LEFT_BAR
+                } else if (contains(absPos.x, absPos.y)) {
+                    Element.INTERIOR
+                } else {
+                    Element.NONE
+                }
+            }
+
+        enum class Element {
+            LEFT_BAR,
+            RIGHT_BAR,
+            INTERIOR,
+            NONE
         }
 
         companion object {

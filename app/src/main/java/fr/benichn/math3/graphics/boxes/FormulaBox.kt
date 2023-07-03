@@ -297,14 +297,8 @@ open class FormulaBox {
         val p = caret?.position
 
         fun draw() {
-            if (isRoot) { // dessin du rectangle de selection
-                when (p) {
-                    is CaretPosition.Selection -> {
-                        canvas.drawRect(p.bounds, BoxCaret.selectionPaint)
-                    }
-
-                    else -> {}
-                }
+            if (isRoot) {
+                caret?.preDrawOnCanvas(canvas)
             }
 
             canvas.drawRect(bounds, backgroundPaint)
@@ -314,60 +308,8 @@ open class FormulaBox {
                 b.drawOnCanvas(canvas)
             }
 
-            if (isRoot) { // dessin des curseurs
-                when (p) {
-                    is CaretPosition.None -> {
-                    }
-
-                    is CaretPosition.Single -> {
-                        val pos = p.getAbsPosition()
-                        BoxCaret.drawCaretAtPos(
-                            canvas,
-                            pos,
-                            caret!!.absolutePosition != null
-                        )
-                    }
-
-                    is CaretPosition.Selection -> {
-                        val r = p.bounds
-                        fun drawSelectionEnding(x: Float) {
-                            canvas.drawLine(x, r.top, x, r.bottom, BoxCaret.caretPaint)
-                            // canvas.drawCircle(x, r.top, SELECTION_CARET_RADIUS, BoxCaret.ballPaint)
-                        }
-
-                        val fx = caret!!.fixedX
-                        if (fx == null) {
-                            drawSelectionEnding(r.left)
-                            drawSelectionEnding(r.right)
-                        } else {
-                            val x = if (abs(r.left - fx) <= abs(r.right - fx)) r.left else r.right
-                            drawSelectionEnding(x)
-                        }
-                    }
-
-                    else -> {}
-                }
-                caret?.absolutePosition?.also { ap -> // dessin de la position absolue des curseurs
-                    when (p) {
-                        is CaretPosition.Single -> {
-                            BoxCaret.drawCaretAtPos(
-                                canvas,
-                                ap,
-                                height = DEFAULT_TEXT_RADIUS /* + CARET_OVERFLOW_RADIUS */
-                            )
-                        }
-
-                        is CaretPosition.Selection -> {
-                            BoxCaret.drawCaretAtPos(
-                                canvas,
-                                ap,
-                                height = p.bounds.height() * 0.5f /* + CARET_OVERFLOW_RADIUS */
-                            )
-                        }
-
-                        else -> {}
-                    }
-                }
+            if (isRoot) {
+                caret?.postDrawOnCanvas(canvas)
             }
         }
         draw()

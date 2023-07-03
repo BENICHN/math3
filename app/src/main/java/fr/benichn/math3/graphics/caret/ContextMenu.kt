@@ -10,15 +10,22 @@ import fr.benichn.math3.graphics.boxes.types.BoxTransform
 import fr.benichn.math3.graphics.boxes.types.Padding
 import fr.benichn.math3.graphics.types.RectPoint
 import fr.benichn.math3.types.ImmutableList
+import fr.benichn.math3.types.callback.ObservableProperty
 
 class ContextMenu(vararg entries: ContextMenuEntry) {
     private val entries = mutableListOf<ContextMenuEntry>()
     val ent = ImmutableList(this.entries)
 
     private val input = InputFormulaBox().also { it.background = Color.WHITE }
-    val box = TransformerFormulaBox(input,
+    private val defaultTransformer =
         BoundsTransformer.Constant(BoxTransform.scale(0.5f)) *
-                BoundsTransformer.Align(RectPoint.BOTTOM_CENTER))
+        BoundsTransformer.Align(RectPoint.BOTTOM_CENTER)
+    val box = TransformerFormulaBox(input, defaultTransformer)
+
+    var origin by ObservableProperty(this, PointF()) { _, e ->
+        box.transformer = defaultTransformer * BoundsTransformer.Constant(BoxTransform(e.new))
+    }
+
     val onPictureChanged
         get() = box.onPictureChanged
 

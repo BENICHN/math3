@@ -259,6 +259,7 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : View(context,
 
     fun sendAdd(newBox: FormulaBox) {
         touchAction?.finish()
+        contextMenu = null
         var initialBoxes: InitialBoxes? = null
         val pos = when (val p = caret.position) {
             is CaretPosition.None -> { null }
@@ -290,6 +291,7 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : View(context,
 
     fun sendDelete() {
         touchAction?.finish()
+        contextMenu = null
         val deletionResult =
             when (val p = caret.position) {
                 is CaretPosition.None -> {

@@ -10,15 +10,13 @@ import fr.benichn.math3.types.callback.Callback
 import fr.benichn.math3.types.callback.VCC
 import fr.benichn.math3.types.callback.invoke
 
-abstract class TouchAction(val downPosition: PointF, val downIndex: Int, val getPos: (MotionEvent) -> PointF = { e -> PointF(e.x, e.y) }) {
-    constructor(downEvent: MotionEvent, getPos: (MotionEvent) -> PointF = { e -> PointF(e.x, e.y) }) : this(
-        getPos(downEvent),
-        downEvent.actionIndex,
-        getPos
-    ) {
-        assert(downEvent.actionMasked == MotionEvent.ACTION_DOWN)
-    }
-
+abstract class TouchAction(val getPos: (MotionEvent) -> PointF = { e -> PointF(e.x, e.y) }) {
+    var downPosition: PointF = PointF(Float.NaN, Float.NaN)
+        private set
+    var downIndex: Int = -1
+        private set
+    var isLaunched = false
+        private set
     var lastPos = downPosition
         private set
     var isLongPressed = false
@@ -40,37 +38,67 @@ abstract class TouchAction(val downPosition: PointF, val downIndex: Int, val get
             isLongPressed = true
             onLongDown()
         }
-    }.start()
+    }
 
+    protected abstract fun onDown()
     protected abstract fun onLongDown()
     protected abstract fun onMove()
     protected abstract fun onUp()
     protected abstract fun beforeFinish(replacement: TouchAction?)
 
     fun onTouchEvent(e: MotionEvent) {
-        if (!isFinished && e.actionIndex == downIndex) {
+        if (!isFinished && (downIndex == -1 || e.actionIndex == downIndex)) {
             val pos = getPos(e)
             when (e.actionMasked) {
+                MotionEvent.ACTION_DOWN -> {
+                    assert(!isLaunched)
+                    launch(e)
+                }
                 MotionEvent.ACTION_MOVE -> {
-                    lastPos = pos
-                    if (!hasMoved && Utils.l2(downPosition - pos) > MINIMAL_MOVE_DISTANCE_SQ) {
-                        hasMoved = true
-                        downTimer.cancel()
-                    }
-                    if (hasMoved) {
-                        onMove()
+                    if (isLaunched) {
+                        lastPos = pos
+                        if (!hasMoved && Utils.l2(downPosition - pos) > MINIMAL_MOVE_DISTANCE_SQ) {
+                            hasMoved = true
+                            downTimer.cancel()
+                        }
+                        if (hasMoved) {
+                            onMove()
+                        }
                     }
                 }
                 MotionEvent.ACTION_UP -> {
-                    lastPos = pos
-                    downTimer.cancel()
-                    onUp()
-                    beforeFinish(null)
-                    isFinished = true
-                    notifyFinished()
+                    if (isLaunched) {
+                        lastPos = pos
+                        downTimer.cancel()
+                        onUp()
+                        beforeFinish(null)
+                        isFinished = true
+                        notifyFinished()
+                    }
                 }
             }
         }
+    }
+
+    fun launch(downPosition: PointF, downIndex: Int, longPress: Boolean = false) {
+        assert(!isLaunched)
+        this.downPosition = downPosition
+        this.downIndex = downIndex
+        lastPos = downPosition
+        isLaunched = true
+        if (longPress) {
+            onDown()
+            isLongPressed = true
+            onLongDown()
+        } else {
+            downTimer.start()
+            onDown()
+        }
+    }
+
+    fun launch(downEvent: MotionEvent, longPress: Boolean = false) {
+        assert(downEvent.actionMasked == MotionEvent.ACTION_DOWN)
+        launch(getPos(downEvent), downEvent.actionIndex, longPress)
     }
 
     fun forceLongDown() {
@@ -80,7 +108,7 @@ abstract class TouchAction(val downPosition: PointF, val downIndex: Int, val get
         }
     }
 
-    fun replace(a: TouchAction) {
+    protected fun replace(a: TouchAction) {
         downTimer.cancel()
         beforeFinish(a)
         isFinished = true
@@ -95,7 +123,7 @@ abstract class TouchAction(val downPosition: PointF, val downIndex: Int, val get
     }
 
     companion object {
-        const val LONG_PRESS_TIMEOUT = 500L
+        const val LONG_PRESS_TIMEOUT = 300L
         const val MINIMAL_MOVE_DISTANCE_SQ = 100
     }
 }

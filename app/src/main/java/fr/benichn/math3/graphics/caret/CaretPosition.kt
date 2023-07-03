@@ -102,7 +102,7 @@ sealed class CaretPosition {
         }
 
         fun getElement(absPos: PointF) =
-            bounds.apply {
+            bounds.run {
                 if (Utils.squareDistFromLineToPoint(
                         right,
                         top,

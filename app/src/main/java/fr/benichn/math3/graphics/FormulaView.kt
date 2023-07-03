@@ -108,7 +108,9 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : View(context,
         }
 
         override fun beforeFinish(replacement: TouchAction?) {
-            caret.absolutePosition = null
+            if (replacement == null) {
+                caret.absolutePosition = null
+            }
         }
 
         override fun onMove() {
@@ -159,19 +161,22 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : View(context,
         }
 
         override fun onLongDown() {
+            replace(CreateSelectionAction().also { it.launch(downPosition, downIndex) })
         }
 
         override fun onUp() {
         }
 
         override fun beforeFinish(replacement: TouchAction?) {
-            caret.absolutePosition = null
-            caret.fixedX = null
+            if (replacement == null) {
+                caret.absolutePosition = null
+                caret.fixedX = null
+            }
         }
 
         override fun onMove() {
-            if (fixedSingle != null) {
-                caret.position = box.findBox(lastPos).toSingle()?.let { CaretPosition.Selection.fromSingles(fixedSingle!!, it) } ?: CaretPosition.None
+            fixedSingle?.let { fs ->
+                caret.position = box.findBox(lastPos).toSingle()?.let { CaretPosition.Selection.fromSingles(fs, it) } ?: CaretPosition.None
                 caret.absolutePosition = lastPos
             }
         }

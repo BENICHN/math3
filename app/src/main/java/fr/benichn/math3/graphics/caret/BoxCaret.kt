@@ -109,6 +109,7 @@ class BoxCaret(/* val root: FormulaBox */) {
             style = Paint.Style.FILL
             color = Color.rgb(100, 100, 0) }
 
-        val MAX_TOUCH_DIST_SQ = 18f.pow(2)
+        val SINGLE_MAX_TOUCH_DIST_SQ = (FormulaBox.DEFAULT_TEXT_WIDTH * 0.5f).pow(2)
+        val SELECTION_MAX_TOUCH_DIST_SQ = (FormulaBox.DEFAULT_TEXT_WIDTH * 0.25f).pow(2)
     }
 }

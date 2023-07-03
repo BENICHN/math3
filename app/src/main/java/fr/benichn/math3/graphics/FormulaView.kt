@@ -127,12 +127,17 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : View(context,
             downSingle = box.findBox(lastPos).toSingle()
             caret.absolutePosition = lastPos
             downSingle?.getAbsPosition()?.let { caret.fixedX = it.x }
+            caret.position = downSingle?.let { CaretPosition.Selection.fromSingles(it, it) } ?: CaretPosition.None
         }
 
         override fun onLongDown() {
         }
 
         override fun onUp() {
+            val p = caret.position
+            if (p is CaretPosition.Selection && p.indexRange.start == p.indexRange.end) {
+                caret.position = CaretPosition.Single(p.box as InputFormulaBox, p.indexRange.start)
+            }
         }
 
         override fun beforeFinish(replacement: TouchAction?) {
@@ -167,6 +172,10 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : View(context,
         }
 
         override fun onUp() {
+            val p = caret.position
+            if (p is CaretPosition.Selection && p.indexRange.start == p.indexRange.end) {
+                caret.position = CaretPosition.Single(p.box as InputFormulaBox, p.indexRange.start)
+            }
         }
 
         override fun beforeFinish(replacement: TouchAction?) {
@@ -232,8 +241,8 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : View(context,
             val entry = contextMenu!!.findEntry(lastPos)
             if (downEntry == entry) {
                 entry?.action?.invoke(caret.position)
+                contextMenu = null
             }
-            contextMenu = null
         }
 
         override fun beforeFinish(replacement: TouchAction?) {
@@ -340,6 +349,7 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : View(context,
     override fun onTouchEvent(e: MotionEvent): Boolean {
         if (touchAction == null) {
             val pos = getRootPos(e)
+            val p = caret.position
             contextMenu?.also {
                 when (it.findElement(pos)) {
                     ContextMenu.Element.INTERIOR -> {
@@ -347,13 +357,16 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : View(context,
                     }
                     ContextMenu.Element.NONE -> {
                         contextMenu = null
+                        if (p is CaretPosition.Selection && p.getElement(pos) == CaretPosition.Selection.Element.INTERIOR) {
+                            touchAction = PlaceCaretAction()
+                        }
                     }
                 }
             }
             if (touchAction == null) {
                 when (e.actionMasked) {
                     MotionEvent.ACTION_DOWN -> {
-                        touchAction = when(val p = caret.position) {
+                        touchAction = when(p) {
                             is CaretPosition.Single -> {
                                 when (p.getElement(pos)) {
                                     CaretPosition.Single.Element.BAR ->

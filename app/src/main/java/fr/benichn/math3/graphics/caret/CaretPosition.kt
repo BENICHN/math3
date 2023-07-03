@@ -8,7 +8,6 @@ import fr.benichn.math3.graphics.boxes.InputFormulaBox
 import fr.benichn.math3.graphics.boxes.SeqFormulaBox
 import fr.benichn.math3.graphics.boxes.types.Range
 import fr.benichn.math3.graphics.boxes.types.SidedBox
-import fr.benichn.math3.graphics.caret.BoxCaret.Companion.MAX_TOUCH_DIST_SQ
 import fr.benichn.math3.graphics.types.Side
 
 sealed class CaretPosition {
@@ -40,7 +39,7 @@ sealed class CaretPosition {
                     pos.y + r,
                     absPos.x,
                     absPos.y
-                ) < MAX_TOUCH_DIST_SQ
+                ) < BoxCaret.SINGLE_MAX_TOUCH_DIST_SQ
             ) {
                 Element.BAR
             } else {
@@ -109,7 +108,7 @@ sealed class CaretPosition {
                         bottom,
                         absPos.x,
                         absPos.y
-                    ) < MAX_TOUCH_DIST_SQ
+                    ) < BoxCaret.SELECTION_MAX_TOUCH_DIST_SQ
                 ) {
                     Element.RIGHT_BAR
                 } else if (Utils.squareDistFromLineToPoint(
@@ -118,7 +117,7 @@ sealed class CaretPosition {
                         bottom,
                         absPos.x,
                         absPos.y
-                    ) < MAX_TOUCH_DIST_SQ
+                    ) < BoxCaret.SELECTION_MAX_TOUCH_DIST_SQ
                 ) {
                     Element.LEFT_BAR
                 } else if (contains(absPos.x, absPos.y)) {

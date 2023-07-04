@@ -1,6 +1,7 @@
 package fr.benichn.math3.graphics.boxes
 
 import android.graphics.Color
+import android.graphics.Matrix
 import android.graphics.Paint
 import android.graphics.Path
 import android.graphics.RectF
@@ -8,10 +9,14 @@ import fr.benichn.math3.graphics.boxes.types.BoxProperty
 import fr.benichn.math3.graphics.boxes.types.FormulaGraphics
 import fr.benichn.math3.graphics.boxes.types.PathPainting
 import fr.benichn.math3.graphics.boxes.types.RangeF
+import fr.benichn.math3.graphics.types.Side
 
-class BracketFormulaBox(range: RangeF = RangeF(-DEFAULT_TEXT_RADIUS,DEFAULT_TEXT_RADIUS)) : FormulaBox() {
+class BracketFormulaBox(range: RangeF = RangeF(-DEFAULT_TEXT_RADIUS,DEFAULT_TEXT_RADIUS), side: Side = Side.L) : FormulaBox() {
     val dlgRange = BoxProperty(this, range)
     var range by dlgRange
+
+    val dlgSide = BoxProperty(this, side)
+    var side by dlgSide
 
     init {
         updateGraphics()
@@ -27,6 +32,12 @@ class BracketFormulaBox(range: RangeF = RangeF(-DEFAULT_TEXT_RADIUS,DEFAULT_TEXT
         path.rCubicTo(0f, 0f, 0f,-0.75f * r, 0.5f* r, -r)
         path.moveTo(0f,l2)
         path.rCubicTo(0f, 0f, 0f,0.75f * r, 0.5f* r, r)
+        if (side == Side.R) {
+            path.transform(Matrix().apply {
+                postScale(-1f, 1f)
+                postTranslate(0.25f* r, 0f)
+            })
+        }
         val bounds = RectF(-0.25f * DEFAULT_TEXT_RADIUS, range.start, 0.5f * DEFAULT_TEXT_RADIUS, range.end)
         return FormulaGraphics(
             path,

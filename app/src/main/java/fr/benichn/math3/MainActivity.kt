@@ -5,6 +5,7 @@ import android.os.Bundle
 import androidx.appcompat.app.AppCompatActivity
 import androidx.fragment.app.commit
 import fr.benichn.math3.graphics.FormulaView
+import fr.benichn.math3.graphics.boxes.BracketsFormulaBox
 import fr.benichn.math3.graphics.boxes.FormulaBox
 import fr.benichn.math3.graphics.boxes.FractionFormulaBox
 import fr.benichn.math3.graphics.boxes.InputFormulaBox
@@ -43,6 +44,7 @@ class MainActivity : AppCompatActivity() {
                 else -> {
                     val newBox = when (id) {
                         "over" -> FractionFormulaBox()
+                        "clav" -> BracketsFormulaBox()
                         else -> TextFormulaBox(id)
                     }
                     fv.sendAdd(newBox)

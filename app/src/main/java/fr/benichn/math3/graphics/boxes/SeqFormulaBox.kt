@@ -7,7 +7,7 @@ import android.graphics.RectF
 import fr.benichn.math3.graphics.boxes.types.BoxTransform
 import fr.benichn.math3.graphics.boxes.types.FormulaGraphics
 
-sealed class SeqFormulaBox(vararg boxes: FormulaBox) : FormulaBox() {
+open class SeqFormulaBox(vararg boxes: FormulaBox) : FormulaBox() {
     init {
         updateGraphics()
         for (b in boxes) {

@@ -20,15 +20,21 @@ class BoxProperty<S: FormulaBox, T>(private val source: S, private val defaultVa
         }
     }
     private val connections = mutableListOf<VCCLink<*, *>>()
+    fun <A, B> connectValue(listener: VCL<A, B>, mapper: (B) -> T) =
+        connectValue(listener) { _, x -> mapper(x) }
     fun <A, B> connectValue(listener: VCL<A, B>, mapper: (A, B) -> T) {
         connections.add(VCCLink(listener) { s, e ->
             set(mapper(s, e.new))
         })
     }
+    fun <A, B> connectValue(listener: VCL<A, B>, currentValue: B, mapper: (B) -> T) =
+        connectValue(listener, currentValue) { _, x -> mapper(x) }
     fun <A, B> connectValue(listener: VCL<A, B>, currentValue: B, mapper: (A, B) -> T) {
         connectValue(listener, mapper)
         set(mapper(listener.source, currentValue))
     }
+    fun <A, B> connect(listener: VCL<A, B>, mapper: (ValueChangedEvent<B>) -> T) =
+        connect(listener) { _, x -> mapper(x) }
     fun <A, B> connect(listener: VCL<A, B>, mapper: (A, ValueChangedEvent<B>) -> T) {
         connections.add(VCCLink(listener) { s, e ->
             set(mapper(s, e))

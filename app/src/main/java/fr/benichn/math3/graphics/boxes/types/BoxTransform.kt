@@ -18,7 +18,8 @@ data class BoxTransform(val origin: PointF = PointF(), val scale: Float = 1f) {
         canvas.translate(origin.x, origin.y)
         canvas.scale(scale, scale)
     }
-    fun applyOnRect(r: RectF): RectF = r * scale + origin
+    fun applyOnRect(r: RectF) = r * scale + origin
+    fun applyOnPoint(p: PointF) = p * scale + origin
     companion object {
         fun xOffset(l: Float): BoxTransform = BoxTransform(PointF(l, 0f))
         fun yOffset(l: Float): BoxTransform = BoxTransform(PointF(0f, l))

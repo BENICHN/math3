@@ -26,5 +26,9 @@ data class Pt(val x: Int, val y: Int) {
     }
     companion object {
         val z = Pt(0, 0)
+        val l = Pt(-1, 0)
+        val r = Pt(1, 0)
+        val t = Pt(-1, 0)
+        val b = Pt(1, 0)
     }
 }

@@ -45,10 +45,11 @@ open class SeqFormulaBox(vararg boxes: FormulaBox) : FormulaBox() {
 }
 
 class SequenceFormulaBox(vararg boxes: FormulaBox) : SeqFormulaBox(*boxes)
-class MutableSequenceFormulaBox(vararg boxes: FormulaBox) : SeqFormulaBox(*boxes) {
+open class MutableSequenceFormulaBox(vararg boxes: FormulaBox) : SeqFormulaBox(*boxes) {
     public override fun addBox(i: Int, b: FormulaBox) = super.addBox(i, b)
     public override fun addBox(b: FormulaBox) = super.addBox(b)
     public override fun removeBoxAt(i: Int) = super.removeBoxAt(i)
     public override fun removeBox(b: FormulaBox) = super.removeBox(b)
     public override fun removeLastBox() = super.removeLastBox()
+    public override fun removeAllBoxes() = super.removeAllBoxes()
 }

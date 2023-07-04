@@ -18,6 +18,7 @@ import fr.benichn.math3.graphics.types.Orientation
 import fr.benichn.math3.graphics.types.Side
 import fr.benichn.math3.graphics.Utils.Companion.sumOfRects
 import fr.benichn.math3.graphics.boxes.types.BoxProperty
+import fr.benichn.math3.graphics.boxes.types.FinalBoxes
 import fr.benichn.math3.graphics.boxes.types.Padding
 import fr.benichn.math3.graphics.boxes.types.PathPainting
 import fr.benichn.math3.graphics.caret.CaretPosition
@@ -31,6 +32,7 @@ open class FormulaBox {
                 assert(caret == null)
             }
             field = value
+            notifyBrothersBoundsChanged()
         }
     val root: FormulaBox
         get() = parent?.root ?: this
@@ -64,6 +66,9 @@ open class FormulaBox {
         caret = null
     }
 
+    private val notifyBrothersBoundsChanged = Callback<FormulaBox, Unit>(this)
+    val onBrothersBoundsChanged = notifyBrothersBoundsChanged.Listener()
+
     private val children = mutableListOf<FormulaBox>()
     val ch = ImmutableList(children)
     protected open fun addBox(b: FormulaBox) = addBox(children.size, b)
@@ -71,6 +76,16 @@ open class FormulaBox {
         if (!b.isRoot) b.delete()
         children.add(i, b)
         b.parent = this
+        for (j in 0 until children.size) {
+            if (j != i) {
+                children[j].notifyBrothersBoundsChanged()
+            }
+        }
+    }
+    protected open fun removeAllBoxes() {
+        while (children.isNotEmpty()) {
+            removeLastBox()
+        }
     }
     protected open fun removeLastBox() { if (children.isNotEmpty()) removeBoxAt(children.size - 1) }
     protected open fun removeBox(b: FormulaBox) = removeBoxAt(children.indexOf(b))
@@ -81,10 +96,10 @@ open class FormulaBox {
         setChildTransform(i, BoxTransform())
         children.removeAt(i)
         b.parent = null
+        children.forEach { it.notifyBrothersBoundsChanged() }
     }
 
-    open fun addInitialBoxes(ib: InitialBoxes) {
-    }
+    open fun addInitialBoxes(ib: InitialBoxes) = FinalBoxes()
 
     val isSelected
         get() = caret?.position?.let {
@@ -346,6 +361,15 @@ open class FormulaBox {
         }
         onTransformChanged += { _, _ ->
             notifyPictureChanged()
+        }
+        onBoundsChanged += { _, _ ->
+            parentWithIndex?.let {
+                for (i in 0 until it.box.ch.size) {
+                    if (i != it.index) {
+                        it.box.ch[i].notifyBrothersBoundsChanged()
+                    }
+                }
+            }
         }
     }
 

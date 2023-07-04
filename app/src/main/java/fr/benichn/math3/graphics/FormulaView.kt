@@ -260,12 +260,15 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : View(context,
                 p
             }
             is CaretPosition.Double -> {
-                initialBoxes = InitialBoxes.Selection(p.selectedBoxes)
+                initialBoxes = InitialBoxes.Selection(
+                    p.box.ch.subList(0, p.indexRange.start).toList(),
+                    p.box.ch.subList(p.indexRange.start, p.indexRange.end).toList(),
+                    p.box.ch.subList(p.indexRange.end, p.box.ch.size).toList())
                 for (c in p.selectedBoxes) {
                     c.delete()
                 }
                 when (p.box) {
-                    is InputFormulaBox -> CaretPosition.Single(p.box, p.indexRange.start)
+                    is InputFormulaBox -> CaretPosition.Single(p.box, p.indexRange.start) // !
                     else -> null
                 }
             }
@@ -273,11 +276,17 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : View(context,
         pos?.also {
             val (box, i) = it
             box.addBox(i, newBox)
-            newBox.addInitialBoxes(initialBoxes ?:
+            val fb = newBox.addInitialBoxes(initialBoxes ?:
             InitialBoxes.BeforeAfter(
                 box.ch.take(i),
                 box.ch.takeLast(box.ch.size - i)
             ))
+            for (j in fb.boxesBefore.size-1 downTo 0) {
+                box.addBox(i, fb.boxesBefore[j])
+            }
+            for (j in fb.boxesAfter.size-1 downTo 0) {
+                box.addBox(i+1, fb.boxesAfter[j])
+            }
             caret.position = newBox.getInitialSingle() ?: CaretPosition.Single(box, i+1)
         }
     }

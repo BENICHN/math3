@@ -5,7 +5,7 @@ import kotlin.reflect.KProperty
 import fr.benichn.math3.graphics.boxes.FormulaBox
 import fr.benichn.math3.types.callback.*
 
-class BoxProperty<S: FormulaBox, T>(private val source: S, private val defaultValue: T, val updatesGraphics: Boolean = true) :
+class BoxProperty<S: FormulaBox, T>(private val source: S, val defaultValue: T, val updatesGraphics: Boolean = true) :
     ReadWriteProperty<S, T> {
     private var field = defaultValue
     private val notifyChanged = VCC<S, T>(source)
@@ -19,11 +19,11 @@ class BoxProperty<S: FormulaBox, T>(private val source: S, private val defaultVa
             source.updateGraphics()
         }
     }
-    private val connections = mutableListOf<VCCLink<*, *>>()
+    private val connections = mutableListOf<CallbackLink<*, *>>()
     fun <A, B> connectValue(listener: VCL<A, B>, mapper: (B) -> T) =
         connectValue(listener) { _, x -> mapper(x) }
     fun <A, B> connectValue(listener: VCL<A, B>, mapper: (A, B) -> T) {
-        connections.add(VCCLink(listener) { s, e ->
+        connections.add(CallbackLink(listener) { s, e ->
             set(mapper(s, e.new))
         })
     }
@@ -33,10 +33,10 @@ class BoxProperty<S: FormulaBox, T>(private val source: S, private val defaultVa
         connectValue(listener, mapper)
         set(mapper(listener.source, currentValue))
     }
-    fun <A, B> connect(listener: VCL<A, B>, mapper: (ValueChangedEvent<B>) -> T) =
+    fun <A, B> connect(listener: Callback<A, B>.Listener, mapper: (B) -> T) =
         connect(listener) { _, x -> mapper(x) }
-    fun <A, B> connect(listener: VCL<A, B>, mapper: (A, ValueChangedEvent<B>) -> T) {
-        connections.add(VCCLink(listener) { s, e ->
+    fun <A, B> connect(listener: Callback<A, B>.Listener, mapper: (A, B) -> T) {
+        connections.add(CallbackLink(listener) { s, e ->
             set(mapper(s, e))
         })
     }

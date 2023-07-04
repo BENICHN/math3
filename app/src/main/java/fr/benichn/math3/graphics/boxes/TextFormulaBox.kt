@@ -22,3 +22,5 @@ class TextFormulaBox(text: String = "") : FormulaBox() {
         return FormulaGraphics(p, PathPainting.Fill, bounds)
     }
 }
+
+fun FormulaBox.isDigit() = this is TextFormulaBox && text.all { c -> c.isDigit() || c == '.' }

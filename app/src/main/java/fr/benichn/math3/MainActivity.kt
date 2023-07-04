@@ -9,6 +9,7 @@ import fr.benichn.math3.graphics.boxes.BracketsFormulaBox
 import fr.benichn.math3.graphics.boxes.FormulaBox
 import fr.benichn.math3.graphics.boxes.FractionFormulaBox
 import fr.benichn.math3.graphics.boxes.InputFormulaBox
+import fr.benichn.math3.graphics.boxes.ScriptFormulaBox
 import fr.benichn.math3.graphics.boxes.TextFormulaBox
 import fr.benichn.math3.graphics.boxes.types.DeletionResult
 import fr.benichn.math3.graphics.boxes.types.InitialBoxes
@@ -45,6 +46,7 @@ class MainActivity : AppCompatActivity() {
                     val newBox = when (id) {
                         "over" -> FractionFormulaBox()
                         "clav" -> BracketsFormulaBox()
+                        "recent" -> ScriptFormulaBox()
                         else -> TextFormulaBox(id)
                     }
                     fv.sendAdd(newBox)

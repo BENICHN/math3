@@ -4,6 +4,7 @@ import android.graphics.RectF
 import fr.benichn.math3.graphics.boxes.types.BoundsTransformer
 import fr.benichn.math3.graphics.boxes.types.BoxTransform
 import fr.benichn.math3.graphics.boxes.types.DeletionResult
+import fr.benichn.math3.graphics.boxes.types.FinalBoxes
 import fr.benichn.math3.graphics.boxes.types.FormulaGraphics
 import fr.benichn.math3.graphics.boxes.types.InitialBoxes
 import fr.benichn.math3.graphics.boxes.types.Padding
@@ -46,12 +47,12 @@ class FractionFormulaBox(numChildren: Array<FormulaBox> = emptyArray(), denChild
             }
         }
         den -> {
-            delete().withFinalBoxes(numerator.ch, denominator.ch)
+            delete().withFinalBoxes(numerator.ch, denominator.ch, !denominator.ch.isEmpty())
         }
         else -> super.onChildRequiresDelete(b)
     }
 
-    override fun addInitialBoxes(ib: InitialBoxes) {
+    override fun addInitialBoxes(ib: InitialBoxes): FinalBoxes {
         val boxes = when (ib) {
             is InitialBoxes.BeforeAfter -> {
                 ib.boxesBefore.takeLastWhile { it !is TextFormulaBox || (it.text != "+" && it.text != "-") }
@@ -60,9 +61,12 @@ class FractionFormulaBox(numChildren: Array<FormulaBox> = emptyArray(), denChild
                 ib.boxes
             }
         }
-        for (b in boxes) {
-            numerator.addBox(b)
+        if (boxes.size == 1 && boxes[0] is BracketsFormulaBox) {
+            (boxes[0] as BracketsFormulaBox).input.delete().finalBoxes.boxesBefore.forEach { numerator.addBox(it) }
+        } else {
+            boxes.forEach { numerator.addBox(it) }
         }
+        return FinalBoxes()
     }
 
     override fun getInitialSingle() = if (numerator.ch.isEmpty()) {

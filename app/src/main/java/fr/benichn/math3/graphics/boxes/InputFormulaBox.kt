@@ -5,17 +5,12 @@ import android.graphics.RectF
 import fr.benichn.math3.graphics.boxes.types.DeletionResult
 import fr.benichn.math3.graphics.boxes.types.FinalBoxes
 import fr.benichn.math3.graphics.boxes.types.FormulaGraphics
+import fr.benichn.math3.graphics.boxes.types.Padding
 import fr.benichn.math3.graphics.boxes.types.PathPainting
 import fr.benichn.math3.graphics.boxes.types.Range
 import fr.benichn.math3.graphics.caret.CaretPosition
 
-class InputFormulaBox(vararg boxes: FormulaBox) : SeqFormulaBox(*boxes) {
-    public override fun addBox(i: Int, b: FormulaBox) = super.addBox(i, b)
-    public override fun addBox(b: FormulaBox) = super.addBox(b)
-    public override fun removeBoxAt(i: Int) = super.removeBoxAt(i)
-    public override fun removeBox(b: FormulaBox) = super.removeBox(b)
-    public override fun removeLastBox() = super.removeLastBox()
-
+class InputFormulaBox(vararg boxes: FormulaBox) : MutableSequenceFormulaBox(*boxes) {
     val firstSingle
         get() = CaretPosition.Single(this, 0)
     val lastSingle
@@ -70,7 +65,7 @@ class InputFormulaBox(vararg boxes: FormulaBox) : SeqFormulaBox(*boxes) {
             FormulaGraphics(
                 path,
                 PathPainting.Stroke(DEFAULT_LINE_WIDTH),
-                bounds
+                Padding(w*0.2f, 0f).applyOnRect(bounds)
             )
         } else {
             super.generateGraphics()

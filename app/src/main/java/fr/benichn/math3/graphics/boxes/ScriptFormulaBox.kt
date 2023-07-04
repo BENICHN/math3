@@ -89,7 +89,11 @@ class ScriptFormulaBox(type: Type = Type.SUPER, range: RangeF = RangeF(-DEFAULT_
     )
 
     override fun findChildBox(absX: Float, absY: Float): FormulaBox =
-        if (absY <= accTransform.origin.y) sup else sub
+        when {
+            absY <= accTransform.origin.y+range.start -> if (type != Type.SUB) sup else this
+            absY > accTransform.origin.y+range.end -> if (type != Type.SUPER) sub else this
+            else -> this
+        }
 
     override fun addBox(i: Int, b: FormulaBox) {
         super.addBox(i, b)

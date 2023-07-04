@@ -9,7 +9,6 @@ import android.graphics.RectF
 import androidx.core.graphics.withClip
 import fr.benichn.math3.graphics.FormulaView
 import fr.benichn.math3.graphics.caret.BoxCaret
-import fr.benichn.math3.graphics.boxes.types.BoxCoord
 import fr.benichn.math3.graphics.boxes.types.BoxTransform
 import fr.benichn.math3.graphics.boxes.types.DeletionResult
 import fr.benichn.math3.graphics.boxes.types.FormulaGraphics
@@ -17,7 +16,6 @@ import fr.benichn.math3.types.ImmutableList
 import fr.benichn.math3.graphics.boxes.types.InitialBoxes
 import fr.benichn.math3.graphics.types.Orientation
 import fr.benichn.math3.graphics.types.Side
-import fr.benichn.math3.graphics.boxes.types.SidedBox
 import fr.benichn.math3.graphics.Utils.Companion.sumOfRects
 import fr.benichn.math3.graphics.boxes.types.BoxProperty
 import fr.benichn.math3.graphics.boxes.types.Padding
@@ -25,7 +23,6 @@ import fr.benichn.math3.graphics.boxes.types.PathPainting
 import fr.benichn.math3.graphics.caret.CaretPosition
 import fr.benichn.math3.types.Chain
 import fr.benichn.math3.types.callback.*
-import kotlin.math.abs
 
 open class FormulaBox {
     var parent: FormulaBox? = null
@@ -91,7 +88,7 @@ open class FormulaBox {
 
     val isSelected
         get() = caret?.position?.let {
-            if (it is CaretPosition.Selection) {
+            if (it is CaretPosition.Double) {
                 it.contains(this)
             } else {
                 false
@@ -120,30 +117,14 @@ open class FormulaBox {
         }
     }
 
-    operator fun get(c: BoxCoord): FormulaBox {
-        var b = this
-        for (i in c) {
-            b = b.ch[i]
-        }
-        return b
-    }
-
     open val selectBeforeDeletion: Boolean = false
 
     protected open fun onChildRequiresDelete(b: FormulaBox): DeletionResult = delete()
     fun delete() : DeletionResult = parent?.onChildRequiresDelete(this) ?: DeletionResult()
 
-    open fun getInitialCaretPos(): SidedBox = SidedBox(this, Side.R)
+    open fun getInitialSingle(): CaretPosition.Single? = null
 
-    private fun buildCoord(childCoord: BoxCoord): BoxCoord =
-        if (parent == null) {
-            childCoord
-        } else {
-            val i = indexInParent!!
-            parent!!.buildCoord(BoxCoord(i, childCoord))
-        }
-
-    fun getSide(x: Float): Side = if (x > accRealBounds.centerX()) Side.R else Side.L
+    fun getSide(absX: Float): Side = if (absX > accRealBounds.centerX()) Side.R else Side.L
 
     open fun findChildBox(absX: Float, absY: Float) : FormulaBox {
         for (c in children) {
@@ -157,11 +138,35 @@ open class FormulaBox {
     protected open val alwaysEnter // ~~ rustine ~~
         get() = false
 
-    fun findBox(absPos: PointF) = findBox(absPos.x, absPos.y)
-    fun findBox(absX: Float, absY: Float) : SidedBox {
+    fun findSingle(absPos: PointF) = findSingle(absPos.x, absPos.y)
+    fun findSingle(absX: Float, absY: Float) : CaretPosition.Single? {
         val c = findChildBox(absX, absY)
         return if (c == this || (!c.alwaysEnter && c.accRealBounds.run { absX < left || right < absX })) {
-            SidedBox(c, c.getSide(absX))
+            if (c is InputFormulaBox) {
+                assert(c.ch.isEmpty())
+                CaretPosition.Single(c, 0)
+            }
+            else {
+                fun getParentInput(b: FormulaBox): ParentWithIndex? {
+                    val pi = b.parentWithIndex
+                    return pi?.let { if (it.box is InputFormulaBox) it else getParentInput(it.box) }
+                }
+                getParentInput(c)?.let {
+                    val s = it.box.ch[it.index].getSide(absX)
+                    val i = if (s == Side.L) it.index else it.index + 1
+                    CaretPosition.Single(it.box as InputFormulaBox, i)
+                }
+            }
+        } else {
+            c.findSingle(absX, absY)
+        }
+    }
+
+    fun findBox(absPos: PointF) = findBox(absPos.x, absPos.y)
+    fun findBox(absX: Float, absY: Float) : FormulaBox {
+        val c = findChildBox(absX, absY)
+        return if (c == this || (!c.alwaysEnter && c.accRealBounds.run { absX < left || right < absX })) {
+            c
         } else {
             c.findBox(absX, absY)
         }
@@ -294,7 +299,6 @@ open class FormulaBox {
 
     fun drawOnCanvas(canvas: Canvas) {
         transform.applyOnCanvas(canvas)
-        val p = caret?.position
 
         fun draw() {
             if (isRoot) {

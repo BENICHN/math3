@@ -24,7 +24,7 @@ class BoxCaret(/* val root: FormulaBox */) {
 
     fun preDrawOnCanvas(canvas: Canvas) {
         when (val p = position) {
-            is CaretPosition.Selection -> {
+            is CaretPosition.Double -> {
                 canvas.drawRect(p.bounds, selectionPaint)
             }
             else -> {}
@@ -55,7 +55,7 @@ class BoxCaret(/* val root: FormulaBox */) {
                     absolutePosition != null
                 )
             }
-            is CaretPosition.Selection -> {
+            is CaretPosition.Double -> {
                 val r = p.bounds
                 fun drawSelectionEnding(x: Float) {
                     canvas.drawLine(x, r.top, x, r.bottom, caretPaint)
@@ -79,7 +79,7 @@ class BoxCaret(/* val root: FormulaBox */) {
                         (p as? CaretPosition.Single)?.radius ?: FormulaBox.DEFAULT_TEXT_RADIUS,
                         false)
                 }
-                is CaretPosition.Selection -> {
+                is CaretPosition.Double -> {
                     drawBar(
                         ap,
                         p.bounds.height() * 0.5f,

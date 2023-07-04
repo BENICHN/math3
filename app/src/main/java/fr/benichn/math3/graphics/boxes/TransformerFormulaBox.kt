@@ -2,11 +2,10 @@ package fr.benichn.math3.graphics.boxes
 
 import fr.benichn.math3.graphics.boxes.types.BoundsTransformer
 import fr.benichn.math3.graphics.boxes.types.BoxProperty
-import fr.benichn.math3.graphics.boxes.types.SidedBox
 
 class TransformerFormulaBox(child: FormulaBox = FormulaBox(), transformer: BoundsTransformer = BoundsTransformer.Id) : FormulaBox() {
     val dlgChild = BoxProperty(this, child).apply {
-        onChanged += { s, e ->
+        onChanged += { _, e ->
             removeBox(e.old)
             addBox(e.new)
         }
@@ -27,11 +26,11 @@ class TransformerFormulaBox(child: FormulaBox = FormulaBox(), transformer: Bound
     override val alwaysEnter: Boolean
         get() = true
     override fun findChildBox(absX: Float, absY: Float): FormulaBox = child.findChildBox(absX, absY)
-    override fun getInitialCaretPos(): SidedBox = child.getInitialCaretPos()
+    override fun getInitialSingle() = child.getInitialSingle()
 
     override fun addBox(i: Int, b: FormulaBox) {
         super.addBox(i, b)
-        connect(b.onBoundsChanged) { s, e ->
+        connect(b.onBoundsChanged) { _, _ ->
             transformChild()
         }
         listenChildBoundsChange(i)

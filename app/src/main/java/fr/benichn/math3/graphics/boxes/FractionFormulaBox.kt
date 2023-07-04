@@ -10,7 +10,6 @@ import fr.benichn.math3.graphics.boxes.types.Padding
 import fr.benichn.math3.graphics.types.Orientation
 import fr.benichn.math3.graphics.boxes.types.RangeF
 import fr.benichn.math3.graphics.types.RectPoint
-import fr.benichn.math3.graphics.boxes.types.SidedBox
 import kotlin.math.max
 
 class FractionFormulaBox(numChildren: Array<FormulaBox> = emptyArray(), denChildren: Array<FormulaBox> = emptyArray()) : FormulaBox() {
@@ -66,10 +65,10 @@ class FractionFormulaBox(numChildren: Array<FormulaBox> = emptyArray(), denChild
         }
     }
 
-    override fun getInitialCaretPos(): SidedBox = if (numerator.ch.isEmpty()) {
-        numerator.getInitialCaretPos()
+    override fun getInitialSingle() = if (numerator.ch.isEmpty()) {
+        numerator.lastSingle
     } else {
-        denominator.getInitialCaretPos()
+        denominator.lastSingle
     }
 
     override fun findChildBox(absX: Float, absY: Float): FormulaBox =

@@ -4,7 +4,7 @@ import fr.benichn.math3.graphics.types.Side
 import fr.benichn.math3.graphics.boxes.FormulaBox
 import fr.benichn.math3.graphics.caret.CaretPosition
 
-data class SidedBox(val box: FormulaBox, val side: Side) {
-    fun toSingle() = CaretPosition.Single.fromSidedBox(this)
-    fun toCaretPosition() = toSingle() ?: CaretPosition.None
-}
+// data class SidedBox(val box: FormulaBox, val side: Side) {
+//     fun toSingle() = CaretPosition.Single.fromSidedBox(this)
+//     fun toCaretPosition() = toSingle() ?: CaretPosition.None
+// }

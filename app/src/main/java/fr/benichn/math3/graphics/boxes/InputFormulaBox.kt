@@ -7,8 +7,6 @@ import fr.benichn.math3.graphics.boxes.types.FinalBoxes
 import fr.benichn.math3.graphics.boxes.types.FormulaGraphics
 import fr.benichn.math3.graphics.boxes.types.PathPainting
 import fr.benichn.math3.graphics.boxes.types.Range
-import fr.benichn.math3.graphics.types.Side
-import fr.benichn.math3.graphics.boxes.types.SidedBox
 import fr.benichn.math3.graphics.caret.CaretPosition
 
 class InputFormulaBox(vararg boxes: FormulaBox) : SeqFormulaBox(*boxes) {
@@ -17,6 +15,11 @@ class InputFormulaBox(vararg boxes: FormulaBox) : SeqFormulaBox(*boxes) {
     public override fun removeBoxAt(i: Int) = super.removeBoxAt(i)
     public override fun removeBox(b: FormulaBox) = super.removeBox(b)
     public override fun removeLastBox() = super.removeLastBox()
+
+    val firstSingle
+        get() = CaretPosition.Single(this, 0)
+    val lastSingle
+        get() = CaretPosition.Single(this, ch.size)
 
     override fun findChildBox(absX: Float, absY: Float): FormulaBox {
         for (c in ch) {
@@ -33,10 +36,6 @@ class InputFormulaBox(vararg boxes: FormulaBox) : SeqFormulaBox(*boxes) {
         return DeletionResult(CaretPosition.Single(this, i))
     }
 
-    override fun getInitialCaretPos(): SidedBox {
-        return if (ch.isEmpty()) SidedBox(this, Side.R) else SidedBox(ch.last(), Side.R)
-    }
-
     fun addFinalBoxes(i: Int, fb: FinalBoxes) : CaretPosition {
         for ((j, b) in fb.boxesBefore.union(fb.boxesAfter).withIndex()) {
             addBox(i+j, b)
@@ -44,7 +43,7 @@ class InputFormulaBox(vararg boxes: FormulaBox) : SeqFormulaBox(*boxes) {
         return if (!fb.selectBoxesAfter && !fb.selectBoxesBefore) {
             CaretPosition.Single(this, i + fb.boxesBefore.size)
         } else {
-            CaretPosition.Selection(this, Range(
+            CaretPosition.Double(this, Range(
                 if (fb.selectBoxesBefore) i else i + fb.boxesBefore.size,
                 if (fb.selectBoxesAfter) i + fb.boxesBefore.size + fb.boxesAfter.size else i + fb.boxesBefore.size))
         }

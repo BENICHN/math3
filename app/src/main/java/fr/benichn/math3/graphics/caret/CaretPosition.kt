@@ -7,8 +7,6 @@ import fr.benichn.math3.graphics.boxes.FormulaBox
 import fr.benichn.math3.graphics.boxes.InputFormulaBox
 import fr.benichn.math3.graphics.boxes.SeqFormulaBox
 import fr.benichn.math3.graphics.boxes.types.Range
-import fr.benichn.math3.graphics.boxes.types.SidedBox
-import fr.benichn.math3.graphics.types.Side
 
 sealed class CaretPosition {
     data object None : CaretPosition()
@@ -51,29 +49,9 @@ sealed class CaretPosition {
             BAR,
             NONE
         }
-
-        companion object {
-            fun fromSidedBox(sb: SidedBox): Single? {
-                val (box, side) = sb
-                if (box is InputFormulaBox) {
-                    assert(box.ch.size == 0) // en theorie la input ne peut pas etre cliquée si elle n'est pas vide
-                    return Single(box, 0)
-                }
-                else {
-                    var b = box
-                    var i: Int
-                    while (!b.isRoot) {
-                        i = b.indexInParent!!
-                        b = b.parent!!
-                        if (b is InputFormulaBox) return Single(b, if (side == Side.L) i else i+1)
-                    }
-                    return null
-                }
-            }
-        }
     }
 
-    data class Selection(val box: SeqFormulaBox, val indexRange: Range) : CaretPosition() {
+    data class Double(val box: SeqFormulaBox, val indexRange: Range) : CaretPosition() {
         val selectedBoxes
             get() = box.ch.subList(indexRange.start, indexRange.end).toList()
 
@@ -135,12 +113,12 @@ sealed class CaretPosition {
         }
 
         companion object {
-            fun mergeSelections(s1: Selection, s2: Selection): Selection? {
+            fun mergeSelections(s1: Double, s2: Double): Double? {
                 val s1Sequences = getBoxSequences(s1.box)
                 val s2Sequences = getBoxSequences(s2.box)
                 val commonParent = s1Sequences.zip(s2Sequences).lastOrNull { (p1, p2) -> p1.box == p2.box }
 
-                fun retrieveRange(s: Selection, p: FormulaBox.ParentWithIndex) : Range =
+                fun retrieveRange(s: Double, p: FormulaBox.ParentWithIndex) : Range =
                     if (p.box == s.box) {
                         s.indexRange
                     } else {
@@ -152,7 +130,7 @@ sealed class CaretPosition {
                     val r1 = retrieveRange(s1, p1)
                     val r2 = retrieveRange(s2, p2)
                     val r = Range.sum(r1, r2)
-                    Selection(box, r)
+                    Double(box, r)
                 }
             }
 
@@ -169,17 +147,19 @@ sealed class CaretPosition {
                     }
                 }
 
-            fun fromBox(b: FormulaBox): Selection? =
-                getBoxParentSequenceWithIndex(b)?.let { (p, i) -> Selection(p as SeqFormulaBox, Range(i, i+1)) }
+            fun fromBox(b: FormulaBox): Double? =
+                getBoxParentSequenceWithIndex(b)?.let { (p, i) -> Double(p as SeqFormulaBox, Range(i, i+1)) }
 
-            fun fromSingles(p1: Single, p2: Single): Selection? {
+            fun fromSingles(p1: Single, p2: Single): Double? {
                 val s1 = fromSingle(p1)
                 val s2 = fromSingle(p2)
                 return mergeSelections(s1, s2)
             }
 
             fun fromSingle(p: Single) =
-                Selection(p.box, Range(p.index, p.index))
+                Double(p.box, Range(p.index, p.index))
         }
     }
 }
+
+fun CaretPosition?.noneIfNull() = this ?: CaretPosition.None

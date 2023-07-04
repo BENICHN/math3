@@ -2,7 +2,7 @@ package fr.benichn.math3.graphics.boxes.types
 
 import fr.benichn.math3.graphics.boxes.FormulaBox
 import fr.benichn.math3.graphics.caret.CaretPosition
-import fr.benichn.math3.graphics.types.Side
+import fr.benichn.math3.graphics.caret.noneIfNull
 
 data class DeletionResult(val newPos: CaretPosition = CaretPosition.None, val finalBoxes: FinalBoxes = FinalBoxes()) {
     fun withFinalBoxes(fb: FinalBoxes) = DeletionResult(newPos, fb)
@@ -17,8 +17,6 @@ data class DeletionResult(val newPos: CaretPosition = CaretPosition.None, val fi
         )
 
     companion object {
-        fun fromSelection(b: FormulaBox) = DeletionResult(CaretPosition.Selection.fromBox(b) ?: CaretPosition.None)
-        // fun fromSidedBox(b: FormulaBox, s: Side = Side.R) = DeletionResult(FormulaBox.getCaretPositionFromSidedBox(b, s))
-        // fun fromSidedBox(sb: SidedBox) = DeletionResult(FormulaBox.getCaretPositionFromSidedBox(sb))
+        fun fromSelection(b: FormulaBox) = DeletionResult(CaretPosition.Double.fromBox(b).noneIfNull())
     }
 }

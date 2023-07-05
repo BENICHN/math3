@@ -5,7 +5,7 @@ import android.graphics.RectF
 import fr.benichn.math3.graphics.Utils
 import fr.benichn.math3.graphics.boxes.FormulaBox
 import fr.benichn.math3.graphics.boxes.InputFormulaBox
-import fr.benichn.math3.graphics.boxes.SeqFormulaBox
+import fr.benichn.math3.graphics.boxes.SequenceFormulaBox
 import fr.benichn.math3.graphics.boxes.types.Range
 
 sealed class CaretPosition {
@@ -51,7 +51,7 @@ sealed class CaretPosition {
         }
     }
 
-    data class Double(val box: SeqFormulaBox, val indexRange: Range) : CaretPosition() {
+    data class Double(val box: InputFormulaBox, val indexRange: Range) : CaretPosition() {
         val selectedBoxes
             get() = box.ch.subList(indexRange.start, indexRange.end).toList()
 
@@ -65,13 +65,10 @@ sealed class CaretPosition {
                 } else r
             }
 
-        val isMutable
-            get() = box is InputFormulaBox
-
         val leftSingle
-            get() = (box as? InputFormulaBox)?.let { Single(it, indexRange.start) }
+            get() = Single(box, indexRange.start)
         val rightSingle
-            get() = (box as? InputFormulaBox)?.let { Single(it, indexRange.end) }
+            get() = Single(box, indexRange.end)
 
         fun contains(b: FormulaBox): Boolean {
             val i = box.deepIndexOf(b)
@@ -126,7 +123,7 @@ sealed class CaretPosition {
                     }
 
                 return commonParent?.let { (p1, p2) ->
-                    val box = p1.box as SeqFormulaBox
+                    val box = p1.box as InputFormulaBox
                     val r1 = retrieveRange(s1, p1)
                     val r2 = retrieveRange(s2, p2)
                     val r = Range.sum(r1, r2)
@@ -135,20 +132,20 @@ sealed class CaretPosition {
             }
 
             private fun getBoxSequences(b: FormulaBox) =
-                b.parentsAndThis.filter { it.box is SeqFormulaBox }
+                b.parentsAndThis.filter { it.box is InputFormulaBox }
 
-            private fun getBoxParentSequenceWithIndex(b: FormulaBox): FormulaBox.ParentWithIndex? =
+            private fun getBoxParentInputWithIndex(b: FormulaBox): FormulaBox.ParentWithIndex? =
                 b.parentWithIndex?.let {
-                    if (it.box is SeqFormulaBox) {
+                    if (it.box is InputFormulaBox) {
                         it
                     }
                     else {
-                        getBoxParentSequenceWithIndex(it.box)
+                        getBoxParentInputWithIndex(it.box)
                     }
                 }
 
             fun fromBox(b: FormulaBox): Double? =
-                getBoxParentSequenceWithIndex(b)?.let { (p, i) -> Double(p as SeqFormulaBox, Range(i, i+1)) }
+                getBoxParentInputWithIndex(b)?.let { (p, i) -> Double(p as InputFormulaBox, Range(i, i+1)) }
 
             fun fromSingles(p1: Single, p2: Single): Double? {
                 val s1 = fromSingle(p1)
@@ -158,6 +155,19 @@ sealed class CaretPosition {
 
             fun fromSingle(p: Single) =
                 Double(p.box, Range(p.index, p.index))
+        }
+    }
+
+    data class DiscreteSelection(val box: FormulaBox, val indices: List<Int>) : CaretPosition() {
+        val selectedBoxes
+            get() = indices.map { i -> box.ch[i] }
+
+        val bounds
+            get() = selectedBoxes.map { it.accRealBounds }
+
+        fun contains(b: FormulaBox): Boolean {
+            val i = box.deepIndexOf(b)
+            return indices.contains(i)
         }
     }
 }

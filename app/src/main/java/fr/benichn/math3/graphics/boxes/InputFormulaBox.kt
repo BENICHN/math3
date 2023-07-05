@@ -10,20 +10,11 @@ import fr.benichn.math3.graphics.boxes.types.PathPainting
 import fr.benichn.math3.graphics.boxes.types.Range
 import fr.benichn.math3.graphics.caret.CaretPosition
 
-class InputFormulaBox(vararg boxes: FormulaBox) : MutableSequenceFormulaBox(*boxes) {
+class InputFormulaBox(vararg boxes: FormulaBox) : SequenceFormulaBox(*boxes) {
     val firstSingle
         get() = CaretPosition.Single(this, 0)
     val lastSingle
         get() = CaretPosition.Single(this, ch.size)
-
-    override fun findChildBox(absX: Float, absY: Float): FormulaBox {
-        for (c in ch) {
-            if (absX < c.accRealBounds.right) {
-                return c
-            }
-        }
-        return if (ch.isEmpty()) this else ch.last()
-    }
 
     override fun onChildRequiresDelete(b: FormulaBox): DeletionResult {
         val i = ch.indexOf(b)

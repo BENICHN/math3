@@ -24,8 +24,10 @@ data class RectPoint(val tx: Float, val ty: Float) {
         val CENTER_LEFT = RectPoint(0f, 0.5f)
         val CENTER_RIGHT = RectPoint(1f, 0.5f)
         val TOP_NAN = RectPoint(Float.NaN, 0f)
+        val CENTER_NAN = RectPoint(Float.NaN, 0.5f)
         val BOTTOM_NAN = RectPoint(Float.NaN, 1f)
         val NAN_LEFT = RectPoint(0f, Float.NaN)
+        val NAN_CENTER = RectPoint(0.5f, Float.NaN)
         val NAN_RIGHT = RectPoint(1f, Float.NaN)
         val NAN = RectPoint(Float.NaN, Float.NaN)
     }

@@ -58,10 +58,9 @@ class ContextMenu(vararg entries: ContextMenuEntry) {
         NONE
     }
 
-    fun findEntry(p: PointF) = findEntry(p.x, p.y)
-    fun findEntry(x: Float, y: Float): ContextMenuEntry? =
-        if (box.bounds.contains(x, y)) {
-            val b = box.findBox(x, y)
+    fun findEntry(pos: PointF): ContextMenuEntry? =
+        if (box.bounds.contains(pos.x, pos.y)) {
+            val b = box.findBox(pos)
             entries.firstOrNull { it.box == b }
         } else {
             null

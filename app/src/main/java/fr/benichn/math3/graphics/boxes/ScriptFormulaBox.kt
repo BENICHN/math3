@@ -1,6 +1,7 @@
 package fr.benichn.math3.graphics.boxes
 
 import android.graphics.Path
+import android.graphics.PointF
 import android.graphics.RectF
 import fr.benichn.math3.graphics.boxes.types.BoundsTransformer
 import fr.benichn.math3.graphics.boxes.types.BoxProperty
@@ -66,7 +67,7 @@ class ScriptFormulaBox(type: Type = Type.SUPER, range: RangeF = RangeF(-DEFAULT_
                 val newBoxes = if (ib.boxes.size <= 1 || (ib.boxes.all { b -> b.isDigit() } && ib.boxesBefore.lastOrNull()?.isDigit() != true)) {
                     ib.boxes
                 } else {
-                    listOf(BracketsFormulaBox(*ib.boxes.toTypedArray()))
+                    listOf(BracketsInputFormulaBox(*ib.boxes.toTypedArray()))
                 }
                 FinalBoxes(newBoxes)
             }
@@ -88,17 +89,12 @@ class ScriptFormulaBox(type: Type = Type.SUPER, range: RangeF = RangeF(-DEFAULT_
         }
     )
 
-    override fun findChildBox(absX: Float, absY: Float): FormulaBox =
+    override fun findChildBox(pos: PointF): FormulaBox =
         when {
-            absY <= accTransform.origin.y+range.start -> if (type != Type.SUB) sup else this
-            absY > accTransform.origin.y+range.end -> if (type != Type.SUPER) sub else this
+            pos.y <= range.start -> if (type != Type.SUB) sup else this
+            pos.y > range.end -> if (type != Type.SUPER) sub else this
             else -> this
         }
-
-    override fun addBox(i: Int, b: FormulaBox) {
-        super.addBox(i, b)
-        listenChildBoundsChange(i)
-    }
 
     fun addChildren() {
         when (type) {

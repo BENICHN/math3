@@ -71,25 +71,34 @@ open class FormulaBox {
 
     private val children = mutableListOf<FormulaBox>()
     val ch = ImmutableList(children)
-    protected open fun addBox(b: FormulaBox) = addBox(children.size, b)
-    protected open fun addBox(i: Int, b: FormulaBox) {
+    fun addBoxes(vararg boxes: FormulaBox) = addBoxes(boxes.asIterable())
+    fun addBoxes(boxes: Iterable<FormulaBox>) =
+        addBoxes(children.size, boxes)
+    fun addBoxes(i: Int, boxes: Iterable<FormulaBox>) {
+        boxes.forEachIndexed { j, b ->
+            addBox(i+j, b)
+        }
+    }
+    fun addBox(b: FormulaBox) = addBox(children.size, b)
+    open fun addBox(i: Int, b: FormulaBox) {
         if (!b.isRoot) b.delete()
         children.add(i, b)
         b.parent = this
+        connect(b.onBoundsChanged) { s, e -> onChildBoundsChanged(s, e) }
         for (j in 0 until children.size) {
             if (j != i) {
                 children[j].notifyBrothersBoundsChanged()
             }
         }
     }
-    protected open fun removeAllBoxes() {
+    fun removeAllBoxes() {
         while (children.isNotEmpty()) {
             removeLastBox()
         }
     }
-    protected open fun removeLastBox() { if (children.isNotEmpty()) removeBoxAt(children.size - 1) }
-    protected open fun removeBox(b: FormulaBox) = removeBoxAt(children.indexOf(b))
-    protected open fun removeBoxAt(i: Int) {
+    fun removeLastBox() { if (children.isNotEmpty()) removeBoxAt(children.size - 1) }
+    fun removeBox(b: FormulaBox) = removeBoxAt(children.indexOf(b))
+    open fun removeBoxAt(i: Int) {
         val b = children[i]
         assert(b.parent == this)
         disconnectFrom(b)
@@ -103,10 +112,10 @@ open class FormulaBox {
 
     val isSelected
         get() = caret?.position?.let {
-            if (it is CaretPosition.Double) {
-                it.contains(this)
-            } else {
-                false
+            when (it) {
+                is CaretPosition.Double -> it.contains(this)
+                is CaretPosition.DiscreteSelection -> it.contains(this)
+                else -> false
             }
         } ?: false
 
@@ -139,11 +148,9 @@ open class FormulaBox {
 
     open fun getInitialSingle(): CaretPosition.Single? = null
 
-    fun getSide(absX: Float): Side = if (absX > accRealBounds.centerX()) Side.R else Side.L
-
-    open fun findChildBox(absX: Float, absY: Float) : FormulaBox {
+    open fun findChildBox(pos: PointF) : FormulaBox {
         for (c in children) {
-            if (c.accRealBounds.contains(absX, absY)) {
+            if (c.realBounds.contains(pos.x, pos.y)) {
                 return c
             }
         }
@@ -153,10 +160,9 @@ open class FormulaBox {
     protected open val alwaysEnter // ~~ rustine ~~
         get() = false
 
-    fun findSingle(absPos: PointF) = findSingle(absPos.x, absPos.y)
-    fun findSingle(absX: Float, absY: Float) : CaretPosition.Single? {
-        val c = findChildBox(absX, absY)
-        return if (c == this || (!c.alwaysEnter && c.accRealBounds.run { absX < left || right < absX })) {
+    fun findSingle(pos: PointF) : CaretPosition.Single? {
+        val c = findChildBox(pos)
+        return if (c == this || (!c.alwaysEnter && c.realBounds.run { pos.x < left || right < pos.y })) {
             if (c is InputFormulaBox) {
                 assert(c.ch.isEmpty())
                 CaretPosition.Single(c, 0)
@@ -167,23 +173,22 @@ open class FormulaBox {
                     return pi?.let { if (it.box is InputFormulaBox) it else getParentInput(it.box) }
                 }
                 getParentInput(c)?.let {
-                    val s = it.box.ch[it.index].getSide(absX)
+                    val s = it.box.ch[it.index].let { b -> if (accTransform.applyOnPoint(pos).x <= b.accRealBounds.centerX()) Side.L else Side.R }
                     val i = if (s == Side.L) it.index else it.index + 1
                     CaretPosition.Single(it.box as InputFormulaBox, i)
                 }
             }
         } else {
-            c.findSingle(absX, absY)
+            c.findSingle(c.transform.invert.applyOnPoint(pos))
         }
     }
 
-    fun findBox(absPos: PointF) = findBox(absPos.x, absPos.y)
-    fun findBox(absX: Float, absY: Float) : FormulaBox {
-        val c = findChildBox(absX, absY)
-        return if (c == this || (!c.alwaysEnter && c.accRealBounds.run { absX < left || right < absX })) {
+    fun findBox(pos: PointF) : FormulaBox {
+        val c = findChildBox(pos)
+        return if (c == this || (!c.alwaysEnter && c.realBounds.run { pos.x < left || right < pos.y })) {
             c
         } else {
-            c.findBox(absX, absY)
+            c.findBox(c.transform.invert.applyOnPoint(pos))
         }
     }
 
@@ -274,12 +279,9 @@ open class FormulaBox {
     val accRealBounds
         get() = accTransform.applyOnRect(bounds)
 
-    protected fun listenChildBoundsChange(i: Int) { // pourquoi
-        val b = children[i]
-        b.onBoundsChanged += { _, _ -> updateGraphics() }
+    protected open fun onChildBoundsChanged(b: FormulaBox, e: ValueChangedEvent<RectF>) {
+        updateGraphics()
     }
-
-    protected fun listenChildBoundsChange(b: FormulaBox) = listenChildBoundsChange(children.indexOf(b))
 
     protected open fun generateGraphics(): FormulaGraphics = FormulaGraphics(
         Path(),

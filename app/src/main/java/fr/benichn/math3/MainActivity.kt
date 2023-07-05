@@ -5,16 +5,18 @@ import android.os.Bundle
 import androidx.appcompat.app.AppCompatActivity
 import androidx.fragment.app.commit
 import fr.benichn.math3.graphics.FormulaView
-import fr.benichn.math3.graphics.boxes.BracketsFormulaBox
+import fr.benichn.math3.graphics.boxes.BracketsInputFormulaBox
 import fr.benichn.math3.graphics.boxes.FormulaBox
 import fr.benichn.math3.graphics.boxes.FractionFormulaBox
 import fr.benichn.math3.graphics.boxes.InputFormulaBox
+import fr.benichn.math3.graphics.boxes.MatrixFormulaBox
 import fr.benichn.math3.graphics.boxes.ScriptFormulaBox
 import fr.benichn.math3.graphics.boxes.TextFormulaBox
 import fr.benichn.math3.graphics.boxes.types.DeletionResult
 import fr.benichn.math3.graphics.boxes.types.InitialBoxes
 import fr.benichn.math3.graphics.caret.CaretPosition
 import fr.benichn.math3.numpad.NumpadFragment
+import fr.benichn.math3.numpad.types.Pt
 
 class App : Application() {
     init {
@@ -45,8 +47,9 @@ class MainActivity : AppCompatActivity() {
                 else -> {
                     val newBox = when (id) {
                         "over" -> FractionFormulaBox()
-                        "clav" -> BracketsFormulaBox()
+                        "clav" -> BracketsInputFormulaBox()
                         "recent" -> ScriptFormulaBox()
+                        "enter" -> MatrixFormulaBox(Pt(3,3))
                         else -> TextFormulaBox(id)
                     }
                     fv.sendAdd(newBox)

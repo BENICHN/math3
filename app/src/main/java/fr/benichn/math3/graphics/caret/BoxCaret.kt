@@ -27,6 +27,9 @@ class BoxCaret(/* val root: FormulaBox */) {
             is CaretPosition.Double -> {
                 canvas.drawRect(p.bounds, selectionPaint)
             }
+            is CaretPosition.DiscreteSelection -> {
+                p.bounds.forEach { r -> canvas.drawRect(r, selectionPaint) }
+            }
             else -> {}
         }
     }
@@ -45,8 +48,6 @@ class BoxCaret(/* val root: FormulaBox */) {
         }
 
         when (p) {
-            is CaretPosition.None -> {
-            }
             is CaretPosition.Single -> {
                 val pos = p.getAbsPosition()
                 drawBar(
@@ -70,6 +71,7 @@ class BoxCaret(/* val root: FormulaBox */) {
                     drawSelectionEnding(r.right)
                 }
             }
+            else -> { }
         }
         absolutePosition?.also { ap ->
             when (p) {
@@ -86,6 +88,7 @@ class BoxCaret(/* val root: FormulaBox */) {
                         false
                     )
                 }
+                is CaretPosition.DiscreteSelection -> { }
             }
         }
     }

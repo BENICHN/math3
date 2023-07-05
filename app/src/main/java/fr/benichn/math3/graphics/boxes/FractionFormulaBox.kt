@@ -1,5 +1,6 @@
 package fr.benichn.math3.graphics.boxes
 
+import android.graphics.PointF
 import android.graphics.RectF
 import fr.benichn.math3.graphics.boxes.types.BoundsTransformer
 import fr.benichn.math3.graphics.boxes.types.BoxTransform
@@ -30,8 +31,6 @@ class FractionFormulaBox(numChildren: Array<FormulaBox> = emptyArray(), denChild
         bar.dlgRange.connectValue(den.onBoundsChanged) { _, _ -> getBarWidth() }
         setChildTransform(1, BoxTransform.yOffset(-DEFAULT_TEXT_SIZE * 0.15f))
         setChildTransform(2, BoxTransform.yOffset(DEFAULT_TEXT_SIZE * 0.15f))
-        listenChildBoundsChange(num)
-        listenChildBoundsChange(den)
         updateGraphics()
     }
 
@@ -61,8 +60,8 @@ class FractionFormulaBox(numChildren: Array<FormulaBox> = emptyArray(), denChild
                 ib.boxes
             }
         }
-        if (boxes.size == 1 && boxes[0] is BracketsFormulaBox) {
-            (boxes[0] as BracketsFormulaBox).input.delete().finalBoxes.boxesBefore.forEach { numerator.addBox(it) }
+        if (boxes.size == 1 && boxes[0] is BracketsInputFormulaBox) {
+            (boxes[0] as BracketsInputFormulaBox).input.delete().finalBoxes.boxesBefore.forEach { numerator.addBox(it) }
         } else {
             boxes.forEach { numerator.addBox(it) }
         }
@@ -75,9 +74,9 @@ class FractionFormulaBox(numChildren: Array<FormulaBox> = emptyArray(), denChild
         denominator.lastSingle
     }
 
-    override fun findChildBox(absX: Float, absY: Float): FormulaBox =
-        if (bar.accRealBounds.run { left <= absX && absX <= right }) {
-            if (absY > accTransform.origin.y) {
+    override fun findChildBox(pos: PointF): FormulaBox =
+        if (bar.realBounds.run { pos.x in left..right }) {
+            if (pos.y > 0) {
                 den
             } else {
                 num

@@ -148,7 +148,10 @@ open class FormulaBox {
 
     open fun getInitialSingle(): CaretPosition.Single? = null
 
-    open fun findChildBox(pos: PointF) : FormulaBox {
+    protected open fun shouldEnterInChild(c: FormulaBox, pos: PointF) =
+        true
+
+    protected open fun findChildBox(pos: PointF) : FormulaBox {
         for (c in children) {
             if (c.realBounds.contains(pos.x, pos.y)) {
                 return c
@@ -157,12 +160,9 @@ open class FormulaBox {
         return this
     }
 
-    protected open val alwaysEnter // ~~ rustine ~~
-        get() = false
-
     fun findSingle(pos: PointF) : CaretPosition.Single? {
         val c = findChildBox(pos)
-        return if (c == this || (!c.alwaysEnter && c.realBounds.run { pos.x < left || right < pos.y })) {
+        return if (c == this || !shouldEnterInChild(c, pos)) {
             if (c is InputFormulaBox) {
                 assert(c.ch.isEmpty())
                 CaretPosition.Single(c, 0)
@@ -185,7 +185,7 @@ open class FormulaBox {
 
     fun findBox(pos: PointF) : FormulaBox {
         val c = findChildBox(pos)
-        return if (c == this || (!c.alwaysEnter && c.realBounds.run { pos.x < left || right < pos.y })) {
+        return if (c == this || !shouldEnterInChild(c, pos)) {
             c
         } else {
             c.findBox(c.transform.invert.applyOnPoint(pos))

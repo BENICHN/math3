@@ -48,7 +48,7 @@ class FractionFormulaBox(numChildren: Array<FormulaBox> = emptyArray(), denChild
         den -> {
             delete().withFinalBoxes(numerator.ch, denominator.ch, !denominator.ch.isEmpty())
         }
-        else -> super.onChildRequiresDelete(b)
+        else -> delete()
     }
 
     override fun addInitialBoxes(ib: InitialBoxes): FinalBoxes {

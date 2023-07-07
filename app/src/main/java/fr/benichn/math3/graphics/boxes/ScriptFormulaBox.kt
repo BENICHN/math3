@@ -61,6 +61,9 @@ class ScriptFormulaBox(type: Type = Type.SUPER, range: RangeF = RangeF(-DEFAULT_
         }
     }
 
+    override val selectBeforeDeletion: Boolean
+        get() = true
+
     override fun addInitialBoxes(ib: InitialBoxes) =
         when (ib) {
             is InitialBoxes.Selection -> {
@@ -89,12 +92,44 @@ class ScriptFormulaBox(type: Type = Type.SUPER, range: RangeF = RangeF(-DEFAULT_
         }
     )
 
-    override fun findChildBox(pos: PointF): FormulaBox =
-        when {
-            pos.y <= range.start -> if (type != Type.SUB) sup else this
-            pos.y > range.end -> if (type != Type.SUPER) sub else this
-            else -> this
+    override fun onChildRequiresDelete(b: FormulaBox) =
+        when (b) {
+            sup -> {
+                if (sup.isSelected || superscript.ch.isEmpty()) {
+                    if (type == Type.BOTH) {
+                        superscript.removeAllBoxes()
+                        type = Type.SUB
+                        DeletionResult(subscript.lastSingle)
+                    } else {
+                        delete()
+                    }
+                } else {
+                    DeletionResult.fromSelection(sup)
+                }
+            }
+            sub -> {
+                if (sub.isSelected || subscript.ch.isEmpty()) {
+                    if (type == Type.BOTH) {
+                        subscript.removeAllBoxes()
+                        type = Type.SUPER
+                        DeletionResult(superscript.lastSingle)
+                    } else {
+                        delete()
+                    }
+                } else {
+                    DeletionResult.fromSelection(sub)
+                }
+            }
+            else -> delete()
         }
+
+    override fun findChildBox(pos: PointF): FormulaBox {
+        val m = (range.start + range.end) * 0.5f
+        return when {
+            pos.y <= m -> if (type != Type.SUB) sup else sub
+            else -> if (type != Type.SUPER) sub else sup
+        }
+    }
 
     fun addChildren() {
         when (type) {
@@ -109,12 +144,16 @@ class ScriptFormulaBox(type: Type = Type.SUPER, range: RangeF = RangeF(-DEFAULT_
 
     fun alignChildren() {
         when (type) {
-            Type.SUPER -> setChildTransform(0, BoxTransform.yOffset(range.start))
-            Type.SUB -> setChildTransform(0, BoxTransform.yOffset(range.end))
+            Type.SUPER -> setChildTransform(0, BoxTransform.yOffset(range.start+ DEFAULT_V_OFFSET))
+            Type.SUB -> setChildTransform(0, BoxTransform.yOffset(range.end- DEFAULT_V_OFFSET))
             Type.BOTH -> {
-                setChildTransform(0, BoxTransform.yOffset(range.start))
-                setChildTransform(1, BoxTransform.yOffset(range.end))
+                setChildTransform(0, BoxTransform.yOffset(range.start+ DEFAULT_V_OFFSET))
+                setChildTransform(1, BoxTransform.yOffset(range.end- DEFAULT_V_OFFSET))
             }
         }
+    }
+
+    companion object {
+        const val DEFAULT_V_OFFSET = DEFAULT_TEXT_RADIUS * 0.25f
     }
 }

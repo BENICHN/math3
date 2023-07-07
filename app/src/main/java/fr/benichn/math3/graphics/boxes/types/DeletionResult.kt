@@ -17,6 +17,7 @@ data class DeletionResult(val newPos: CaretPosition = CaretPosition.None, val fi
         )
 
     companion object {
-        fun fromSelection(b: FormulaBox) = DeletionResult(CaretPosition.Double.fromBox(b).noneIfNull())
+        fun fromDouble(b: FormulaBox) = DeletionResult(CaretPosition.Double.fromBox(b).noneIfNull())
+        fun fromSelection(b: FormulaBox) = DeletionResult(b.parentWithIndex?.let { (p, i) -> CaretPosition.DiscreteSelection(p, listOf(i)) }.noneIfNull())
     }
 }

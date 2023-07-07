@@ -110,7 +110,8 @@ sealed class CaretPosition {
         }
 
         companion object {
-            fun mergeSelections(s1: Double, s2: Double): Double? {
+            fun mergeSelections(s1: Double?, s2: Double?): Double? {
+                if (s1 == null || s2 == null) return null
                 val s1Sequences = getBoxSequences(s1.box)
                 val s2Sequences = getBoxSequences(s2.box)
                 val commonParent = s1Sequences.zip(s2Sequences).lastOrNull { (p1, p2) -> p1.box == p2.box }
@@ -147,6 +148,13 @@ sealed class CaretPosition {
             fun fromBox(b: FormulaBox): Double? =
                 getBoxParentInputWithIndex(b)?.let { (p, i) -> Double(p as InputFormulaBox, Range(i, i+1)) }
 
+            fun fromBoxes(bs: List<FormulaBox>): Double? =
+                if (bs.isEmpty()) {
+                    null
+                } else {
+                    bs.map { b -> fromBox(b) }.reduce { acc, d -> mergeSelections(acc, d) }
+                }
+
             fun fromSingles(p1: Single, p2: Single): Double? {
                 val s1 = fromSingle(p1)
                 val s2 = fromSingle(p2)
@@ -168,6 +176,14 @@ sealed class CaretPosition {
         fun contains(b: FormulaBox): Boolean {
             val i = box.deepIndexOf(b)
             return indices.contains(i)
+        }
+
+        fun getElement(absPos: PointF) =
+            if (bounds.any { it.contains(absPos.x, absPos.y) }) Element.INTERIOR else Element.NONE
+
+        enum class Element {
+            INTERIOR,
+            NONE
         }
     }
 }

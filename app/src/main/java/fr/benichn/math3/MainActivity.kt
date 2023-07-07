@@ -48,7 +48,7 @@ class MainActivity : AppCompatActivity() {
                     val newBox = when (id) {
                         "over" -> FractionFormulaBox()
                         "clav" -> BracketsInputFormulaBox()
-                        "recent" -> ScriptFormulaBox()
+                        "recent" -> ScriptFormulaBox(ScriptFormulaBox.Type.BOTH)
                         "enter" -> MatrixFormulaBox(Pt(3,3))
                         else -> TextFormulaBox(id)
                     }

@@ -26,8 +26,6 @@ class TransformerFormulaBox(child: FormulaBox = FormulaBox(), transformer: Bound
         addBox(child)
     }
 
-    override val alwaysEnter: Boolean
-        get() = true
     override fun findChildBox(pos: PointF): FormulaBox = child
     override fun getInitialSingle() = child.getInitialSingle()
 

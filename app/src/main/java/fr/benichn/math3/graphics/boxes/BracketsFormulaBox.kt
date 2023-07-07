@@ -27,7 +27,7 @@ class BracketsInputFormulaBox(vararg boxes: FormulaBox) : SequenceFormulaBox(
         input -> {
             delete().withFinalBoxes(input.ch.toList())
         }
-        else -> super.onChildRequiresDelete(b)
+        else -> delete()
     }
 
     override fun addInitialBoxes(ib: InitialBoxes): FinalBoxes {

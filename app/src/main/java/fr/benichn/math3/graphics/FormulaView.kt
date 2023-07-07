@@ -73,7 +73,7 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : View(context,
         }
 
         override fun onLongDown() {
-            replace(CreateSelectionAction().also { it.launch(downPosition, downIndex) })
+            replace(CreateDoubleAction().also { it.launch(downPosition, downIndex) })
         }
 
         override fun onUp() {
@@ -94,7 +94,7 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : View(context,
         }
 
         override fun onLongDown() {
-            replace(CreateSelectionAction().also { it.launch(downPosition, downIndex) })
+            replace(CreateDoubleAction().also { it.launch(downPosition, downIndex) })
         }
 
         override fun onUp() {
@@ -113,7 +113,7 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : View(context,
 
     }
 
-    private inner class CreateSelectionAction : FormulaViewAction() {
+    private inner class CreateDoubleAction : FormulaViewAction() {
         private var downSingle: CaretPosition.Single? = null
 
         override fun onDown() {
@@ -147,7 +147,7 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : View(context,
 
     }
 
-    private inner class ModifySelectionAction(val downSide: Side) : FormulaViewAction() {
+    private inner class ModifyDoubleAction(val downSide: Side) : FormulaViewAction() {
         private var fixedSingle: CaretPosition.Single? = null
 
         override fun onDown() {
@@ -161,7 +161,7 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : View(context,
         }
 
         override fun onLongDown() {
-            replace(CreateSelectionAction().also { it.launch(downPosition, downIndex) })
+            replace(CreateDoubleAction().also { it.launch(downPosition, downIndex) })
         }
 
         override fun onUp() {
@@ -187,12 +187,12 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : View(context,
 
     }
 
-    private inner class SelectionInteriorAction : FormulaViewAction() {
+    private inner class DoubleInteriorAction : FormulaViewAction() {
         override fun onDown() {
         }
 
         override fun onLongDown() {
-            replace(CreateSelectionAction().also { it.launch(downPosition, downIndex) })
+            replace(CreateDoubleAction().also { it.launch(downPosition, downIndex) })
         }
 
         override fun onMove() {
@@ -236,6 +236,28 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : View(context,
                 entry?.action?.invoke(caret.position)
                 contextMenu = null
             }
+        }
+
+        override fun beforeFinish(replacement: TouchAction?) {
+        }
+
+    }
+
+    private inner class SelectionToDoubleAction : FormulaViewAction() {
+        override fun onDown() {
+        }
+
+        override fun onLongDown() {
+            replace(CreateDoubleAction().also { it.launch(downPosition, downIndex) })
+        }
+
+        override fun onMove() {
+            replace(MoveViewAction().also { it.launch(downPosition, downIndex) })
+        }
+
+        override fun onUp() {
+            val p = caret.position as CaretPosition.DiscreteSelection
+            caret.position = CaretPosition.Double.fromBoxes(p.selectedBoxes).noneIfNull()
         }
 
         override fun beforeFinish(replacement: TouchAction?) {
@@ -384,14 +406,17 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : View(context,
                             }
                             is CaretPosition.Double -> {
                                 when (p.getElement(pos)) {
-                                    CaretPosition.Double.Element.LEFT_BAR -> ModifySelectionAction(Side.L)
-                                    CaretPosition.Double.Element.RIGHT_BAR -> ModifySelectionAction(Side.R)
-                                    CaretPosition.Double.Element.INTERIOR -> SelectionInteriorAction()
+                                    CaretPosition.Double.Element.LEFT_BAR -> ModifyDoubleAction(Side.L)
+                                    CaretPosition.Double.Element.RIGHT_BAR -> ModifyDoubleAction(Side.R)
+                                    CaretPosition.Double.Element.INTERIOR -> DoubleInteriorAction()
                                     CaretPosition.Double.Element.NONE -> PlaceCaretAction()
                                 }
                             }
                             is CaretPosition.DiscreteSelection -> {
-                                PlaceCaretAction()
+                                when (p.getElement(pos)) {
+                                    CaretPosition.DiscreteSelection.Element.INTERIOR -> SelectionToDoubleAction()
+                                    CaretPosition.DiscreteSelection.Element.NONE -> PlaceCaretAction()
+                                }
                             }
                         }
                     }

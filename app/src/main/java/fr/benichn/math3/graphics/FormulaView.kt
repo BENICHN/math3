@@ -9,6 +9,11 @@ import android.util.AttributeSet
 import android.util.Log
 import android.view.MotionEvent
 import android.view.View
+import androidx.core.graphics.minus
+import androidx.core.graphics.plus
+import fr.benichn.math3.Utils.Companion.neg
+import fr.benichn.math3.Utils.Companion.pos
+import fr.benichn.math3.Utils.Companion.trim
 import fr.benichn.math3.graphics.boxes.TransformerFormulaBox
 import fr.benichn.math3.graphics.boxes.FormulaBox
 import fr.benichn.math3.graphics.boxes.InputFormulaBox
@@ -16,6 +21,7 @@ import fr.benichn.math3.graphics.boxes.TextFormulaBox
 import fr.benichn.math3.graphics.boxes.types.BoundsTransformer
 import fr.benichn.math3.graphics.boxes.types.DeletionResult
 import fr.benichn.math3.graphics.boxes.types.InitialBoxes
+import fr.benichn.math3.graphics.boxes.types.Padding
 import fr.benichn.math3.graphics.caret.BoxCaret
 import fr.benichn.math3.graphics.caret.CaretPosition
 import fr.benichn.math3.graphics.caret.ContextMenu
@@ -29,9 +35,50 @@ import fr.benichn.math3.types.callback.*
 class FormulaView(context: Context, attrs: AttributeSet? = null) : View(context, attrs) {
     private var box = TransformerFormulaBox(InputFormulaBox(), BoundsTransformer.Align(RectPoint.BOTTOM_CENTER))
     private var caret: BoxCaret
-    private val offset
-        get() = PointF(width * 0.5f, height - 48f)
-    private fun getRootPos(e: MotionEvent) = offset.run { PointF(e.x - x, e.y - y) }
+    private val origin
+        get() = PointF(width * 0.5f, height - FormulaBox.DEFAULT_TEXT_RADIUS)
+    var offset by ObservableProperty(this, PointF()) { _, _ ->
+        contextMenu = null
+        invalidate()
+    }
+
+    private fun adjustOffset() {
+        val r = defaultPadding.applyOnRect(box.bounds + origin + offset)
+        val x = if (r.width() <= width) 0f else {
+            val ol = r.left
+            val or = r.right - width
+            if (ol > 0) { // marge à gauche
+                offset.x - ol
+            } else { // depassement gauche
+                if (or > 0) { // depassement droite
+                    offset.x
+                } else {
+                    offset.x - or
+                }
+            }
+        }
+        val y = if (r.height() <= height) 0f else {
+            val ot = r.top
+            val ob = r.bottom - height
+            if (ot > 0) { // marge en haut
+                offset.y - ot
+            } else { // depassement haut
+                if (ob > 0) { // depassement bas
+                    offset.y
+                } else {
+                    offset.y - ob
+                }
+            }
+        }
+        offset = PointF(x, y)
+    }
+
+    override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
+        touchAction?.finish()
+        contextMenu = null
+        adjustOffset()
+        invalidate()
+    }
 
     var contextMenu by ObservableProperty<FormulaView, ContextMenu?>(this, null) { _, e ->
         e.new?.run {
@@ -47,9 +94,9 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : View(context,
         }
     }
 
-    private abstract inner class FormulaViewAction : TouchAction({ getRootPos(it) })
+    private abstract inner class FormulaViewAction : TouchAction({ it - (origin + offset) })
 
-    private inner class MoveViewAction : FormulaViewAction() {
+    private inner class MoveViewAction : TouchAction() {
         override fun onDown() {
         }
 
@@ -63,7 +110,9 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : View(context,
         }
 
         override fun onMove() {
-            Log.d("mov", "aaa")
+            Log.d("mov", lastAbsDiff.toString())
+            offset += lastAbsDiff
+            adjustOffset()
         }
 
     }
@@ -73,7 +122,7 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : View(context,
         }
 
         override fun onLongDown() {
-            replace(CreateDoubleAction().also { it.launch(downPosition, downIndex) })
+            replace(CreateDoubleAction().also { it.launch(downAbsPosition, downIndex) })
         }
 
         override fun onUp() {
@@ -84,7 +133,7 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : View(context,
         }
 
         override fun onMove() {
-            replace(MoveViewAction().also { it.launch(downPosition, downIndex) })
+            replace(MoveViewAction().also { it.launch(downAbsPosition, downIndex) })
         }
 
     }
@@ -94,7 +143,7 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : View(context,
         }
 
         override fun onLongDown() {
-            replace(CreateDoubleAction().also { it.launch(downPosition, downIndex) })
+            replace(CreateDoubleAction().also { it.launch(downAbsPosition, downIndex) })
         }
 
         override fun onUp() {
@@ -161,7 +210,7 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : View(context,
         }
 
         override fun onLongDown() {
-            replace(CreateDoubleAction().also { it.launch(downPosition, downIndex) })
+            replace(CreateDoubleAction().also { it.launch(downAbsPosition, downIndex) })
         }
 
         override fun onUp() {
@@ -192,16 +241,16 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : View(context,
         }
 
         override fun onLongDown() {
-            replace(CreateDoubleAction().also { it.launch(downPosition, downIndex) })
+            replace(CreateDoubleAction().also { it.launch(downAbsPosition, downIndex) })
         }
 
         override fun onMove() {
-            replace(MoveViewAction().also { it.launch(downPosition, downIndex) })
+            replace(MoveViewAction().also { it.launch(downAbsPosition, downIndex) })
         }
 
         override fun onUp() {
-            contextMenu = getSelectionContextMenu().apply {
-                origin = RectPoint.TOP_CENTER.get((caret.position as CaretPosition.Double).bounds)
+            contextMenu = getSelectionContextMenu().also {
+                it.origin = RectPoint.TOP_CENTER.get((caret.position as CaretPosition.Double).bounds)
             }
         }
 
@@ -248,11 +297,11 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : View(context,
         }
 
         override fun onLongDown() {
-            replace(CreateDoubleAction().also { it.launch(downPosition, downIndex) })
+            replace(CreateDoubleAction().also { it.launch(downAbsPosition, downIndex) })
         }
 
         override fun onMove() {
-            replace(MoveViewAction().also { it.launch(downPosition, downIndex) })
+            replace(MoveViewAction().also { it.launch(downAbsPosition, downIndex) })
         }
 
         override fun onUp() {
@@ -269,6 +318,9 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : View(context,
         setWillNotDraw(false)
         box.onPictureChanged += { _, _ ->
             invalidate() }
+        box.onBoundsChanged += { _, _ ->
+            adjustOffset()
+        }
         caret = box.createCaret()
     }
 
@@ -367,14 +419,18 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : View(context,
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
         canvas.drawColor(backgroundPaint.color)
-        offset.apply { canvas.translate(x, y) }
+        val o = origin + offset
+        val y = box.child.transform.origin.y + o.y
+        canvas.drawLine(0f, y, o.x + box.bounds.left - FormulaBox.DEFAULT_TEXT_WIDTH * 0.5f, y, baselinePaint)
+        canvas.drawLine(width.toFloat(), y, o.x + box.bounds.right + FormulaBox.DEFAULT_TEXT_WIDTH * 0.5f, y, baselinePaint)
+        (origin + offset).let { canvas.translate(it.x, it.y) }
         box.drawOnCanvas(canvas)
         contextMenu?.box?.drawOnCanvas(canvas)
     }
 
     override fun onTouchEvent(e: MotionEvent): Boolean {
         if (touchAction == null) {
-            val pos = getRootPos(e)
+            val pos = PointF(e.x, e.y) - (offset + origin)
             val p = caret.position
             contextMenu?.also {
                 when (it.findElement(pos)) {
@@ -442,6 +498,10 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : View(context,
             style = Paint.Style.STROKE
             strokeWidth = 1f
             color = Color.RED }
+        val baselinePaint = Paint().apply {
+            style = Paint.Style.STROKE
+            strokeWidth = 1f
+            color = Color.BLACK }
         val backgroundPaint = Paint().apply {
             style = Paint.Style.FILL
             color = Color.DKGRAY
@@ -457,5 +517,7 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : View(context,
             ContextMenuEntry.create<CaretPosition.Double>(TextFormulaBox("cut")) {  },
             ContextMenuEntry.create<CaretPosition.Double>(TextFormulaBox("paste")) {  }
         )
+
+        val defaultPadding = Padding(FormulaBox.DEFAULT_TEXT_RADIUS)
     }
 }

@@ -1,6 +1,7 @@
 package fr.benichn.math3.graphics.boxes.types
 
 import android.graphics.RectF
+import fr.benichn.math3.Utils.Companion.pos
 import kotlin.math.max
 
 data class RangeF(val start: Float = 0f, val end: Float = 0f) {
@@ -10,5 +11,5 @@ data class RangeF(val start: Float = 0f, val end: Float = 0f) {
     }
 
     val length
-        get() = max(0f, end - start)
+        get() = pos(end - start)
 }

@@ -6,6 +6,7 @@ import android.graphics.PointF
 import android.graphics.RectF
 import fr.benichn.math3.App
 import fr.benichn.math3.R
+import fr.benichn.math3.Utils.Companion.pos
 import fr.benichn.math3.graphics.types.*
 import kotlin.math.max
 import kotlin.math.min
@@ -41,7 +42,7 @@ class Utils {
 
         fun squareDistFromLineToPoint(lineX: Float, lineYStart: Float, lineYEnd: Float, x: Float, y: Float): Float {
             val dx = x - lineX
-            val dy = max(0f, y - lineYEnd) + max(0f, lineYStart - y)
+            val dy = pos(y - lineYEnd) + pos(lineYStart - y)
             return dx * dx + dy * dy
         }
 

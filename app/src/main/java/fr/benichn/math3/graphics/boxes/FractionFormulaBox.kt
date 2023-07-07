@@ -39,7 +39,7 @@ class FractionFormulaBox(numChildren: Array<FormulaBox> = emptyArray(), denChild
 
     override fun onChildRequiresDelete(b: FormulaBox): DeletionResult = when (b) {
         num -> {
-            if (isSelected || (numerator.ch.isEmpty() && denominator.ch.isEmpty())) {
+            if (numerator.ch.isEmpty() && denominator.ch.isEmpty()) {
                 delete()
             } else {
                 DeletionResult.fromSelection(this)

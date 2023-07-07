@@ -10,14 +10,22 @@ import fr.benichn.math3.types.callback.Callback
 import fr.benichn.math3.types.callback.VCC
 import fr.benichn.math3.types.callback.invoke
 
-abstract class TouchAction(val getPos: (MotionEvent) -> PointF = { e -> PointF(e.x, e.y) }) {
+abstract class TouchAction(val getPos: (PointF) -> PointF = { it }) {
+    var downAbsPosition: PointF = PointF(Float.NaN, Float.NaN)
+        private set
     var downPosition: PointF = PointF(Float.NaN, Float.NaN)
         private set
     var downIndex: Int = -1
         private set
     var isLaunched = false
         private set
+    var lastAbsPos = downAbsPosition
+        private set
     var lastPos = downPosition
+        private set
+    var lastAbsDiff = PointF()
+        private set
+    var lastDiff = PointF()
         private set
     var isLongPressed = false
         private set
@@ -48,7 +56,8 @@ abstract class TouchAction(val getPos: (MotionEvent) -> PointF = { e -> PointF(e
 
     fun onTouchEvent(e: MotionEvent) {
         if (!isFinished && (downIndex == -1 || e.actionIndex == downIndex)) {
-            val pos = getPos(e)
+            val absPos = PointF(e.x, e.y)
+            val pos = getPos(absPos)
             when (e.actionMasked) {
                 MotionEvent.ACTION_DOWN -> {
                     if (!isLaunched) {
@@ -57,8 +66,11 @@ abstract class TouchAction(val getPos: (MotionEvent) -> PointF = { e -> PointF(e
                 }
                 MotionEvent.ACTION_MOVE -> {
                     if (isLaunched) {
+                        lastAbsDiff = absPos - lastAbsPos
+                        lastDiff = pos - lastPos
+                        lastAbsPos = absPos
                         lastPos = pos
-                        if (!hasMoved && Utils.l2(downPosition - pos) > MINIMAL_MOVE_DISTANCE_SQ) {
+                        if (!hasMoved && Utils.l2(downAbsPosition - absPos) > MINIMAL_MOVE_DISTANCE_SQ) {
                             hasMoved = true
                             downTimer.cancel()
                         }
@@ -69,6 +81,9 @@ abstract class TouchAction(val getPos: (MotionEvent) -> PointF = { e -> PointF(e
                 }
                 MotionEvent.ACTION_UP -> {
                     if (isLaunched) {
+                        lastAbsDiff = absPos - lastAbsPos
+                        lastDiff = pos - lastPos
+                        lastAbsPos = absPos
                         lastPos = pos
                         downTimer.cancel()
                         onUp()
@@ -81,10 +96,12 @@ abstract class TouchAction(val getPos: (MotionEvent) -> PointF = { e -> PointF(e
         }
     }
 
-    fun launch(downPosition: PointF, downIndex: Int, longPress: Boolean = false) {
+    fun launch(downAbsPosition: PointF, downIndex: Int, longPress: Boolean = false) {
         assert(!isLaunched)
-        this.downPosition = downPosition
         this.downIndex = downIndex
+        this.downAbsPosition = downAbsPosition
+        downPosition = getPos(downAbsPosition)
+        lastAbsPos = downAbsPosition
         lastPos = downPosition
         isLaunched = true
         if (longPress) {
@@ -99,7 +116,7 @@ abstract class TouchAction(val getPos: (MotionEvent) -> PointF = { e -> PointF(e
 
     fun launch(downEvent: MotionEvent, longPress: Boolean = false) {
         assert(downEvent.actionMasked == MotionEvent.ACTION_DOWN)
-        launch(getPos(downEvent), downEvent.actionIndex, longPress)
+        launch(PointF(downEvent.x, downEvent.y), downEvent.actionIndex, longPress)
     }
 
     fun forceLongDown() {

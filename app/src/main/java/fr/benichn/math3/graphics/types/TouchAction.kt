@@ -1,38 +1,75 @@
 package fr.benichn.math3.graphics.types
 
+import android.graphics.Picture
 import android.graphics.PointF
 import android.os.CountDownTimer
 import android.util.Log
 import android.view.MotionEvent
 import androidx.core.graphics.minus
+import androidx.core.graphics.plus
 import fr.benichn.math3.graphics.Utils
+import fr.benichn.math3.graphics.Utils.Companion.div
+import fr.benichn.math3.graphics.Utils.Companion.times
 import fr.benichn.math3.types.callback.Callback
 import fr.benichn.math3.types.callback.VCC
 import fr.benichn.math3.types.callback.invoke
+import kotlin.concurrent.fixedRateTimer
+import kotlin.math.abs
+
+data class TouchData(
+    val id: Int,
+    val downAbsPosition: PointF = PointF(Float.NaN, Float.NaN),
+    val downPosition: PointF = PointF(Float.NaN, Float.NaN),
+    val lastAbsPosition: PointF = downAbsPosition,
+    val lastPosition: PointF = downPosition,
+    val lastAbsDiff: PointF = PointF(),
+    val lastDiff: PointF = PointF(),
+    ) {
+    fun isTargeted(e: MotionEvent) = e.actionIndex == e.findPointerIndex(id)
+    fun getAbsPos(e: MotionEvent): PointF {
+        val i = e.findPointerIndex(id)
+        return PointF(e.getX(i), e.getY(i))
+    }
+}
 
 abstract class TouchAction(val getPos: (PointF) -> PointF = { it }) {
-    var downAbsPosition: PointF = PointF(Float.NaN, Float.NaN)
-        private set
-    var downPosition: PointF = PointF(Float.NaN, Float.NaN)
-        private set
-    var downIndex: Int = -1
-        private set
-    var isLaunched = false
-        private set
-    var lastAbsPos = downAbsPosition
-        private set
-    var lastPos = downPosition
-        private set
-    var lastAbsDiff = PointF()
-        private set
-    var lastDiff = PointF()
-        private set
+    val isLaunched
+        get() = primaryData != null
+    val isPinched
+        get() = pinchData != null
     var isLongPressed = false
         private set
     var isFinished = false
         private set
     var hasMoved = false
         private set
+    var primaryData: TouchData? = null
+        private set
+    var pinchData: TouchData? = null
+        private set
+
+    val prim
+        get() = primaryData!!
+    val pinch
+        get() = pinchData!!
+
+    data class Move(val diff: PointF, val millis: Long = System.currentTimeMillis())
+
+    private val moves = mutableListOf<Move>()
+    val velocity: PointF // en px/s
+        get() {
+            val t = System.currentTimeMillis()
+            return if (moves.isEmpty()) PointF() else moves
+                .filter { t - it.millis < MOVE_VELOCITY_DELAY }
+                .drop(1)
+                .fold(Move(PointF(), moves[0].millis)) { acc, m ->
+                    Move(
+                        acc.diff + m.diff / (m.millis - acc.millis).toFloat(),
+                        m.millis
+                    )
+                }
+                .diff * 1000f
+        }
 
     private val notifyFinished = Callback<TouchAction, Unit>(this)
     val onFinished = notifyFinished.Listener()
@@ -52,58 +89,120 @@ abstract class TouchAction(val getPos: (PointF) -> PointF = { it }) {
     protected abstract fun onLongDown()
     protected abstract fun onMove()
     protected abstract fun onUp()
+    protected abstract fun onPinchDown()
+    protected abstract fun onPinchMove()
+    protected abstract fun onPinchUp()
     protected abstract fun beforeFinish(replacement: TouchAction?)
 
+    private fun createData(id: Int, downAbsPos: PointF) {
+        val td = TouchData(
+            id,
+            downAbsPos,
+            getPos(downAbsPos)
+        )
+        if (isLaunched) {
+            pinchData = td
+        } else {
+            primaryData = td
+        }
+    }
+
+    private fun updatePos(absPos: PointF, isPinch: Boolean) {
+        val pos = getPos(absPos)
+        val td = (if (isPinch) pinchData else primaryData)?.let { TouchData(
+            it.id,
+            it.downAbsPosition,
+            it.downPosition,
+            absPos,
+            pos,
+            absPos - it.lastAbsPosition,
+            pos - it.lastPosition
+        ) }
+        if (isPinch) {
+            pinchData = td
+        } else {
+            primaryData = td
+        }
+    }
+
     fun onTouchEvent(e: MotionEvent) {
-        if (!isFinished && (downIndex == -1 || e.actionIndex == downIndex)) {
-            val absPos = PointF(e.x, e.y)
-            val pos = getPos(absPos)
-            when (e.actionMasked) {
-                MotionEvent.ACTION_DOWN -> {
-                    if (!isLaunched) {
-                        launch(e)
-                    }
-                }
-                MotionEvent.ACTION_MOVE -> {
-                    if (isLaunched) {
-                        lastAbsDiff = absPos - lastAbsPos
-                        lastDiff = pos - lastPos
-                        lastAbsPos = absPos
-                        lastPos = pos
-                        if (!hasMoved && Utils.l2(downAbsPosition - absPos) > MINIMAL_MOVE_DISTANCE_SQ) {
+        if (!isFinished) {
+            if (isLaunched) {
+                when (e.actionMasked) {
+                    MotionEvent.ACTION_MOVE -> {
+                        val absPos = prim.getAbsPos(e)
+                        updatePos(absPos, false)
+                        if (!hasMoved && Utils.l2(prim.downAbsPosition - absPos) > MINIMAL_MOVE_DISTANCE_SQ) {
                             hasMoved = true
                             downTimer.cancel()
                         }
                         if (hasMoved) {
-                            onMove()
+                            if (isPinched) {
+                                val pinchAbsPos = pinch.getAbsPos(e)
+                                updatePos(pinchAbsPos, true)
+                                onPinchMove()
+                            } else {
+                                moves += Move(prim.lastAbsDiff)
+                                onMove()
+                            }
                         }
                     }
                 }
-                MotionEvent.ACTION_UP -> {
-                    if (isLaunched) {
-                        lastAbsDiff = absPos - lastAbsPos
-                        lastDiff = pos - lastPos
-                        lastAbsPos = absPos
-                        lastPos = pos
-                        downTimer.cancel()
-                        onUp()
-                        beforeFinish(null)
-                        isFinished = true
-                        notifyFinished()
+                if (prim.isTargeted(e)) {
+                    when (e.actionMasked) {
+                        MotionEvent.ACTION_POINTER_UP -> {
+                            Pair(prim, pinch).run {
+                                primaryData = second
+                                pinchData = first
+                            }
+                            onPinchUp()
+                            pinchData = null
+                        }
+                        MotionEvent.ACTION_UP -> {
+                            updatePos(prim.getAbsPos(e), false)
+                            finish(true)
+                        }
+                    }
+                } else if (isPinched) {
+                    if (pinch.isTargeted(e)) {
+                        when (e.actionMasked) {
+                            MotionEvent.ACTION_POINTER_UP -> {
+                                updatePos(pinch.getAbsPos(e), true)
+                                onPinchUp()
+                                pinchData = null
+                            }
+                        }
+                        return
+                    }
+                } else {
+                    when (e.actionMasked) {
+                        MotionEvent.ACTION_POINTER_DOWN -> {
+                            downTimer.cancel()
+                            hasMoved = true
+                            createData(
+                                e.getPointerId(e.actionIndex),
+                                PointF(e.x, e.y)
+                            )
+                            onPinchDown()
+                        }
+                    }
+                }
+            } else {
+                when (e.actionMasked) {
+                    MotionEvent.ACTION_DOWN -> {
+                        launch(e)
                     }
                 }
             }
         }
     }
 
-    fun launch(downAbsPosition: PointF, downIndex: Int, longPress: Boolean = false) {
+    fun launch(downAbsPosition: PointF, id: Int, longPress: Boolean = false) {
         assert(!isLaunched)
-        this.downIndex = downIndex
-        this.downAbsPosition = downAbsPosition
-        downPosition = getPos(downAbsPosition)
-        lastAbsPos = downAbsPosition
-        lastPos = downPosition
-        isLaunched = true
+        createData(
+            id,
+            downAbsPosition
+        )
         if (longPress) {
             onDown()
             isLongPressed = true
@@ -116,7 +215,8 @@ abstract class TouchAction(val getPos: (PointF) -> PointF = { it }) {
 
     fun launch(downEvent: MotionEvent, longPress: Boolean = false) {
         assert(downEvent.actionMasked == MotionEvent.ACTION_DOWN)
-        launch(PointF(downEvent.x, downEvent.y), downEvent.actionIndex, longPress)
+        val id = downEvent.getPointerId(downEvent.actionIndex)
+        launch(PointF(downEvent.x, downEvent.y), id, longPress)
     }
 
     fun forceLongDown() {
@@ -126,15 +226,17 @@ abstract class TouchAction(val getPos: (PointF) -> PointF = { it }) {
         }
     }
 
-    protected fun replace(a: TouchAction) {
+    fun replace(a: TouchAction) {
         downTimer.cancel()
         beforeFinish(a)
         isFinished = true
         notifyReplaced(this, a)
     }
 
-    fun finish() {
+    fun finish() = finish(false)
+    private fun finish(callOnUp: Boolean) {
         downTimer.cancel()
+        if (callOnUp) onUp()
         beforeFinish(null)
         isFinished = true
         notifyFinished()
@@ -143,5 +245,6 @@ abstract class TouchAction(val getPos: (PointF) -> PointF = { it }) {
     companion object {
         const val LONG_PRESS_TIMEOUT = 300L
         const val MINIMAL_MOVE_DISTANCE_SQ = 100
+        const val MOVE_VELOCITY_DELAY = 100L
     }
 }

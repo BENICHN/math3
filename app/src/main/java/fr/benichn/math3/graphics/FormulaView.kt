@@ -5,6 +5,7 @@ import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.PointF
+import android.graphics.RectF
 import android.util.AttributeSet
 import android.util.Log
 import android.view.MotionEvent
@@ -19,6 +20,7 @@ import fr.benichn.math3.graphics.boxes.FormulaBox
 import fr.benichn.math3.graphics.boxes.InputFormulaBox
 import fr.benichn.math3.graphics.boxes.TextFormulaBox
 import fr.benichn.math3.graphics.boxes.types.BoundsTransformer
+import fr.benichn.math3.graphics.boxes.types.BoxTransform
 import fr.benichn.math3.graphics.boxes.types.DeletionResult
 import fr.benichn.math3.graphics.boxes.types.InitialBoxes
 import fr.benichn.math3.graphics.boxes.types.Padding
@@ -40,9 +42,11 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : View(context,
     private var caret: BoxCaret
     private val origin
         get() = PointF(width * 0.5f, height - FormulaBox.DEFAULT_TEXT_RADIUS)
-    var offset by ObservableProperty(this, PointF()) { _, _ ->
-        invalidate()
-    }
+    var offset = PointF()
+        set(value) {
+            field = adjustOffset(value)
+            invalidate()
+        }
 
     private var accVelocity = PointF()
     private val velocityTimer = fixedRateTimer(period = VELOCITY_REDUCTION_PERIOD) {
@@ -57,7 +61,6 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : View(context,
             if (y.sign == accVelocity.y.sign) y else 0f
         ) }
         offset += diff
-        adjustOffset()
     }
 
     private fun moveToCaret() {
@@ -91,12 +94,15 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : View(context,
                     oyt
                 }
             offset += PointF(ox, oy)
-            adjustOffset()
         }
     }
 
-    private fun adjustOffset() {
-        val r = defaultPadding.applyOnRect(box.bounds + origin + offset)
+    fun adjustOffset() {
+        offset = offset
+    }
+
+    private fun adjustOffset(offset: PointF): PointF {
+        val r = defaultPadding.applyOnRect(box.realBounds + origin + offset)
         val x = if (r.width() <= width) 0f else {
             val ol = r.left
             val or = r.right - width
@@ -127,13 +133,12 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : View(context,
             if (x == offset.x) accVelocity.x else 0f,
             if (y == offset.y) accVelocity.y else 0f
         )
-        offset = PointF(x, y)
+        return PointF(x, y)
     }
 
     override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
         touchAction?.finish()
         contextMenu = null
-        adjustOffset()
         invalidate()
     }
 
@@ -153,7 +158,11 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : View(context,
 
     private abstract inner class FormulaViewAction : TouchAction({ it - (origin + offset) })
 
-    private inner class MoveViewAction : TouchAction() {
+    private inner class MoveViewAction : FormulaViewAction() {
+        var baseGap = 0f
+        var baseScale = 0f
+        var baseOffset = PointF()
+
         override fun onDown() {
         }
 
@@ -165,9 +174,19 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : View(context,
         }
 
         override fun onPinchDown() {
+            baseScale = box.transformer(RectF()).scale
+            baseGap = (prim.lastAbsPosition - pinch.lastAbsPosition).length()
+            baseOffset = offset
         }
 
         override fun onPinchMove() {
+            val newGap = (prim.lastAbsPosition - pinch.lastAbsPosition).length()
+            val ratio = newGap / baseGap
+            val totalDiff = (prim.totalAbsDiff + pinch.totalAbsDiff) * 0.5f
+            fun getPos(p: PointF) = p - (origin + baseOffset + totalDiff)
+            val c = (getPos(prim.lastAbsPosition) + getPos(pinch.lastAbsPosition)) * 0.5f
+            box.transformer = BoundsTransformer.Align(RectPoint.BOTTOM_CENTER) * BoundsTransformer.Constant(BoxTransform.scale(baseScale * ratio))
+            offset = baseOffset + totalDiff + c * (1 - ratio)
         }
 
         override fun onPinchUp() {
@@ -178,7 +197,6 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : View(context,
 
         override fun onMove() {
             offset += prim.lastAbsDiff
-            adjustOffset()
         }
 
     }
@@ -559,8 +577,8 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : View(context,
         canvas.drawColor(backgroundPaint.color)
         val o = origin + offset
         val y = box.child.transform.origin.y + o.y
-        canvas.drawLine(0f, y, o.x + box.bounds.left - FormulaBox.DEFAULT_TEXT_WIDTH * 0.5f, y, baselinePaint)
-        canvas.drawLine(width.toFloat(), y, o.x + box.bounds.right + FormulaBox.DEFAULT_TEXT_WIDTH * 0.5f, y, baselinePaint)
+        canvas.drawLine(0f, y, o.x + box.realBounds.left - FormulaBox.DEFAULT_TEXT_WIDTH * 0.5f, y, baselinePaint)
+        canvas.drawLine(width.toFloat(), y, o.x + box.realBounds.right + FormulaBox.DEFAULT_TEXT_WIDTH * 0.5f, y, baselinePaint)
         (origin + offset).let { canvas.translate(it.x, it.y) }
         box.drawOnCanvas(canvas)
         contextMenu?.box?.drawOnCanvas(canvas)

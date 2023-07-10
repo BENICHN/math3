@@ -21,6 +21,10 @@ data class TouchData(
     val lastAbsDiff: PointF = PointF(),
     val lastDiff: PointF = PointF(),
     ) {
+    val totalAbsDiff
+        get() = lastAbsPosition - downAbsPosition
+    val totalDiff
+        get() = lastPosition - downPosition
     fun isTargeted(e: MotionEvent) = e.actionIndex == e.findPointerIndex(id)
     fun getAbsPos(e: MotionEvent): PointF {
         val i = e.findPointerIndex(id)
@@ -146,17 +150,18 @@ abstract class TouchAction(val getPos: (PointF) -> PointF = { it }) {
                 }
                 if (prim.isTargeted(e)) {
                     when (e.actionMasked) {
-                        MotionEvent.ACTION_POINTER_UP -> {
-                            Pair(prim, pinch).run {
-                                primaryData = second
-                                pinchData = first
+                        MotionEvent.ACTION_POINTER_UP, MotionEvent.ACTION_UP -> {
+                            if (isPinched) {
+                                Pair(prim, pinch).run {
+                                    primaryData = second
+                                    pinchData = first
+                                }
+                                onPinchUp()
+                                pinchData = null
+                            } else {
+                                updatePos(prim.getAbsPos(e), false)
+                                finish(true)
                             }
-                            onPinchUp()
-                            pinchData = null
-                        }
-                        MotionEvent.ACTION_UP -> {
-                            updatePos(prim.getAbsPos(e), false)
-                            finish(true)
                         }
                     }
                 } else if (isPinched) {
@@ -190,7 +195,7 @@ abstract class TouchAction(val getPos: (PointF) -> PointF = { it }) {
     private fun createPinch(e: MotionEvent) =
         createPinch(
             e.getPointerId(e.actionIndex),
-            PointF(e.x, e.y)
+            PointF(e.getX(e.actionIndex), e.getY(e.actionIndex))
         )
 
     private fun createPinch(id: Int, downAbsPos: PointF) {
@@ -227,7 +232,7 @@ abstract class TouchAction(val getPos: (PointF) -> PointF = { it }) {
     fun launch(downEvent: MotionEvent, longPress: Boolean = false) {
         assert(downEvent.actionMasked == MotionEvent.ACTION_DOWN)
         val id = downEvent.getPointerId(downEvent.actionIndex)
-        launch(PointF(downEvent.x, downEvent.y), id, longPress)
+        launch(PointF(downEvent.getX(downEvent.actionIndex), downEvent.getY(downEvent.actionIndex)), id, longPress)
     }
 
     fun forceLongDown() {

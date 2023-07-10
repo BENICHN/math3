@@ -188,7 +188,7 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : View(context,
         }
 
         override fun onLongDown() {
-            replace(CreateDoubleAction().also { it.launch(prim.downAbsPosition, prim.id) })
+            replace(CreateDoubleAction())
         }
 
         override fun onUp() {
@@ -196,6 +196,7 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : View(context,
         }
 
         override fun onPinchDown() {
+            replace(MoveViewAction())
         }
 
         override fun onPinchMove() {
@@ -208,7 +209,7 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : View(context,
         }
 
         override fun onMove() {
-            replace(MoveViewAction().also { it.launch(prim.downAbsPosition, prim.id) })
+            replace(MoveViewAction())
         }
 
     }
@@ -218,7 +219,7 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : View(context,
         }
 
         override fun onLongDown() {
-            replace(CreateDoubleAction().also { it.launch(prim.downAbsPosition, prim.id) })
+            replace(CreateDoubleAction())
         }
 
         override fun onUp() {
@@ -303,7 +304,7 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : View(context,
         }
 
         override fun onLongDown() {
-            replace(CreateDoubleAction().also { it.launch(prim.downAbsPosition, prim.id) })
+            replace(CreateDoubleAction())
         }
 
         override fun onUp() {
@@ -343,11 +344,11 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : View(context,
         }
 
         override fun onLongDown() {
-            replace(CreateDoubleAction().also { it.launch(prim.downAbsPosition, prim.id) })
+            replace(CreateDoubleAction())
         }
 
         override fun onMove() {
-            replace(MoveViewAction().also { it.launch(prim.downAbsPosition, prim.id) })
+            replace(MoveViewAction())
         }
 
         override fun onUp() {
@@ -357,6 +358,7 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : View(context,
         }
 
         override fun onPinchDown() {
+            replace(MoveViewAction())
         }
 
         override fun onPinchMove() {
@@ -417,11 +419,11 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : View(context,
         }
 
         override fun onLongDown() {
-            replace(CreateDoubleAction().also { it.launch(prim.downAbsPosition, prim.id) })
+            replace(CreateDoubleAction())
         }
 
         override fun onMove() {
-            replace(MoveViewAction().also { it.launch(prim.downAbsPosition, prim.id) })
+            replace(MoveViewAction())
         }
 
         override fun onUp() {
@@ -430,6 +432,7 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : View(context,
         }
 
         override fun onPinchDown() {
+            replace(MoveViewAction())
         }
 
         override fun onPinchMove() {
@@ -564,7 +567,7 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : View(context,
     }
 
     override fun onTouchEvent(e: MotionEvent): Boolean {
-        Log.d("touch", "${e.actionIndex}, ${e.getPointerId(e.actionIndex)} ~ $e")
+        // Log.d("touch", "${e.actionIndex}, ${e.getPointerId(e.actionIndex)} ~ $e")
         when (e.actionMasked) {
             MotionEvent.ACTION_DOWN -> {
                 accVelocity = PointF()

@@ -1,9 +1,7 @@
 package fr.benichn.math3.graphics.types
 
-import android.graphics.Picture
 import android.graphics.PointF
 import android.os.CountDownTimer
-import android.util.Log
 import android.view.MotionEvent
 import androidx.core.graphics.minus
 import androidx.core.graphics.plus
@@ -13,8 +11,6 @@ import fr.benichn.math3.graphics.Utils.Companion.times
 import fr.benichn.math3.types.callback.Callback
 import fr.benichn.math3.types.callback.VCC
 import fr.benichn.math3.types.callback.invoke
-import kotlin.concurrent.fixedRateTimer
-import kotlin.math.abs
 
 data class TouchData(
     val id: Int,
@@ -177,13 +173,7 @@ abstract class TouchAction(val getPos: (PointF) -> PointF = { it }) {
                 } else {
                     when (e.actionMasked) {
                         MotionEvent.ACTION_POINTER_DOWN -> {
-                            downTimer.cancel()
-                            hasMoved = true
-                            createData(
-                                e.getPointerId(e.actionIndex),
-                                PointF(e.x, e.y)
-                            )
-                            onPinchDown()
+                            createPinch(e)
                         }
                     }
                 }
@@ -195,6 +185,27 @@ abstract class TouchAction(val getPos: (PointF) -> PointF = { it }) {
                 }
             }
         }
+    }
+
+    private fun createPinch(e: MotionEvent) =
+        createPinch(
+            e.getPointerId(e.actionIndex),
+            PointF(e.x, e.y)
+        )
+
+    private fun createPinch(id: Int, downAbsPos: PointF) {
+        downTimer.cancel()
+        hasMoved = true
+        createData(
+            id,
+            downAbsPos
+        )
+        onPinchDown()
+    }
+
+    fun launchWithPinch(downAbsPosition: PointF, id: Int, pinchDownAbsPosition: PointF, pinchId: Int, longPress: Boolean = false) {
+        launch(downAbsPosition, id, longPress)
+        createPinch(pinchId, pinchDownAbsPosition)
     }
 
     fun launch(downAbsPosition: PointF, id: Int, longPress: Boolean = false) {
@@ -226,10 +237,15 @@ abstract class TouchAction(val getPos: (PointF) -> PointF = { it }) {
         }
     }
 
-    fun replace(a: TouchAction) {
+    fun replace(a: TouchAction, longPress: Boolean = false) {
         downTimer.cancel()
         beforeFinish(a)
         isFinished = true
+        if (isPinched) {
+            a.launchWithPinch(prim.downAbsPosition, prim.id, pinch.downAbsPosition, pinch.id, longPress)
+        } else {
+            a.launch(prim.downAbsPosition, prim.id, longPress)
+        }
         notifyReplaced(this, a)
     }
 

@@ -35,6 +35,7 @@ import fr.benichn.math3.graphics.types.TouchAction
 import fr.benichn.math3.graphics.types.TouchData
 import fr.benichn.math3.types.callback.*
 import kotlin.concurrent.fixedRateTimer
+import kotlin.math.abs
 import kotlin.math.sign
 
 class FormulaView(context: Context, attrs: AttributeSet? = null) : View(context, attrs) {
@@ -181,7 +182,7 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : View(context,
 
         override fun onPinchMove() {
             val newGap = (prim.lastAbsPosition - pinch.lastAbsPosition).length()
-            val ratio = newGap / baseGap
+            val ratio = (newGap / baseGap).let { if (abs(baseScale * it - 1f) < ZOOM_TOLERENCE) 1f/baseScale else it }
             val totalDiff = (prim.totalAbsDiff + pinch.totalAbsDiff) * 0.5f
             fun getPos(p: PointF) = p - (origin + baseOffset + totalDiff)
             val c = (getPos(prim.lastAbsPosition) + getPos(pinch.lastAbsPosition)) * 0.5f
@@ -684,5 +685,6 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : View(context,
         const val VELOCITY_REDUCTION_PERIOD = 8L
         const val VELOCITY_REDUCTION_MULT = VELOCITY_REDUCTION_PERIOD * 0.001f
         const val VELOCITY_REDUCTION = 25000f // en px.s^-2
+        const val ZOOM_TOLERENCE = 0.1f
     }
 }

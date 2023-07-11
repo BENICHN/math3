@@ -37,6 +37,13 @@ class Utils {
                 if (acc.bottom.isNaN()) r.bottom else max(acc.bottom, r.bottom))
         }
 
+        fun corners(rect: RectF) = listOf(
+            PointF(rect.left, rect.top),
+            PointF(rect.right, rect.top),
+            PointF(rect.right, rect.bottom),
+            PointF(rect.left, rect.bottom)
+        )
+
         operator fun PointF.times(scale: Float): PointF = PointF(x*scale,y*scale)
         operator fun PointF.div(scale: Float): PointF = PointF(x/scale,y/scale)
 

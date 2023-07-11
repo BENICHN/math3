@@ -31,12 +31,7 @@ class BracketsInputFormulaBox(vararg boxes: FormulaBox) : SequenceFormulaBox(
     }
 
     override fun addInitialBoxes(ib: InitialBoxes): FinalBoxes {
-        when (ib) {
-            is InitialBoxes.Selection -> {
-                ib.boxes.forEach { input.addBox(it) }
-            }
-            else -> { }
-        }
+        ib.selectedBoxes.forEach { input.addBox(it) }
         return FinalBoxes()
     }
 }

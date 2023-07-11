@@ -7,7 +7,6 @@ import android.graphics.Paint
 import android.graphics.PointF
 import android.graphics.RectF
 import android.util.AttributeSet
-import android.util.Log
 import android.view.MotionEvent
 import android.view.View
 import androidx.core.graphics.minus
@@ -24,15 +23,14 @@ import fr.benichn.math3.graphics.boxes.types.BoxTransform
 import fr.benichn.math3.graphics.boxes.types.DeletionResult
 import fr.benichn.math3.graphics.boxes.types.InitialBoxes
 import fr.benichn.math3.graphics.boxes.types.Padding
+import fr.benichn.math3.graphics.boxes.types.Range
 import fr.benichn.math3.graphics.caret.BoxCaret
 import fr.benichn.math3.graphics.caret.CaretPosition
 import fr.benichn.math3.graphics.caret.ContextMenu
 import fr.benichn.math3.graphics.caret.ContextMenuEntry
 import fr.benichn.math3.graphics.caret.noneIfNull
 import fr.benichn.math3.graphics.types.RectPoint
-import fr.benichn.math3.graphics.types.Side
 import fr.benichn.math3.graphics.types.TouchAction
-import fr.benichn.math3.graphics.types.TouchData
 import fr.benichn.math3.types.callback.*
 import kotlin.concurrent.fixedRateTimer
 import kotlin.math.abs
@@ -207,7 +205,7 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : View(context,
         }
 
         override fun onLongDown() {
-            replace(CreateDoubleAction())
+            replace(CreateSelectionAction())
         }
 
         override fun onUp() {
@@ -238,7 +236,7 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : View(context,
         }
 
         override fun onLongDown() {
-            replace(CreateDoubleAction())
+            replace(CreateSelectionAction())
         }
 
         override fun onUp() {
@@ -266,13 +264,13 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : View(context,
 
     }
 
-    private inner class CreateDoubleAction : FormulaViewAction() {
+    private inner class CreateSelectionAction : FormulaViewAction() {
         private var downSingle: CaretPosition.Single? = null
 
         override fun onDown() {
             downSingle = box.findSingle(prim.lastPosition)
             caret.absolutePosition = prim.lastPosition
-            downSingle?.getAbsPosition()?.let { caret.fixedX = it.x }
+            downSingle?.getAbsPosition()?.let { caret.fixedAbsPos = it }
             caret.position = downSingle?.let { CaretPosition.Double.fromSingles(it, it) }.noneIfNull()
         }
 
@@ -297,39 +295,52 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : View(context,
 
         override fun beforeFinish(replacement: TouchAction?) {
             caret.absolutePosition = null
-            caret.fixedX = null
+            caret.fixedAbsPos = null
         }
 
         override fun onMove() {
-            if (downSingle != null) {
-                caret.position = box.findSingle(prim.lastPosition)?.let { CaretPosition.Double.fromSingles(downSingle!!, it) }.noneIfNull()
+            downSingle?.let { ds ->
+                caret.position = box.findSingle(prim.lastPosition)?.let {
+                    CaretPosition.GridSelection.fromBoxes(ds.box, it.box) ?:
+                        CaretPosition.Double.fromSingles(ds, it)
+                }.noneIfNull()
                 caret.absolutePosition = prim.lastPosition
             }
         }
 
     }
 
-    private inner class ModifyDoubleAction(val downSide: Side) : FormulaViewAction() {
+    private inner class ModifySelectionAction(val downRectPoint: RectPoint) : FormulaViewAction() {
         private var fixedSingle: CaretPosition.Single? = null
 
         override fun onDown() {
-            val p = caret.position as CaretPosition.Double
-            fixedSingle = when (downSide) {
-                Side.L -> p.rightSingle
-                Side.R -> p.leftSingle
+            fixedSingle = when (val p = caret.position) {
+                is CaretPosition.Double -> when (downRectPoint) {
+                    RectPoint.CENTER_LEFT -> p.rightSingle
+                    RectPoint.CENTER_RIGHT -> p.leftSingle
+                    else -> null
+                }
+                is CaretPosition.GridSelection -> when (downRectPoint) {
+                    RectPoint.TOP_LEFT -> p.bottomRightSingle
+                    RectPoint.TOP_RIGHT -> p.bottomLeftSingle
+                    RectPoint.BOTTOM_LEFT -> p.topRightSingle
+                    RectPoint.BOTTOM_RIGHT -> p.topLeftSingle
+                    else -> null
+                }
+                else -> null
             }
             caret.absolutePosition = prim.lastPosition
-            fixedSingle?.getAbsPosition()?.let { caret.fixedX = it.x }
+            fixedSingle?.getAbsPosition()?.let { caret.fixedAbsPos = it }
         }
 
         override fun onLongDown() {
-            replace(CreateDoubleAction())
+            replace(CreateSelectionAction())
         }
 
         override fun onUp() {
             val p = caret.position
             if (p is CaretPosition.Double && p.indexRange.start == p.indexRange.end) {
-                caret.position = CaretPosition.Single(p.box as InputFormulaBox, p.indexRange.start)
+                caret.position = CaretPosition.Single(p.box, p.indexRange.start)
             }
         }
 
@@ -345,25 +356,28 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : View(context,
         override fun beforeFinish(replacement: TouchAction?) {
             if (replacement == null) {
                 caret.absolutePosition = null
-                caret.fixedX = null
+                caret.fixedAbsPos = null
             }
         }
 
         override fun onMove() {
             fixedSingle?.let { fs ->
-                caret.position = box.findSingle(prim.lastPosition)?.let { CaretPosition.Double.fromSingles(fs, it) }.noneIfNull()
+                caret.position = box.findSingle(prim.lastPosition)?.let {
+                    CaretPosition.GridSelection.fromBoxes(fs.box, it.box) ?:
+                    CaretPosition.Double.fromSingles(fs, it)
+                }.noneIfNull()
                 caret.absolutePosition = prim.lastPosition
             }
         }
 
     }
 
-    private inner class DoubleInteriorAction : FormulaViewAction() {
+    private inner class DisplayContextMenuAction : FormulaViewAction() {
         override fun onDown() {
         }
 
         override fun onLongDown() {
-            replace(CreateDoubleAction())
+            replace(CreateSelectionAction())
         }
 
         override fun onMove() {
@@ -372,7 +386,7 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : View(context,
 
         override fun onUp() {
             contextMenu = getSelectionContextMenu().also {
-                it.origin = RectPoint.TOP_CENTER.get((caret.position as CaretPosition.Double).bounds)
+                it.origin = RectPoint.TOP_CENTER.get((caret.position as? CaretPosition.Double)?.bounds ?: (caret.position as CaretPosition.GridSelection).bounds)
             }
         }
 
@@ -438,7 +452,7 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : View(context,
         }
 
         override fun onLongDown() {
-            replace(CreateDoubleAction())
+            replace(CreateSelectionAction())
         }
 
         override fun onMove() {
@@ -481,43 +495,48 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : View(context,
         }
     }
 
-    fun sendAdd(newBox: FormulaBox) {
+    fun sendAdd(newBox: () -> FormulaBox) {
         touchAction?.finish()
         contextMenu = null
-        var initialBoxes: InitialBoxes? = null
-        val pos = when (val p = caret.position) {
-            is CaretPosition.None, is CaretPosition.DiscreteSelection -> { null }
-            is CaretPosition.Single -> {
-                p
+
+        fun addInInput(box: InputFormulaBox, selectionRange: Range): CaretPosition.Single {
+            val nb = newBox()
+            val ib = InitialBoxes(
+                box.ch.subList(0, selectionRange.start).toList(),
+                box.ch.subList(selectionRange.start, selectionRange.end).toList(),
+                box.ch.subList(selectionRange.end, box.ch.size).toList()
+            )
+            val i = selectionRange.start
+            for (b in ib.selectedBoxes) {
+                b.delete()
             }
-            is CaretPosition.Double -> {
-                initialBoxes = InitialBoxes.Selection(
-                    p.box.ch.subList(0, p.indexRange.start).toList(),
-                    p.box.ch.subList(p.indexRange.start, p.indexRange.end).toList(),
-                    p.box.ch.subList(p.indexRange.end, p.box.ch.size).toList())
-                for (c in p.selectedBoxes) {
-                    c.delete()
-                }
-                CaretPosition.Single(p.box, p.indexRange.start)
-            }
-        }
-        pos?.also {
-            val (box, i) = it
-            box.addBox(i, newBox)
-            val fb = newBox.addInitialBoxes(initialBoxes ?:
-            InitialBoxes.BeforeAfter(
-                box.ch.take(i),
-                box.ch.takeLast(box.ch.size - i)
-            ))
+            box.addBox(i, nb)
+            val fb = nb.addInitialBoxes(ib)
             box.addBoxes(i+1, fb.boxesAfter)
             box.addBoxes(i, fb.boxesBefore)
-            caret.position = newBox.getInitialSingle() ?: CaretPosition.Single(box, i+1+fb.boxesBefore.size)
+            return nb.getInitialSingle() ?: CaretPosition.Single(box, i+1+fb.boxesBefore.size)
+        }
+
+        when (val p = caret.position) {
+            is CaretPosition.None, is CaretPosition.DiscreteSelection -> { }
+            is CaretPosition.Single -> {
+                caret.position = addInInput(p.box, Range(p.index, p.index))
+            }
+            is CaretPosition.Double -> {
+                caret.position = addInInput(p.box, p.indexRange)
+            }
+            is CaretPosition.GridSelection -> {
+                caret.position = p.selectedInputs.map { box ->
+                    addInInput(box, Range(0, box.ch.size))
+                }.last()
+            }
         }
     }
 
     fun sendDelete() {
         touchAction?.finish()
         contextMenu = null
+
         val deletionResult =
             when (val p = caret.position) {
                 is CaretPosition.None -> {
@@ -545,21 +564,21 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : View(context,
                 }
 
                 is CaretPosition.Double -> {
-                    var res = DeletionResult()
-                    for (c in p.selectedBoxes) {
-                        res = c.delete()
-                    }
-                    res
+                    p.selectedBoxes.map { it.delete() }.last()
                 }
 
                 is CaretPosition.DiscreteSelection -> {
-                    var res = DeletionResult()
-                    for (c in p.selectedBoxes) {
-                        res = c.delete()
-                    }
-                    res
+                    p.selectedBoxes.map { it.delete() }.last()
+                }
+
+                is CaretPosition.GridSelection -> {
+                    DeletionResult(p.selectedInputs.map {
+                        it.removeAllBoxes()
+                        it.lastSingle
+                    }.first())
                 }
             }
+
         val (newPos, fb) = deletionResult
         caret.position = when (newPos) {
             is CaretPosition.Single -> {
@@ -600,7 +619,8 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : View(context,
                             }
                             ContextMenu.Element.NONE -> {
                                 contextMenu = null
-                                if (p is CaretPosition.Double && p.getElement(pos) == CaretPosition.Double.Element.INTERIOR) {
+                                if (p is CaretPosition.Double && p.getElement(pos) == CaretPosition.Double.Element.INTERIOR
+                                    || p is CaretPosition.GridSelection && p.getElement(pos) == CaretPosition.GridSelection.Element.INTERIOR) {
                                     touchAction = PlaceCaretAction()
                                 }
                             }
@@ -624,9 +644,9 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : View(context,
 
                             is CaretPosition.Double -> {
                                 when (p.getElement(pos)) {
-                                    CaretPosition.Double.Element.LEFT_BAR -> ModifyDoubleAction(Side.L)
-                                    CaretPosition.Double.Element.RIGHT_BAR -> ModifyDoubleAction(Side.R)
-                                    CaretPosition.Double.Element.INTERIOR -> DoubleInteriorAction()
+                                    CaretPosition.Double.Element.LEFT_BAR -> ModifySelectionAction(RectPoint.CENTER_LEFT)
+                                    CaretPosition.Double.Element.RIGHT_BAR -> ModifySelectionAction(RectPoint.CENTER_RIGHT)
+                                    CaretPosition.Double.Element.INTERIOR -> DisplayContextMenuAction()
                                     CaretPosition.Double.Element.NONE -> PlaceCaretAction()
                                 }
                             }
@@ -635,6 +655,17 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : View(context,
                                 when (p.getElement(pos)) {
                                     CaretPosition.DiscreteSelection.Element.INTERIOR -> SelectionToDoubleAction()
                                     CaretPosition.DiscreteSelection.Element.NONE -> PlaceCaretAction()
+                                }
+                            }
+
+                            is CaretPosition.GridSelection -> {
+                                when (p.getElement(pos)) {
+                                    CaretPosition.GridSelection.Element.CORNER_TL -> ModifySelectionAction(RectPoint.TOP_LEFT)
+                                    CaretPosition.GridSelection.Element.CORNER_TR -> ModifySelectionAction(RectPoint.TOP_RIGHT)
+                                    CaretPosition.GridSelection.Element.CORNER_BR -> ModifySelectionAction(RectPoint.BOTTOM_RIGHT)
+                                    CaretPosition.GridSelection.Element.CORNER_BL -> ModifySelectionAction(RectPoint.BOTTOM_LEFT)
+                                    CaretPosition.GridSelection.Element.INTERIOR -> DisplayContextMenuAction()
+                                    CaretPosition.GridSelection.Element.NONE -> PlaceCaretAction()
                                 }
                             }
                         }

@@ -20,6 +20,7 @@ import fr.benichn.math3.graphics.Utils.Companion.sumOfRects
 import fr.benichn.math3.graphics.boxes.types.BoxProperty
 import fr.benichn.math3.graphics.boxes.types.FinalBoxes
 import fr.benichn.math3.graphics.boxes.types.Padding
+import fr.benichn.math3.graphics.boxes.types.ParentWithIndex
 import fr.benichn.math3.graphics.boxes.types.PathPainting
 import fr.benichn.math3.graphics.caret.CaretPosition
 import fr.benichn.math3.types.Chain
@@ -39,7 +40,6 @@ open class FormulaBox {
     val isRoot
         get() = parent == null
 
-    data class ParentWithIndex(val box: FormulaBox, val index: Int)
     val parentWithIndex
         get() = parent?.let { ParentWithIndex(it, it.ch.indexOf(this)) }
     private fun buildParents(tail: Chain<ParentWithIndex>): Chain<ParentWithIndex> =
@@ -335,12 +335,13 @@ open class FormulaBox {
         }
         draw()
 
-        if (isRoot /* && caret?.position is CaretPosition.Single */) caret?.absolutePosition?.also { ap ->
+        if (isRoot && caret?.position is CaretPosition.Single) caret?.absolutePosition?.also { ap ->
             canvas.translate(ap.x, ap.y-DEFAULT_TEXT_RADIUS*4)
             canvas.drawPath(magnifierPath, FormulaView.backgroundPaint)
             canvas.drawPath(magnifierPath, FormulaView.magnifierBorder)
             canvas.withClip(magnifierPath) {
                 canvas.translate(-ap.x, -ap.y)
+                canvas.scale(MAGNIFIER_FACTOR, MAGNIFIER_FACTOR, ap.x, ap.y)
                 draw()
             }
             canvas.translate(0f, DEFAULT_TEXT_RADIUS*4)
@@ -380,6 +381,7 @@ open class FormulaBox {
         const val DEFAULT_TEXT_RADIUS = DEFAULT_TEXT_SIZE * 0.5f
         const val DEFAULT_TEXT_WIDTH = DEFAULT_TEXT_SIZE * 0.6f
         const val DEFAULT_LINE_WIDTH = 4f
+        const val MAGNIFIER_FACTOR = 1f
         const val SELECTION_CARET_RADIUS = 14f
         const val CARET_OVERFLOW_RADIUS = 18f
         const val MAGNIFIER_RADIUS = DEFAULT_TEXT_SIZE
@@ -388,6 +390,36 @@ open class FormulaBox {
             val ry = DEFAULT_TEXT_SIZE * 0.75f
             val r = RectF(-rx, -ry, rx, ry)
             addRoundRect(r, MAGNIFIER_RADIUS, MAGNIFIER_RADIUS, Path.Direction.CCW)
+        }
+
+        fun commonParent(vararg boxes: FormulaBox) = commonParent(boxes.asIterable())
+        fun commonParent(boxes: Iterable<FormulaBox>): CommonParentWithIndices? {
+            val pss = boxes.map { it.parents.iterator() }.toList()
+            var res: CommonParentWithIndices? = null
+            while (true) {
+                if (pss.all { it.hasNext() }) {
+                    val cpss = pss.map { it.next() }
+                    if (cpss.all { it.box == cpss[0].box }) {
+                        res = CommonParentWithIndices(cpss[0].box, cpss.map { it.index })
+                    } else break
+                } else break
+            }
+            return res
+        }
+
+        fun commonParentWithThis(vararg boxes: FormulaBox) = commonParentWithThis(boxes.asIterable())
+        fun commonParentWithThis(boxes: Iterable<FormulaBox>): CommonParentWithIndices? {
+            val pss = boxes.map { it.parentsAndThis.iterator() }.toList()
+            var res: CommonParentWithIndices? = null
+            while (true) {
+                if (pss.all { it.hasNext() }) {
+                    val cpss = pss.map { it.next() }
+                    if (cpss.all { it.box == cpss[0].box }) {
+                        res = CommonParentWithIndices(cpss[0].box, cpss.map { it.index })
+                    } else break
+                } else break
+            }
+            return res
         }
     }
 }

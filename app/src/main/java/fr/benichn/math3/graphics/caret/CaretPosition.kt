@@ -2,11 +2,18 @@ package fr.benichn.math3.graphics.caret
 
 import android.graphics.PointF
 import android.graphics.RectF
+import android.util.Log
+import androidx.core.graphics.minus
 import fr.benichn.math3.graphics.Utils
 import fr.benichn.math3.graphics.boxes.FormulaBox
+import fr.benichn.math3.graphics.boxes.GridFormulaBox
 import fr.benichn.math3.graphics.boxes.InputFormulaBox
 import fr.benichn.math3.graphics.boxes.SequenceFormulaBox
+import fr.benichn.math3.graphics.boxes.types.ParentWithIndex
+import fr.benichn.math3.graphics.boxes.types.PtsRange
 import fr.benichn.math3.graphics.boxes.types.Range
+import fr.benichn.math3.graphics.types.RectPoint
+import fr.benichn.math3.numpad.types.Pt
 
 sealed class CaretPosition {
     data object None : CaretPosition()
@@ -37,7 +44,7 @@ sealed class CaretPosition {
                     pos.y + r,
                     absPos.x,
                     absPos.y
-                ) < BoxCaret.SINGLE_MAX_TOUCH_DIST_SQ
+                ) <= BoxCaret.SINGLE_MAX_TOUCH_DIST_SQ
             ) {
                 Element.BAR
             } else {
@@ -83,7 +90,7 @@ sealed class CaretPosition {
                         bottom,
                         absPos.x,
                         absPos.y
-                    ) < BoxCaret.SELECTION_MAX_TOUCH_DIST_SQ
+                    ) <= BoxCaret.SELECTION_MAX_TOUCH_DIST_SQ
                 ) {
                     Element.RIGHT_BAR
                 } else if (Utils.squareDistFromLineToPoint(
@@ -92,7 +99,7 @@ sealed class CaretPosition {
                         bottom,
                         absPos.x,
                         absPos.y
-                    ) < BoxCaret.SELECTION_MAX_TOUCH_DIST_SQ
+                    ) <= BoxCaret.SELECTION_MAX_TOUCH_DIST_SQ
                 ) {
                     Element.LEFT_BAR
                 } else if (contains(absPos.x, absPos.y)) {
@@ -116,7 +123,7 @@ sealed class CaretPosition {
                 val s2Sequences = getBoxSequences(s2.box)
                 val commonParent = s1Sequences.zip(s2Sequences).lastOrNull { (p1, p2) -> p1.box == p2.box }
 
-                fun retrieveRange(s: Double, p: FormulaBox.ParentWithIndex) : Range =
+                fun retrieveRange(s: Double, p: ParentWithIndex) : Range =
                     if (p.box == s.box) {
                         s.indexRange
                     } else {
@@ -135,7 +142,7 @@ sealed class CaretPosition {
             private fun getBoxSequences(b: FormulaBox) =
                 b.parentsAndThis.filter { it.box is InputFormulaBox }
 
-            private fun getBoxParentInputWithIndex(b: FormulaBox): FormulaBox.ParentWithIndex? =
+            private fun getBoxParentInputWithIndex(b: FormulaBox): ParentWithIndex? =
                 b.parentWithIndex?.let {
                     if (it.box is InputFormulaBox) {
                         it
@@ -184,6 +191,72 @@ sealed class CaretPosition {
         enum class Element {
             INTERIOR,
             NONE
+        }
+    }
+
+    data class GridSelection(val box: GridFormulaBox, val ptsRange: PtsRange) : CaretPosition() {
+        val selectedBoxes
+            get() = ptsRange.map { pt -> box[pt] }
+        val selectedInputs
+            get() = ptsRange.map { pt -> box.getInput(pt) }
+        val bounds
+            get() = Utils.sumOfRects(selectedBoxes.map { it.accRealBounds })
+
+        val topLeftSingle
+            get() = box.getInput(ptsRange.tl).firstSingle
+        val topRightSingle
+            get() = box.getInput(ptsRange.tr).lastSingle
+        val bottomLeftSingle
+            get() = box.getInput(ptsRange.bl).firstSingle
+        val bottomRightSingle
+            get() = box.getInput(ptsRange.br).lastSingle
+
+        fun contains(b: FormulaBox): Boolean {
+            val pt = box.getIndex(box.deepIndexOf(b))
+            return pt in ptsRange
+        }
+
+        fun getElement(absPos: PointF): Element = bounds.let {
+            val cs = Utils.corners(it)
+            val i = cs.indexOfFirst { c ->
+                Utils.l2(absPos - c) <= BoxCaret.BALL_MAX_TOUCH_DIST_SQ + BoxCaret.BALL_RADIUS * BoxCaret.BALL_RADIUS
+            }
+            return when (i) {
+                0 -> Element.CORNER_TL
+                1 -> Element.CORNER_TR
+                2 -> Element.CORNER_BR
+                3 -> Element.CORNER_BL
+                else -> {
+                    if (it.contains(absPos.x, absPos.y)) {
+                        Element.INTERIOR
+                    } else {
+                        Element.NONE
+                    }
+                }
+            }
+        }
+
+        enum class Element {
+            CORNER_TL,
+            CORNER_TR,
+            CORNER_BR,
+            CORNER_BL,
+            INTERIOR,
+            NONE
+        }
+
+        companion object {
+            fun fromBoxes(b1: FormulaBox, b2: FormulaBox): GridSelection? = FormulaBox.commonParentWithThis(b1, b2)?.let {
+                val (p, ixs) = it
+                if (p is GridFormulaBox) {
+                    val pts = ixs.map { i -> p.getIndex(i) }
+                    Log.d("pts", pts.toString())
+                    val pr = PtsRange.fromPts(pts)
+                    Log.d("pr", pr.toString())
+                    Log.d("pr", pr.toList().toString())
+                    GridSelection(p, pr)
+                } else null
+            }
         }
     }
 }

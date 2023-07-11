@@ -64,18 +64,13 @@ class ScriptFormulaBox(type: Type = Type.SUPER, range: RangeF = RangeF(-DEFAULT_
     override val selectBeforeDeletion: Boolean
         get() = true
 
-    override fun addInitialBoxes(ib: InitialBoxes) =
-        when (ib) {
-            is InitialBoxes.Selection -> {
-                val newBoxes = if (ib.boxes.size <= 1 || (ib.boxes.all { b -> b.isDigit() } && ib.boxesBefore.lastOrNull()?.isDigit() != true)) {
-                    ib.boxes
-                } else {
-                    listOf(BracketsInputFormulaBox(*ib.boxes.toTypedArray()))
-                }
-                FinalBoxes(newBoxes)
-            }
-            is InitialBoxes.BeforeAfter -> FinalBoxes()
+    override fun addInitialBoxes(ib: InitialBoxes) = FinalBoxes(
+        if (!ib.hasSelection || (ib.selectedBoxes.all { b -> b.isDigit() } && ib.boxesBefore.lastOrNull()?.isDigit() != true)) {
+            ib.selectedBoxes
+        } else {
+            listOf(BracketsInputFormulaBox(*ib.selectedBoxes.toTypedArray()))
         }
+    )
 
     override fun getInitialSingle() = when (type) {
         Type.SUPER, Type.BOTH -> superscript.lastSingle

@@ -2,7 +2,7 @@ package fr.benichn.math3.graphics.boxes.types
 
 import fr.benichn.math3.graphics.boxes.FormulaBox
 
-sealed class InitialBoxes {
-    data class BeforeAfter(val boxesBefore: List<FormulaBox>, val boxesAfter: List<FormulaBox>) : InitialBoxes()
-    data class Selection(val boxesBefore: List<FormulaBox>, val boxes: List<FormulaBox>, val boxesAfter: List<FormulaBox>) : InitialBoxes()
+data class InitialBoxes(val boxesBefore: List<FormulaBox>, val selectedBoxes: List<FormulaBox>, val boxesAfter: List<FormulaBox>) {
+    val hasSelection
+        get() = selectedBoxes.isNotEmpty()
 }

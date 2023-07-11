@@ -52,14 +52,11 @@ class FractionFormulaBox(numChildren: Array<FormulaBox> = emptyArray(), denChild
     }
 
     override fun addInitialBoxes(ib: InitialBoxes): FinalBoxes {
-        val boxes = when (ib) {
-            is InitialBoxes.BeforeAfter -> {
+        val boxes = if (ib.hasSelection) {
+                ib.selectedBoxes
+            } else {
                 ib.boxesBefore.takeLastWhile { it !is TextFormulaBox || (it.text != "+" && it.text != "-") }
             }
-            is InitialBoxes.Selection -> {
-                ib.boxes
-            }
-        }
         if (boxes.size == 1 && boxes[0] is BracketsInputFormulaBox) {
             (boxes[0] as BracketsInputFormulaBox).input.delete().finalBoxes.boxesBefore.forEach { numerator.addBox(it) }
         } else {

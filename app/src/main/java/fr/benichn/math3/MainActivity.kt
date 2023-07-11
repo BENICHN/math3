@@ -45,12 +45,14 @@ class MainActivity : AppCompatActivity() {
                     fv.sendDelete()
                 }
                 else -> {
-                    val newBox = when (id) {
-                        "over" -> FractionFormulaBox()
-                        "clav" -> BracketsInputFormulaBox()
-                        "recent" -> ScriptFormulaBox(ScriptFormulaBox.Type.BOTH)
-                        "enter" -> MatrixFormulaBox(Pt(3,3))
-                        else -> TextFormulaBox(id)
+                    val newBox = {
+                        when (id) {
+                            "over" -> FractionFormulaBox()
+                            "clav" -> BracketsInputFormulaBox()
+                            "recent" -> ScriptFormulaBox(ScriptFormulaBox.Type.BOTH)
+                            "enter" -> MatrixFormulaBox(Pt(3, 3))
+                            else -> TextFormulaBox(id)
+                        }
                     }
                     fv.sendAdd(newBox)
                 }

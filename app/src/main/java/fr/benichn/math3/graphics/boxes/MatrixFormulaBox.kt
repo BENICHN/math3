@@ -61,7 +61,7 @@ class GridFormulaBox(shape: Pt = Pt(1, 1)) : FormulaBox() {
             }
         else -> {
             val pt = getIndex(ch.indexOf(b)-1)
-            DeletionResult(getInput(pt).lastSingle)
+            DeletionResult(null, getInput(pt).lastSingle)
         }
     }
 

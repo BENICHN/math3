@@ -94,7 +94,7 @@ class ScriptFormulaBox(type: Type = Type.SUPER, range: RangeF = RangeF(-DEFAULT_
                     if (type == Type.BOTH) {
                         superscript.removeAllBoxes()
                         type = Type.SUB
-                        DeletionResult(subscript.lastSingle)
+                        DeletionResult(null, subscript.lastSingle)
                     } else {
                         delete()
                     }
@@ -107,7 +107,7 @@ class ScriptFormulaBox(type: Type = Type.SUPER, range: RangeF = RangeF(-DEFAULT_
                     if (type == Type.BOTH) {
                         subscript.removeAllBoxes()
                         type = Type.SUPER
-                        DeletionResult(superscript.lastSingle)
+                        DeletionResult(null, superscript.lastSingle)
                     } else {
                         delete()
                     }

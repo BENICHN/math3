@@ -21,6 +21,7 @@ class BoxCaret(/* val root: FormulaBox */) {
     val onAbsolutePositionChanged = dlgPosition.onChanged
 
     var fixedAbsPos: PointF? = null
+    var movingSingle: Int? = null
 
     private val notifyPictureChanged = Callback<BoxCaret, Unit>(this)
     val onPictureChanged = notifyPictureChanged.Listener()
@@ -66,6 +67,15 @@ class BoxCaret(/* val root: FormulaBox */) {
                     absolutePosition != null
                 )
             }
+            is CaretPosition.MultiSingle -> {
+                for ((i, s) in p.singles.withIndex()) {
+                    drawBar(
+                        s.getAbsPosition(),
+                        s.radius,
+                        movingSingle == i
+                    )
+                }
+            }
             is CaretPosition.Double -> {
                 val r = p.bounds
                 fun drawSelectionEnding(x: Float) {
@@ -96,10 +106,12 @@ class BoxCaret(/* val root: FormulaBox */) {
         }
         absolutePosition?.also { ap ->
             when (p) {
-                is CaretPosition.Single, is CaretPosition.None -> {
+                is CaretPosition.Single, is CaretPosition.None, is CaretPosition.MultiSingle -> {
                     drawBar(
                         ap,
-                        (p as? CaretPosition.Single)?.radius ?: FormulaBox.DEFAULT_TEXT_RADIUS,
+                        (p as? CaretPosition.Single)?.radius
+                            ?: (p as? CaretPosition.MultiSingle)?.singles?.get(movingSingle!!)?.radius
+                            ?: FormulaBox.DEFAULT_TEXT_RADIUS,
                         false)
                 }
                 is CaretPosition.Double -> {

@@ -58,6 +58,10 @@ sealed class CaretPosition {
         }
     }
 
+    data class MultiSingle(val singles: List<Single>) : CaretPosition() {
+        fun getBarIndex(absPos: PointF) = singles.indexOfFirst { it.getElement(absPos) == Single.Element.BAR }
+    }
+
     data class Double(val box: InputFormulaBox, val indexRange: Range) : CaretPosition() {
         val selectedBoxes
             get() = box.ch.subList(indexRange.start, indexRange.end).toList()
@@ -66,7 +70,7 @@ sealed class CaretPosition {
             get() = Utils.sumOfRects(selectedBoxes.map { it.accRealBounds }).let { r ->
                 if (r.left.isNaN() && indexRange.start == indexRange.end) {
                     box.accRealBounds.let {
-                        val x = leftSingle?.getAbsPosition()?.x
+                        val x = leftSingle.getAbsPosition().x
                         if (x == null) r else RectF(x, it.top, x, it.bottom)
                     }
                 } else r
@@ -250,10 +254,7 @@ sealed class CaretPosition {
                 val (p, ixs) = it
                 if (p is GridFormulaBox) {
                     val pts = ixs.map { i -> p.getIndex(i) }
-                    Log.d("pts", pts.toString())
                     val pr = PtsRange.fromPts(pts)
-                    Log.d("pr", pr.toString())
-                    Log.d("pr", pr.toList().toString())
                     GridSelection(p, pr)
                 } else null
             }

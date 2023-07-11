@@ -85,7 +85,7 @@ open class FormulaBox {
         children.add(i, b)
         b.parent = this
         connect(b.onBoundsChanged) { s, e -> onChildBoundsChanged(s, e) }
-        for (j in 0 until children.size) {
+        for (j in children.indices) {
             if (j != i) {
                 children[j].notifyBrothersBoundsChanged()
             }
@@ -145,6 +145,14 @@ open class FormulaBox {
 
     protected open fun onChildRequiresDelete(b: FormulaBox): DeletionResult = delete()
     fun delete() : DeletionResult = parent?.onChildRequiresDelete(this) ?: DeletionResult()
+
+    fun forceDelete(): CaretPosition.Single? = parentWithIndex?.let { (p, i) ->
+        if (p is InputFormulaBox) {
+            p.removeBoxAt(i)
+            CaretPosition.Single(p, i)
+        }
+        else p.forceDelete()
+    }
 
     open fun getInitialSingle(): CaretPosition.Single? = null
 
@@ -367,7 +375,7 @@ open class FormulaBox {
         }
         onBoundsChanged += { _, _ ->
             parentWithIndex?.let {
-                for (i in 0 until it.box.ch.size) {
+                for (i in it.box.ch.indices) {
                     if (i != it.index) {
                         it.box.ch[i].notifyBrothersBoundsChanged()
                     }

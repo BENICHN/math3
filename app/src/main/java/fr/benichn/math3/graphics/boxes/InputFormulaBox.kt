@@ -19,7 +19,8 @@ class InputFormulaBox(vararg boxes: FormulaBox) : SequenceFormulaBox(*boxes) {
     override fun onChildRequiresDelete(b: FormulaBox): DeletionResult {
         val i = ch.indexOf(b)
         removeBoxAt(i)
-        return DeletionResult(CaretPosition.Single(this, i))
+        val s = CaretPosition.Single(this, i)
+        return DeletionResult(s, s)
     }
 
     fun addFinalBoxes(i: Int, fb: FinalBoxes) : CaretPosition {

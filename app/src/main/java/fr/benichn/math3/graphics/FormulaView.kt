@@ -756,18 +756,17 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : View(context,
                 if (touchAction == null) {
                     val ap = PointF(e.x, e.y)
                     val pos = ap - (offset + origin)
-                    contextMenu?.also {
-                        when (it.findElement(pos)) {
+                    contextMenu?.also { cm ->
+                        when (cm.findElement(pos)) {
                             ContextMenu.Element.INTERIOR -> {
                                 touchAction = ContextMenuAction()
                             }
                             ContextMenu.Element.NONE -> {
                                 contextMenu = null
-                                caret.uniquePosition?.let { p ->
-                                    if (p is CaretPosition.Double && p.getElement(pos) == CaretPosition.Double.Element.INTERIOR
-                                        || p is CaretPosition.GridSelection && p.getElement(pos) == CaretPosition.GridSelection.Element.INTERIOR) {
-                                        touchAction = PlaceCaretAction()
-                                    }
+                                val p = caret.positions[cm.index]
+                                if (p is CaretPosition.Double && p.getElement(pos) == CaretPosition.Double.Element.INTERIOR
+                                    || p is CaretPosition.GridSelection && p.getElement(pos) == CaretPosition.GridSelection.Element.INTERIOR) {
+                                    touchAction = PlaceCaretAction()
                                 }
                             }
                         }

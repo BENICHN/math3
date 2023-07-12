@@ -7,7 +7,9 @@ import fr.benichn.math3.Utils.Companion.pos
 import fr.benichn.math3.graphics.boxes.types.BoundsTransformer
 import fr.benichn.math3.graphics.boxes.types.BoxTransform
 import fr.benichn.math3.graphics.boxes.types.DeletionResult
+import fr.benichn.math3.graphics.boxes.types.FinalBoxes
 import fr.benichn.math3.graphics.boxes.types.FormulaGraphics
+import fr.benichn.math3.graphics.boxes.types.InitialBoxes
 import fr.benichn.math3.graphics.boxes.types.Padding
 import fr.benichn.math3.graphics.boxes.types.RangeF
 import fr.benichn.math3.graphics.caret.CaretPosition
@@ -63,6 +65,11 @@ class GridFormulaBox(shape: Pt = Pt(1, 1)) : FormulaBox() {
             val pt = getIndex(ch.indexOf(b)-1)
             DeletionResult(getInput(pt).lastSingle)
         }
+    }
+
+    override fun addInitialBoxes(ib: InitialBoxes): FinalBoxes {
+        inputs[0].addBoxes(ib.selectedBoxes)
+        return FinalBoxes()
     }
 
     override fun onChildBoundsChanged(b: FormulaBox, e: ValueChangedEvent<RectF>) {
@@ -158,6 +165,8 @@ class MatrixFormulaBox(shape: Pt = Pt(1, 1)) : FormulaBox() {
         addBox(BracketsSequenceFormulaBox(TransformerFormulaBox(grid, BoundsTransformer.Align(RectPoint.CENTER))))
         updateGraphics()
     }
+
+    override fun addInitialBoxes(ib: InitialBoxes) = grid.addInitialBoxes(ib)
 
     override fun getInitialSingle() = grid.getInitialSingle()
 

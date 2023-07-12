@@ -60,7 +60,7 @@ class FractionFormulaBox(numChildren: Array<FormulaBox> = emptyArray(), denChild
         if (boxes.size == 1 && boxes[0] is BracketsInputFormulaBox) {
             (boxes[0] as BracketsInputFormulaBox).input.delete().finalBoxes.boxesBefore.forEach { numerator.addBox(it) }
         } else {
-            boxes.forEach { numerator.addBox(it) }
+            numerator.addBoxes(boxes)
         }
         return FinalBoxes()
     }

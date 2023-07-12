@@ -8,6 +8,7 @@ import fr.benichn.math3.graphics.FormulaView
 import fr.benichn.math3.graphics.boxes.BracketsInputFormulaBox
 import fr.benichn.math3.graphics.boxes.FormulaBox
 import fr.benichn.math3.graphics.boxes.FractionFormulaBox
+import fr.benichn.math3.graphics.boxes.FunctionFormulaBox
 import fr.benichn.math3.graphics.boxes.InputFormulaBox
 import fr.benichn.math3.graphics.boxes.MatrixFormulaBox
 import fr.benichn.math3.graphics.boxes.ScriptFormulaBox
@@ -48,7 +49,7 @@ class MainActivity : AppCompatActivity() {
                     val newBox = {
                         when (id) {
                             "over" -> FractionFormulaBox()
-                            "clav" -> BracketsInputFormulaBox()
+                            "clav" -> FunctionFormulaBox("PGCD")
                             "recent" -> ScriptFormulaBox(ScriptFormulaBox.Type.BOTH)
                             "enter" -> MatrixFormulaBox(Pt(3, 3))
                             else -> TextFormulaBox(id)

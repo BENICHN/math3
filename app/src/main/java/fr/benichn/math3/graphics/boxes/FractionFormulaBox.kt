@@ -82,13 +82,8 @@ class FractionFormulaBox(numChildren: Array<FormulaBox> = emptyArray(), denChild
             this
         }
 
-    override fun generateGraphics(): FormulaGraphics { // padding ?
-        val gr = super.generateGraphics()
-        return FormulaGraphics(
-            gr.path,
-            gr.painting,
-            Padding(DEFAULT_TEXT_WIDTH * 0.25f, 0f).applyOnRect(gr.bounds)
-        )
+    override fun generateGraphics() = super.generateGraphics().withBounds { r ->
+        Padding(DEFAULT_TEXT_WIDTH * 0.25f, 0f).applyOnRect(r)
     }
 
     private fun getBarWidth(): RangeF {

@@ -10,6 +10,9 @@ data class RangeF(val start: Float = 0f, val end: Float = 0f) {
         fun fromRectV(r: RectF) = RangeF(r.top, r.bottom)
     }
 
+    val center
+        get() = (start + end)*0.5f
+
     val length
         get() = pos(end - start)
 }

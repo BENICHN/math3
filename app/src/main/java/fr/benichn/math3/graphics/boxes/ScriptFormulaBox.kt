@@ -87,30 +87,36 @@ class ScriptFormulaBox(type: Type = Type.SUPER, range: RangeF = RangeF(-DEFAULT_
         }
     )
 
+    private fun deleteSup() =
+        if (type == Type.BOTH) {
+            superscript.removeAllBoxes()
+            type = Type.SUB
+            DeletionResult(subscript.lastSingle)
+        } else {
+            delete()
+        }
+
+    private fun deleteSub() =
+        if (type == Type.BOTH) {
+            subscript.removeAllBoxes()
+            type = Type.SUPER
+            DeletionResult(superscript.lastSingle)
+        } else {
+            delete()
+        }
+
     override fun onChildRequiresDelete(b: FormulaBox) =
         when (b) {
             sup -> {
-                if (sup.isSelected || superscript.ch.isEmpty()) {
-                    if (type == Type.BOTH) {
-                        superscript.removeAllBoxes()
-                        type = Type.SUB
-                        DeletionResult(subscript.lastSingle)
-                    } else {
-                        delete()
-                    }
+                if (superscript.ch.isEmpty()) {
+                    deleteSup()
                 } else {
                     DeletionResult.fromSelection(sup)
                 }
             }
             sub -> {
-                if (sub.isSelected || subscript.ch.isEmpty()) {
-                    if (type == Type.BOTH) {
-                        subscript.removeAllBoxes()
-                        type = Type.SUPER
-                        DeletionResult(superscript.lastSingle)
-                    } else {
-                        delete()
-                    }
+                if (subscript.ch.isEmpty()) {
+                    deleteSub()
                 } else {
                     DeletionResult.fromSelection(sub)
                 }
@@ -124,6 +130,12 @@ class ScriptFormulaBox(type: Type = Type.SUPER, range: RangeF = RangeF(-DEFAULT_
             pos.y <= m -> if (type != Type.SUB) sup else sub
             else -> if (type != Type.SUPER) sub else sup
         }
+    }
+
+    override fun deleteMultiple(indices: List<Int>) = when (indices.map { ch[it] }) {
+        listOf(sup) -> deleteSup()
+        listOf(sub) -> deleteSub()
+        else -> throw UnsupportedOperationException()
     }
 
     fun addChildren() {
@@ -149,6 +161,6 @@ class ScriptFormulaBox(type: Type = Type.SUPER, range: RangeF = RangeF(-DEFAULT_
     }
 
     companion object {
-        const val DEFAULT_V_OFFSET = DEFAULT_TEXT_RADIUS * 0.25f
+        const val DEFAULT_V_OFFSET = DEFAULT_TEXT_RADIUS * 0.5f
     }
 }

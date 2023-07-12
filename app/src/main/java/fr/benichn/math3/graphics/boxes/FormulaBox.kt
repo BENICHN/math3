@@ -18,6 +18,7 @@ import fr.benichn.math3.graphics.types.Orientation
 import fr.benichn.math3.graphics.types.Side
 import fr.benichn.math3.graphics.Utils.Companion.sumOfRects
 import fr.benichn.math3.graphics.boxes.types.BoxProperty
+import fr.benichn.math3.graphics.boxes.types.CommonParentWithIndices
 import fr.benichn.math3.graphics.boxes.types.FinalBoxes
 import fr.benichn.math3.graphics.boxes.types.Padding
 import fr.benichn.math3.graphics.boxes.types.ParentWithIndex
@@ -293,19 +294,15 @@ open class FormulaBox {
         sumOfRects(ch.map { it.realBounds })
     )
 
-    var generatedGraphics: FormulaGraphics? = null
+    private var generatedGraphics: FormulaGraphics? = null
     private fun updateGraphics(regenerate: Boolean) {
         if (regenerate) {
             val g = generateGraphics()
             foregroundPaint = g.painting.getPaint(foreground)
             generatedGraphics = g
         }
-        generatedGraphics?.let {
-            graphics = FormulaGraphics(
-                it.path,
-                it.painting,
-                padding.applyOnRect(it.bounds)
-            )
+        generatedGraphics?.run {
+            graphics = withBounds { r -> padding.applyOnRect(r) }
         }
     }
     fun updateGraphics() = updateGraphics(true)

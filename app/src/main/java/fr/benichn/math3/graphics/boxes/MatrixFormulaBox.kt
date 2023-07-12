@@ -77,14 +77,8 @@ class GridFormulaBox(shape: Pt = Pt(1, 1)) : FormulaBox() {
         updateGraphics()
     }
 
-    override fun generateGraphics(): FormulaGraphics {
-        return super.generateGraphics().let {
-            FormulaGraphics(
-                it.path,
-                it.painting,
-                Padding(DEFAULT_CELL_SPACING * 0.5f).applyOnRect(it.bounds),
-            )
-        }
+    override fun generateGraphics() = super.generateGraphics().withBounds { r ->
+        Padding(DEFAULT_CELL_SPACING * 0.5f).applyOnRect(r)
     }
 
     override fun findChildBox(pos: PointF): FormulaBox {

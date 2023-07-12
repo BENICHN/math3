@@ -159,8 +159,13 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : View(context,
         }
     }
 
-    private var lastPlaceUp: TouchAction.Move? = null
-    private var lastWordUp: TouchAction.Move? = null
+    private data class PositionUp(
+        val absPos: PointF,
+        val millis: Long,
+        val index: Int?
+    )
+
+    private var lastPlaceUp: PositionUp? = null
     private var isAdding = false
 
     private abstract inner class FormulaViewAction : TouchAction({ it - (origin + offset) })
@@ -219,11 +224,11 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : View(context,
         override fun onUp() {
             val p = findSingle(prim.downPosition)
             caret.positions = if (isAdding) {
-                caret.positions + p
+                getFiltered(caret.positions + p)
             } else {
                 listOf(p)
             }
-            lastPlaceUp = Move(prim.downAbsPosition, System.currentTimeMillis())
+            lastPlaceUp = PositionUp(prim.downAbsPosition, System.currentTimeMillis(), caret.positions.size-1)
         }
 
         override fun onPinchDown() {
@@ -257,7 +262,9 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : View(context,
         }
 
         override fun onUp() {
-            lastPlaceUp = Move(prim.downAbsPosition, System.currentTimeMillis())
+            if (!hasMoved) {
+                lastPlaceUp = PositionUp(prim.downAbsPosition, System.currentTimeMillis(), if (isAdding) null else index)
+            }
         }
 
         override fun onPinchDown() {
@@ -270,15 +277,15 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : View(context,
         }
 
         override fun beforeFinish(replacement: TouchAction?) {
-            if (!hasMoved) {
+            if (!hasMoved && isAdding) {
                 caret.positions = basePositions
             } else {
-                caret.positions = basePositions + findSingle(prim.lastPosition)
+                caret.positions = getFiltered(basePositions + findSingle(prim.lastPosition))
             }
         }
 
         override fun onMove() {
-            caret.positions = basePositions + findSingle(prim.lastPosition).withModif(prim.lastPosition) // !! (verif)
+            caret.positions = getFiltered(basePositions + findSingle(prim.lastPosition).withModif(prim.lastPosition))
         }
 
     }
@@ -289,8 +296,8 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : View(context,
 
         override fun onDown() {
             downSingle = findSingle(prim.lastPosition)
-            basePositions = caret.positions
-            caret.positions = basePositions + doubleFromSingles(downSingle, downSingle).withModif(prim.lastPosition, downSingle.getAbsPosition())
+            basePositions = if (isAdding) caret.positions else listOf()
+            caret.positions = getFiltered(basePositions + doubleFromSingles(downSingle, downSingle).withModif(prim.lastPosition, downSingle.getAbsPosition()))
         }
 
         override fun onLongDown() {
@@ -299,7 +306,9 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : View(context,
         override fun onUp() {
             val s = findSingle(prim.lastPosition)
             val d = doubleFromSingles(downSingle, s)
-            caret.positions = basePositions + (if (d.indexRange.start == d.indexRange.end) CaretPosition.Single(d.box, d.indexRange.start) else d)
+            if (d.indexRange.start == d.indexRange.end) {
+                caret.positions = getFiltered(basePositions + CaretPosition.Single(d.box, d.indexRange.start))
+            }
         }
 
         override fun onPinchDown() {
@@ -319,7 +328,7 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : View(context,
             val s = findSingle(prim.lastPosition)
             val p = CaretPosition.GridSelection.fromBoxes(downSingle.box, s.box)?.withModif(prim.lastPosition, downSingle.getAbsPosition()) ?:
                     doubleFromSingles(downSingle, s).withModif(prim.lastPosition, downSingle.getAbsPosition())
-            caret.positions = basePositions + p
+            caret.positions = getFiltered(basePositions + p)
         }
     }
 
@@ -355,7 +364,11 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : View(context,
             if (hasMoved) {
                 val s = findSingle(prim.lastPosition)
                 val d = doubleFromSingles(fixedSingle, s)
-                caret.positions = basePositions + (if (d.indexRange.start == d.indexRange.end) CaretPosition.Single(d.box, d.indexRange.start) else d)
+                if (d.indexRange.start == d.indexRange.end) {
+                    caret.positions = getFiltered(basePositions + CaretPosition.Single(d.box, d.indexRange.start))
+                }
+            } else {
+                lastPlaceUp = PositionUp(prim.downAbsPosition, System.currentTimeMillis(), index)
             }
         }
 
@@ -379,7 +392,7 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : View(context,
             val p =
                 CaretPosition.GridSelection.fromBoxes(fixedSingle.box, s.box)?.withModif(prim.lastPosition, fixedSingle.getAbsPosition()) ?:
                     doubleFromSingles(fixedSingle, s).withModif(prim.lastPosition, fixedSingle.getAbsPosition())
-            caret.positions = basePositions + p
+            caret.positions = getFiltered(basePositions + p)
         }
 
     }
@@ -473,7 +486,7 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : View(context,
 
         override fun onUp() {
             val p = caret.positions[index] as CaretPosition.DiscreteSelection
-            caret.positions = caret.positions.filterIndexed { i, _ -> i != index } + CaretPosition.Double.fromBoxes(p.selectedBoxes)!!
+            caret.positions = getFiltered(caret.positions.filterIndexed { i, _ -> i != index } + CaretPosition.Double.fromBoxes(p.selectedBoxes)!!)
         }
 
         override fun onPinchDown() {
@@ -491,44 +504,31 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : View(context,
 
     }
 
-    // private inner class SelectWordAction: FormulaViewAction() {
-    //     override fun onDown() {
-//
-    //     }
-//
-    //     override fun onLongDown() {
-    //         caret.position = box.findSingle(prim.downPosition)?.let { s -> CaretPosition.MultiSingle(listOf(s)) }.noneIfNull()
-    //     }
-//
-    //     override fun onMove() {
-//
-    //     }
-//
-    //     override fun onUp() {
-    //         if (!isLongPressed) {
-    //             caret.position = box.findSingle(prim.downPosition)?.let { s ->
-    //                 CaretPosition.Double(s.box, Range(0, s.box.ch.size))
-    //             }.noneIfNull()
-    //         }
-    //     }
-//
-    //     override fun onPinchDown() {
-//
-    //     }
-//
-    //     override fun onPinchMove() {
-//
-    //     }
-//
-    //     override fun onPinchUp() {
-//
-    //     }
-//
-    //     override fun beforeFinish(replacement: TouchAction?) {
-//
-    //     }
-//
-    // }
+    private inner class SelectWordAction(val index: Int?): FormulaViewAction() {
+        override fun onDown() {
+        }
+        override fun onLongDown() {
+            isAdding = !isAdding
+            if (!isAdding) replace(PlaceCaretAction())
+        }
+        override fun onMove() {
+        }
+        override fun onUp() {
+            if (!isLongPressed) {
+                caret.positions = getFiltered(caret.positions.filterIndexed { i, _ -> i != index } + findSingle(prim.downPosition).let { s ->
+                    CaretPosition.Double(s.box, Range(0, s.box.ch.size))
+                })
+            }
+        }
+        override fun onPinchDown() {
+        }
+        override fun onPinchMove() {
+        }
+        override fun onPinchUp() {
+        }
+        override fun beforeFinish(replacement: TouchAction?) {
+        }
+    }
 //
     // private inner class PlaceMultiCaretAction : FormulaViewAction() {
     //     override fun onDown() {
@@ -628,6 +628,14 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : View(context,
             }
         }
     }
+
+    private fun getVerified(ps: List<CaretPosition>): List<CaretPosition?> {
+        val psm = ps.toMutableList<CaretPosition?>()
+        verifyPositions(psm)
+        return psm
+    }
+
+    private fun getFiltered(ps: List<CaretPosition>) = getVerified(ps).filterNotNull().distinct()
 
     fun sendAdd(newBox: () -> FormulaBox) {
         touchAction?.finish()
@@ -773,12 +781,13 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : View(context,
                 if (touchAction == null) {
                     val ap = PointF(e.x, e.y)
                     val pos = ap - (offset + origin)
-                    // lastPlaceUp?.also { (absPos, t) ->
-                    //     if ((System.currentTimeMillis() - t < DOUBLE_TAP_DELAY) && l2(absPos - ap) <= BoxCaret.SINGLE_MAX_TOUCH_DIST_SQ) {
-                    //         touchAction = SelectWordAction()
-                    //     } else {
-                    //         lastPlaceUp = null
-                    //     }
+                    lastPlaceUp?.also { (absPos, t, i) ->
+                        if ((System.currentTimeMillis() - t < DOUBLE_TAP_DELAY) && l2(absPos - ap) <= BoxCaret.SINGLE_MAX_TOUCH_DIST_SQ) {
+                            touchAction = SelectWordAction(i)
+                        } else {
+                            lastPlaceUp = null
+                        }
+                    }
                     // } ?: contextMenu?.also {
                     //     when (it.findElement(pos)) {
                     //         ContextMenu.Element.INTERIOR -> {

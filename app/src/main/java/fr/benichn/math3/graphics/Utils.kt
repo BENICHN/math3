@@ -54,5 +54,11 @@ class Utils {
         }
 
         fun l2(p: PointF) = p.x * p.x + p.y * p.y
+
+        fun <T> List<T>.moveToEnd(index: Int): List<T> = indices.map { i ->
+            if (i < index) this[i]
+            else if (i == size-1) this[index]
+            else this[i+1]
+        }
     }
 }

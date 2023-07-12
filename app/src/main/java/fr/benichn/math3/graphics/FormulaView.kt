@@ -14,6 +14,7 @@ import androidx.core.graphics.plus
 import fr.benichn.math3.Utils.Companion.neg
 import fr.benichn.math3.Utils.Companion.pos
 import fr.benichn.math3.graphics.Utils.Companion.l2
+import fr.benichn.math3.graphics.Utils.Companion.moveToEnd
 import fr.benichn.math3.graphics.Utils.Companion.times
 import fr.benichn.math3.graphics.boxes.TransformerFormulaBox
 import fr.benichn.math3.graphics.boxes.FormulaBox
@@ -29,7 +30,6 @@ import fr.benichn.math3.graphics.caret.BoxCaret
 import fr.benichn.math3.graphics.caret.CaretPosition
 import fr.benichn.math3.graphics.caret.ContextMenu
 import fr.benichn.math3.graphics.caret.ContextMenuEntry
-import fr.benichn.math3.graphics.caret.noneIfNull
 import fr.benichn.math3.graphics.types.RectPoint
 import fr.benichn.math3.graphics.types.TouchAction
 import fr.benichn.math3.types.callback.*
@@ -48,6 +48,9 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : View(context,
             invalidate()
         }
 
+    private fun findSingle(absPos: PointF) = box.findSingle(absPos)!!
+    private fun doubleFromSingles(p1: CaretPosition.Single, p2: CaretPosition.Single) = CaretPosition.Double.fromSingles(p1, p2)!!
+
     private var accVelocity = PointF()
     private val velocityTimer = fixedRateTimer(period = VELOCITY_REDUCTION_PERIOD) {
         // Log.d("fix", accVelocity.toString())
@@ -64,8 +67,8 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : View(context,
     }
 
     private fun moveToCaret() {
-        val p = caret.position
-        val pos = caret.absolutePosition ?: (p as? CaretPosition.Single)?.getAbsPosition()
+        val p = caret.positions.lastOrNull()
+        val pos = p?.absPos ?: (p as? CaretPosition.Single)?.getAbsPosition()
         pos?.let { it + origin + offset }?.run {
             // val radius = (p as? CaretPosition.Single)?.radius ?: FormulaBox.DEFAULT_TEXT_RADIUS
             val o = DEFAULT_PADDING // + radius
@@ -156,8 +159,9 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : View(context,
         }
     }
 
-    var lastPlaceUp: TouchAction.Move? = null
-    var lastWordUp: TouchAction.Move? = null
+    private var lastPlaceUp: TouchAction.Move? = null
+    private var lastWordUp: TouchAction.Move? = null
+    private var isAdding = false
 
     private abstract inner class FormulaViewAction : TouchAction({ it - (origin + offset) })
 
@@ -213,7 +217,12 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : View(context,
         }
 
         override fun onUp() {
-            caret.position = box.findSingle(prim.downPosition).noneIfNull()
+            val p = findSingle(prim.downPosition)
+            caret.positions = if (isAdding) {
+                caret.positions + p
+            } else {
+                listOf(p)
+            }
             lastPlaceUp = Move(prim.downAbsPosition, System.currentTimeMillis())
         }
 
@@ -236,8 +245,11 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : View(context,
 
     }
 
-    private inner class MoveCaretAction : FormulaViewAction() {
+    private inner class MoveCaretAction(val index: Int) : FormulaViewAction() {
+        private lateinit var basePositions: List<CaretPosition>
+
         override fun onDown() {
+            basePositions = caret.positions.filterIndexed { i, _ -> i != index }
         }
 
         override fun onLongDown() {
@@ -258,79 +270,36 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : View(context,
         }
 
         override fun beforeFinish(replacement: TouchAction?) {
-            if (replacement == null) {
-                caret.absolutePosition = null
+            if (!hasMoved) {
+                caret.positions = basePositions
+            } else {
+                caret.positions = basePositions + findSingle(prim.lastPosition)
             }
         }
 
         override fun onMove() {
-            caret.position = box.findSingle(prim.lastPosition).noneIfNull()
-            caret.absolutePosition = prim.lastPosition
-        }
-
-    }
-
-    private inner class MoveMultiCaretAction(val index: Int) : FormulaViewAction() {
-        override fun onDown() {
-            caret.movingSingle = index
-        }
-
-        override fun onLongDown() {
-            replace(CreateSelectionAction())
-        }
-
-        override fun onUp() {
-            val ss = (caret.position as CaretPosition.MultiSingle).singles
-            caret.position = CaretPosition.MultiSingle(ss.filterIndexed{ i, _ -> i != index })
-        }
-
-        override fun onPinchDown() {
-        }
-
-        override fun onPinchMove() {
-        }
-
-        override fun onPinchUp() {
-        }
-
-        override fun beforeFinish(replacement: TouchAction?) {
-            caret.movingSingle = null
-            val np = CaretPosition.MultiSingle((caret.position as CaretPosition.MultiSingle).singles.distinct())
-            caret.position = if (np.singles.size == 1) np.singles[0] else np
-            if (replacement == null) {
-                caret.absolutePosition = null
-            }
-        }
-
-        override fun onMove() {
-            caret.position = CaretPosition.MultiSingle((caret.position as CaretPosition.MultiSingle).singles.mapIndexed { i, s ->
-                if (i == index) {
-                    box.findSingle(prim.lastPosition)
-                } else s
-            }.filterNotNull())
-            caret.absolutePosition = prim.lastPosition
+            caret.positions = basePositions + findSingle(prim.lastPosition).withModif(prim.lastPosition) // !! (verif)
         }
 
     }
 
     private inner class CreateSelectionAction : FormulaViewAction() {
-        private var downSingle: CaretPosition.Single? = null
+        private lateinit var downSingle: CaretPosition.Single
+        private lateinit var basePositions: List<CaretPosition>
 
         override fun onDown() {
-            downSingle = box.findSingle(prim.lastPosition)
-            caret.absolutePosition = prim.lastPosition
-            downSingle?.getAbsPosition()?.let { caret.fixedAbsPos = it }
-            caret.position = downSingle?.let { CaretPosition.Double.fromSingles(it, it) }.noneIfNull()
+            downSingle = findSingle(prim.lastPosition)
+            basePositions = caret.positions
+            caret.positions = basePositions + doubleFromSingles(downSingle, downSingle).withModif(prim.lastPosition, downSingle.getAbsPosition())
         }
 
         override fun onLongDown() {
         }
 
         override fun onUp() {
-            val p = caret.position
-            if (p is CaretPosition.Double && p.indexRange.start == p.indexRange.end) {
-                caret.position = CaretPosition.Single(p.box, p.indexRange.start)
-            }
+            val s = findSingle(prim.lastPosition)
+            val d = doubleFromSingles(downSingle, s)
+            caret.positions = basePositions + (if (d.indexRange.start == d.indexRange.end) CaretPosition.Single(d.box, d.indexRange.start) else d)
         }
 
         override fun onPinchDown() {
@@ -343,43 +312,39 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : View(context,
         }
 
         override fun beforeFinish(replacement: TouchAction?) {
-            caret.absolutePosition = null
-            caret.fixedAbsPos = null
+            caret.positions = caret.positions.map { it.withoutModif() }
         }
 
         override fun onMove() {
-            downSingle?.let { ds ->
-                caret.position = box.findSingle(prim.lastPosition)?.let {
-                    CaretPosition.GridSelection.fromBoxes(ds.box, it.box) ?:
-                        CaretPosition.Double.fromSingles(ds, it)
-                }.noneIfNull()
-                caret.absolutePosition = prim.lastPosition
-            }
+            val s = findSingle(prim.lastPosition)
+            val p = CaretPosition.GridSelection.fromBoxes(downSingle.box, s.box)?.withModif(prim.lastPosition, downSingle.getAbsPosition()) ?:
+                    doubleFromSingles(downSingle, s).withModif(prim.lastPosition, downSingle.getAbsPosition())
+            caret.positions = basePositions + p
         }
-
     }
 
-    private inner class ModifySelectionAction(val downRectPoint: RectPoint) : FormulaViewAction() {
-        private var fixedSingle: CaretPosition.Single? = null
+    private inner class ModifySelectionAction(val index: Int, val downRectPoint: RectPoint) : FormulaViewAction() {
+        private lateinit var fixedSingle: CaretPosition.Single
+        private lateinit var basePositions: List<CaretPosition>
 
         override fun onDown() {
-            fixedSingle = when (val p = caret.position) {
+            val p = caret.positions[index]
+            fixedSingle = when (p) {
                 is CaretPosition.Double -> when (downRectPoint) {
                     RectPoint.CENTER_LEFT -> p.rightSingle
                     RectPoint.CENTER_RIGHT -> p.leftSingle
-                    else -> null
+                    else -> throw IllegalArgumentException()
                 }
                 is CaretPosition.GridSelection -> when (downRectPoint) {
                     RectPoint.TOP_LEFT -> p.bottomRightSingle
                     RectPoint.TOP_RIGHT -> p.bottomLeftSingle
                     RectPoint.BOTTOM_LEFT -> p.topRightSingle
                     RectPoint.BOTTOM_RIGHT -> p.topLeftSingle
-                    else -> null
+                    else -> throw IllegalArgumentException()
                 }
-                else -> null
+                else -> throw UnsupportedOperationException()
             }
-            caret.absolutePosition = prim.lastPosition
-            fixedSingle?.getAbsPosition()?.let { caret.fixedAbsPos = it }
+            basePositions = caret.positions.filterIndexed { i, _ -> i != index }
         }
 
         override fun onLongDown() {
@@ -387,9 +352,10 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : View(context,
         }
 
         override fun onUp() {
-            val p = caret.position
-            if (p is CaretPosition.Double && p.indexRange.start == p.indexRange.end) {
-                caret.position = CaretPosition.Single(p.box, p.indexRange.start)
+            if (hasMoved) {
+                val s = findSingle(prim.lastPosition)
+                val d = doubleFromSingles(fixedSingle, s)
+                caret.positions = basePositions + (if (d.indexRange.start == d.indexRange.end) CaretPosition.Single(d.box, d.indexRange.start) else d)
             }
         }
 
@@ -403,25 +369,97 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : View(context,
         }
 
         override fun beforeFinish(replacement: TouchAction?) {
-            if (replacement == null) {
-                caret.absolutePosition = null
-                caret.fixedAbsPos = null
+            if (hasMoved) {
+                caret.positions = caret.positions.map { it.withoutModif() }
             }
         }
 
         override fun onMove() {
-            fixedSingle?.let { fs ->
-                caret.position = box.findSingle(prim.lastPosition)?.let {
-                    CaretPosition.GridSelection.fromBoxes(fs.box, it.box) ?:
-                    CaretPosition.Double.fromSingles(fs, it)
-                }.noneIfNull()
-                caret.absolutePosition = prim.lastPosition
-            }
+            val s = findSingle(prim.lastPosition)
+            val p =
+                CaretPosition.GridSelection.fromBoxes(fixedSingle.box, s.box)?.withModif(prim.lastPosition, fixedSingle.getAbsPosition()) ?:
+                    doubleFromSingles(fixedSingle, s).withModif(prim.lastPosition, fixedSingle.getAbsPosition())
+            caret.positions = basePositions + p
         }
 
     }
 
-    private inner class DisplayContextMenuAction : FormulaViewAction() {
+    // private inner class DisplayContextMenuAction : FormulaViewAction() {
+    //     override fun onDown() {
+    //     }
+//
+    //     override fun onLongDown() {
+    //         replace(CreateSelectionAction())
+    //     }
+//
+    //     override fun onMove() {
+    //         replace(MoveViewAction())
+    //     }
+//
+    //     override fun onUp() {
+    //         contextMenu = getSelectionContextMenu().also {
+    //             it.origin = RectPoint.TOP_CENTER.get((caret.position as? CaretPosition.Double)?.bounds ?: (caret.position as CaretPosition.GridSelection).bounds)
+    //         }
+    //     }
+//
+    //     override fun onPinchDown() {
+    //         replace(MoveViewAction())
+    //     }
+//
+    //     override fun onPinchMove() {
+    //     }
+//
+    //     override fun onPinchUp() {
+    //     }
+//
+    //     override fun beforeFinish(replacement: TouchAction?) {
+    //     }
+//
+    // }
+//
+    // private inner class ContextMenuAction : FormulaViewAction() {
+    //     var downEntry: ContextMenuEntry? = null
+//
+    //     override fun onDown() {
+    //         downEntry = contextMenu!!.findEntry(prim.lastPosition)
+    //         downEntry?.let {
+    //             it.box.background = Color.LTGRAY
+    //         }
+    //     }
+//
+    //     override fun onLongDown() {
+    //     }
+//
+    //     override fun onMove() {
+    //         val entry = contextMenu!!.findEntry(prim.lastPosition)
+    //         downEntry?.let {
+    //             it.box.background = if (it == entry) Color.LTGRAY else Color.WHITE
+    //         }
+    //     }
+//
+    //     override fun onUp() {
+    //         val entry = contextMenu!!.findEntry(prim.lastPosition)
+    //         if (downEntry == entry) {
+    //             entry?.action?.invoke(caret.position)
+    //             contextMenu = null
+    //         }
+    //     }
+//
+    //     override fun onPinchDown() {
+    //     }
+//
+    //     override fun onPinchMove() {
+    //     }
+//
+    //     override fun onPinchUp() {
+    //     }
+//
+    //     override fun beforeFinish(replacement: TouchAction?) {
+    //     }
+//
+    // }
+
+    private inner class SelectionToDoubleAction(val index: Int) : FormulaViewAction() {
         override fun onDown() {
         }
 
@@ -434,9 +472,8 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : View(context,
         }
 
         override fun onUp() {
-            contextMenu = getSelectionContextMenu().also {
-                it.origin = RectPoint.TOP_CENTER.get((caret.position as? CaretPosition.Double)?.bounds ?: (caret.position as CaretPosition.GridSelection).bounds)
-            }
+            val p = caret.positions[index] as CaretPosition.DiscreteSelection
+            caret.positions = caret.positions.filterIndexed { i, _ -> i != index } + CaretPosition.Double.fromBoxes(p.selectedBoxes)!!
         }
 
         override fun onPinchDown() {
@@ -454,152 +491,78 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : View(context,
 
     }
 
-    private inner class ContextMenuAction : FormulaViewAction() {
-        var downEntry: ContextMenuEntry? = null
-
-        override fun onDown() {
-            downEntry = contextMenu!!.findEntry(prim.lastPosition)
-            downEntry?.let {
-                it.box.background = Color.LTGRAY
-            }
-        }
-
-        override fun onLongDown() {
-        }
-
-        override fun onMove() {
-            val entry = contextMenu!!.findEntry(prim.lastPosition)
-            downEntry?.let {
-                it.box.background = if (it == entry) Color.LTGRAY else Color.WHITE
-            }
-        }
-
-        override fun onUp() {
-            val entry = contextMenu!!.findEntry(prim.lastPosition)
-            if (downEntry == entry) {
-                entry?.action?.invoke(caret.position)
-                contextMenu = null
-            }
-        }
-
-        override fun onPinchDown() {
-        }
-
-        override fun onPinchMove() {
-        }
-
-        override fun onPinchUp() {
-        }
-
-        override fun beforeFinish(replacement: TouchAction?) {
-        }
-
-    }
-
-    private inner class SelectionToDoubleAction : FormulaViewAction() {
-        override fun onDown() {
-        }
-
-        override fun onLongDown() {
-            replace(CreateSelectionAction())
-        }
-
-        override fun onMove() {
-            replace(MoveViewAction())
-        }
-
-        override fun onUp() {
-            val p = caret.position as CaretPosition.DiscreteSelection
-            caret.position = CaretPosition.Double.fromBoxes(p.selectedBoxes).noneIfNull()
-        }
-
-        override fun onPinchDown() {
-            replace(MoveViewAction())
-        }
-
-        override fun onPinchMove() {
-        }
-
-        override fun onPinchUp() {
-        }
-
-        override fun beforeFinish(replacement: TouchAction?) {
-        }
-
-    }
-
-    private inner class SelectWordAction: FormulaViewAction() {
-        override fun onDown() {
-
-        }
-
-        override fun onLongDown() {
-            caret.position = box.findSingle(prim.downPosition)?.let { s -> CaretPosition.MultiSingle(listOf(s)) }.noneIfNull()
-        }
-
-        override fun onMove() {
-
-        }
-
-        override fun onUp() {
-            if (!isLongPressed) {
-                caret.position = box.findSingle(prim.downPosition)?.let { s ->
-                    CaretPosition.Double(s.box, Range(0, s.box.ch.size))
-                }.noneIfNull()
-            }
-        }
-
-        override fun onPinchDown() {
-
-        }
-
-        override fun onPinchMove() {
-
-        }
-
-        override fun onPinchUp() {
-
-        }
-
-        override fun beforeFinish(replacement: TouchAction?) {
-
-        }
-
-    }
-
-    private inner class PlaceMultiCaretAction : FormulaViewAction() {
-        override fun onDown() {
-        }
-
-        override fun onLongDown() {
-            replace(CreateSelectionAction())
-        }
-
-        override fun onUp() {
-            box.findSingle(prim.downPosition)?.let { s ->
-                val ss = (caret.position as CaretPosition.MultiSingle).singles
-                caret.position = CaretPosition.MultiSingle(if (s in ss) ss - s else ss + s)
-            }
-        }
-
-        override fun onPinchDown() {
-            replace(MoveViewAction())
-        }
-
-        override fun onPinchMove() {
-        }
-
-        override fun onPinchUp() {
-        }
-
-        override fun beforeFinish(replacement: TouchAction?) {
-        }
-
-        override fun onMove() {
-            replace(MoveViewAction())
-        }
-
-    }
+    // private inner class SelectWordAction: FormulaViewAction() {
+    //     override fun onDown() {
+//
+    //     }
+//
+    //     override fun onLongDown() {
+    //         caret.position = box.findSingle(prim.downPosition)?.let { s -> CaretPosition.MultiSingle(listOf(s)) }.noneIfNull()
+    //     }
+//
+    //     override fun onMove() {
+//
+    //     }
+//
+    //     override fun onUp() {
+    //         if (!isLongPressed) {
+    //             caret.position = box.findSingle(prim.downPosition)?.let { s ->
+    //                 CaretPosition.Double(s.box, Range(0, s.box.ch.size))
+    //             }.noneIfNull()
+    //         }
+    //     }
+//
+    //     override fun onPinchDown() {
+//
+    //     }
+//
+    //     override fun onPinchMove() {
+//
+    //     }
+//
+    //     override fun onPinchUp() {
+//
+    //     }
+//
+    //     override fun beforeFinish(replacement: TouchAction?) {
+//
+    //     }
+//
+    // }
+//
+    // private inner class PlaceMultiCaretAction : FormulaViewAction() {
+    //     override fun onDown() {
+    //     }
+//
+    //     override fun onLongDown() {
+    //         replace(CreateSelectionAction())
+    //     }
+//
+    //     override fun onUp() {
+    //         box.findSingle(prim.downPosition)?.let { s ->
+    //             val ss = (caret.position as CaretPosition.MultiSingle).singles
+    //             caret.position = CaretPosition.MultiSingle(if (s in ss) ss - s else ss + s)
+    //         }
+    //     }
+//
+    //     override fun onPinchDown() {
+    //         replace(MoveViewAction())
+    //     }
+//
+    //     override fun onPinchMove() {
+    //     }
+//
+    //     override fun onPinchUp() {
+    //     }
+//
+    //     override fun beforeFinish(replacement: TouchAction?) {
+    //     }
+//
+    //     override fun onMove() {
+    //         replace(MoveViewAction())
+    //     }
+//
+    // }
 
     init {
         setWillNotDraw(false)
@@ -609,169 +572,185 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : View(context,
             adjustOffset()
         }
         caret = box.createCaret()
-        caret.onPositionChanged += { _, _ ->
-            moveToCaret()
-        }
-        caret.onAbsolutePositionChanged += { _, _ ->
+        caret.onPositionsChanged += { _, _ ->
             moveToCaret()
         }
     }
 
-    private fun updateSingle(old: CaretPosition.Single, s: CaretPosition.Single, addedAfter: Int) =
-        if (s.box == old.box) {
-            if (old.index >= s.index) CaretPosition.Single(old.box, old.index + addedAfter)
-            else old
-        } else old
+    private fun updatePosition(old: CaretPosition, s: CaretPosition.Single, addedAfter: Int): CaretPosition {
+        fun updateIndex(i: Int) =
+            if (i > s.index) i + addedAfter else i
+        return when (old) {
+            is CaretPosition.DiscreteSelection -> {
+                if (old.box == s.box) {
+                    CaretPosition.DiscreteSelection(
+                        old.box,
+                        old.indices.map { updateIndex(it) }
+                    )
+                } else old
+            }
+            is CaretPosition.Double -> {
+                if (old.box == s.box) {
+                    CaretPosition.Double(
+                        old.box,
+                        Range(updateIndex(old.indexRange.start), updateIndex(old.indexRange.end))
+                    )
+                } else old
+            }
+            is CaretPosition.GridSelection -> old
+            is CaretPosition.Single -> {
+                if (old.box == s.box) {
+                    CaretPosition.Single(
+                        old.box,
+                        updateIndex(old.index)
+                    )
+                } else old
+            }
+        }
+    }
+
+    private fun updatePositions(ps: MutableList<CaretPosition?>, s: CaretPosition.Single, addedAfter: Int) =
+        ps.indices.forEach { i -> ps[i] = ps[i]?.let { p -> updatePosition(p, s, addedAfter) } }
+
+    private fun verifyPositions(ps: MutableList<CaretPosition?>) {
+        ps.indices.forEach { i -> ps[i] = ps[i]?.let { p ->
+            if (p.box.root == box) p else null
+        } }
+        ps.indices.forEach { i ->
+            ps[i] = ps[i]?.let { p ->
+                val ck = ps.withIndex().any { (j, pos) -> j != i && pos != null && (
+                        pos.contains(p.box) ||
+                        p.selectedBoxes.any { sb -> pos.contains(sb) } ||
+                        p is CaretPosition.Single && p.index.let { k -> k in 1 until p.box.ch.size && pos.contains(p.box.ch[k]) && pos.contains(p.box.ch[k-1]) }
+                        )
+                }
+                if (ck) null else p
+            }
+        }
+    }
 
     fun sendAdd(newBox: () -> FormulaBox) {
         touchAction?.finish()
         contextMenu = null
 
-        val p = caret.position
-        var ss: MutableList<CaretPosition.Single?> = (p as? CaretPosition.MultiSingle)?.singles?.toMutableList() ?: mutableListOf()
+        val ps = caret.positions.toMutableList<CaretPosition?>()
 
         fun addInInput(box: InputFormulaBox, selectionRange: Range): CaretPosition.Single {
             val nb = newBox()
             val i = selectionRange.start
-            return if (p is CaretPosition.MultiSingle && p.singles.count { s -> s.box == box } >= 2) {
-                box.addBox(i, nb)
-                ss.indices.forEach { j -> ss[j] = ss[j]?.let { updateSingle(it, CaretPosition.Single(box, i), 1) } }
-                nb.getInitialSingle() ?: CaretPosition.Single(box, i+1)
-            } else {
-                val ib = InitialBoxes(
-                    box.ch.subList(0, selectionRange.start).toList(),
-                    box.ch.subList(selectionRange.start, selectionRange.end).toList(),
-                    box.ch.subList(selectionRange.end, box.ch.size).toList()
-                )
-                for (b in ib.selectedBoxes) {
-                    b.delete()
-                }
-                box.addBox(i, nb)
-                val fb = nb.addInitialBoxes(ib)
-                box.addBoxes(i+1, fb.boxesAfter)
-                box.addBoxes(i, fb.boxesBefore)
-                ss.indices.forEach { j -> ss[j] = ss[j]?.let { updateSingle(it, CaretPosition.Single(box, i), 1+fb.boxesAfter.size+fb.boxesBefore.size) } }
-                nb.getInitialSingle() ?: CaretPosition.Single(box, i+1+fb.boxesBefore.size)
+
+            val noEnv = ps.count { pos -> pos != null && pos.box == box } >= 2
+            val ib = InitialBoxes(
+                if (noEnv) listOf() else box.ch.subList(0, selectionRange.start).toList(),
+                box.ch.subList(selectionRange.start, selectionRange.end).toList(),
+                if (noEnv) listOf() else box.ch.subList(selectionRange.end, box.ch.size).toList()
+            )
+            for (b in ib.selectedBoxes) {
+                b.delete()
             }
+            box.addBox(i, nb)
+            val fb = nb.addInitialBoxes(ib)
+            box.addBoxes(i+1, fb.boxesAfter)
+            box.addBoxes(i, fb.boxesBefore)
+            if (noEnv) {
+                updatePositions(
+                    ps,
+                    CaretPosition.Single(box, i),
+                    fb.run { boxesBefore.size + boxesAfter.size } + 1 - ib.selectedBoxes.size
+                )
+            }
+            return nb.getInitialSingle() ?: CaretPosition.Single(box, i+1+fb.boxesBefore.size)
         }
 
-        when (p) {
-            is CaretPosition.None, is CaretPosition.DiscreteSelection -> { }
-            is CaretPosition.Single -> {
-                caret.position = addInInput(p.box, Range(p.index, p.index))
-            }
-            is CaretPosition.MultiSingle -> {
-                for (j in p.singles.indices) {
-                    val s = ss[j]!!
-                    ss[j] = addInInput(s.box, Range(s.index, s.index))
+        for (j in ps.indices) {
+            val p = ps[j] ?: continue
+            ps[j] = when (p) {
+                is CaretPosition.DiscreteSelection -> p
+                is CaretPosition.Single -> {
+                    addInInput(p.box, Range(p.index, p.index))
                 }
-                caret.position = CaretPosition.MultiSingle(ss.filterNotNull().filter { s -> s.box.root == box }.distinct())
+                is CaretPosition.Double -> {
+                    addInInput(p.box, p.indexRange)
+                }
+                is CaretPosition.GridSelection -> {
+                    ps.addAll(p.selectedInputs.map { box ->
+                        addInInput(box, Range(0, box.ch.size))
+                    })
+                    null
+                }
             }
-            is CaretPosition.Double -> {
-                caret.position = addInInput(p.box, p.indexRange)
-            }
-            is CaretPosition.GridSelection -> {
-                caret.position = CaretPosition.MultiSingle(p.selectedInputs.map { box ->
-                    addInInput(box, Range(0, box.ch.size))
-                })
-            }
+            verifyPositions(ps)
         }
+
+        caret.positions = ps.filterNotNull().distinct()
     }
 
     fun sendDelete() {
         touchAction?.finish()
         contextMenu = null
 
-        val deletionResult =
-            when (val p = caret.position) {
-                is CaretPosition.None -> {
-                    DeletionResult()
+        val ps = caret.positions.toMutableList<CaretPosition?>()
+        for (j in ps.indices) {
+            val p = ps[j] ?: continue
+            ps[j] = if (p is CaretPosition.GridSelection) {
+                p.selectedInputs.map {
+                    it.removeAllBoxes() // il ne peut pas y avoir de singles dedans
+                    ps.add(it.lastSingle)
                 }
-
-                is CaretPosition.Single -> {
-                    if (p.index == 0) {
-                        fun isInputRoot(b: FormulaBox): Boolean =
-                            b.parent?.let { if (it is InputFormulaBox) false else isInputRoot(it) } ?: true
-                        if (!isInputRoot(p.box)) {
-                            p.box.delete()
-                        } else {
-                            DeletionResult(null, p)
-                        }
-                    } else {
-                        val b = p.box.ch[p.index - 1]
-                        if (b.selectBeforeDeletion) {
-                            DeletionResult.fromSelection(b)
-                        } else {
-                            b.delete()
-                        }
-                    }
-                }
-
-                is CaretPosition.MultiSingle -> {
-                    val ss = p.singles.toMutableList<CaretPosition.Single?>()
-                    fun deleteOrForce(b: FormulaBox): CaretPosition.Single? = b.delete().let { dr ->
-                        if (dr.newPos is CaretPosition.Single) {
-                            dr.deletedSingle?.let { ds -> ss.indices.forEach { j -> ss[j] = ss[j]?.let { updateSingle(it, ds, -1) } } }
-                            dr.newPos.box.addFinalBoxes(dr.newPos.index, dr.finalBoxes)
-                            ss.indices.forEach { j -> ss[j] = ss[j]?.let { updateSingle(it, dr.newPos, dr.finalBoxes.boxesAfter.size + dr.finalBoxes.boxesBefore.size) } }
-                            CaretPosition.Single(dr.newPos.box, dr.newPos.index + dr.finalBoxes.boxesBefore.size)
-                        } else {
-                            b.forceDelete()
-                        }
-                    }
-                    p.singles.indices.forEach { j ->
-                        val s = ss[j]!!
-                        ss[j] = if (s.box.root == box) {
-                            if (s.index == 0) {
-                                fun isInputRoot(b: FormulaBox): Boolean =
-                                    b.parent?.let {
-                                        if (it is InputFormulaBox) false else isInputRoot(
-                                            it
-                                        )
-                                    } ?: true
-                                if (!isInputRoot(s.box)) {
-                                    deleteOrForce(s.box)
-                                } else {
-                                    s
-                                }
+                null
+            } else {
+                val dr = when (p) {
+                    is CaretPosition.Single -> {
+                        if (p.index == 0) {
+                            fun isInputRoot(b: FormulaBox): Boolean =
+                                b.parent?.let { if (it is InputFormulaBox) false else isInputRoot(it) } ?: true
+                            if (!isInputRoot(p.box)) {
+                                p.box.delete()
                             } else {
-                                val b = s.box.ch[s.index - 1]
-                                deleteOrForce(b)
+                                DeletionResult(p)
                             }
-                        } else null
+                        } else {
+                            val b = p.box.ch[p.index - 1]
+                            if (b.selectBeforeDeletion) {
+                                DeletionResult.fromSelection(b)
+                            } else {
+                                b.delete()
+                            }
+                        }
                     }
-                    DeletionResult(null, CaretPosition.MultiSingle(
-                        ss.filterNotNull().filter { s -> s.box.root == box }.distinct()
-                    ))
+
+                    is CaretPosition.Double -> {
+                        p.selectedBoxes.forEach { it.delete() }
+                        DeletionResult(p.leftSingle)
+                    }
+
+                    is CaretPosition.DiscreteSelection -> {
+                        p.box.deleteMultiple(p.indices)
+                    }
+
+                    else -> DeletionResult() // inatteignable
                 }
 
-                is CaretPosition.Double -> {
-                    p.selectedBoxes.map { it.delete() }.last()
-                }
-
-                is CaretPosition.DiscreteSelection -> {
-                    p.selectedBoxes.map { it.delete() }.last()
-                }
-
-                is CaretPosition.GridSelection -> {
-                    DeletionResult(null, CaretPosition.MultiSingle(p.selectedInputs.map {
-                        it.removeAllBoxes()
-                        it.lastSingle
-                    }))
+                when(dr.newPos) {
+                    is CaretPosition.Single -> {
+                        updatePositions(
+                            ps,
+                            dr.newPos,
+                            dr.finalBoxes.run { boxesBefore.size + boxesAfter.size } - if (dr.deleted) 1 else 0
+                        )
+                        if (!dr.finalBoxes.isEmpty) {
+                            dr.newPos.box.addFinalBoxes(dr.newPos.index, dr.finalBoxes)
+                        } else {
+                            dr.newPos
+                        }
+                    }
+                    else -> dr.newPos
                 }
             }
-
-        val (_, newPos, fb) = deletionResult
-        caret.position = when (newPos) {
-            is CaretPosition.Single -> {
-                if (!fb.isEmpty) {
-                    newPos.box.addFinalBoxes(newPos.index, fb)
-                } else {
-                    newPos
-                }
-            }
-            else -> newPos
+            verifyPositions(ps)
         }
+
+        caret.positions = ps.filterNotNull().distinct()
     }
 
     override fun onDraw(canvas: Canvas) {
@@ -794,79 +773,69 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : View(context,
                 if (touchAction == null) {
                     val ap = PointF(e.x, e.y)
                     val pos = ap - (offset + origin)
-                    val p = caret.position
-                    lastPlaceUp?.also { (absPos, t) ->
-                        if ((System.currentTimeMillis() - t < DOUBLE_TAP_DELAY) && l2(absPos - ap) <= BoxCaret.SINGLE_MAX_TOUCH_DIST_SQ) {
-                            touchAction = SelectWordAction()
-                        } else {
-                            lastPlaceUp = null
-                        }
-                    } ?: contextMenu?.also {
-                        when (it.findElement(pos)) {
-                            ContextMenu.Element.INTERIOR -> {
-                                touchAction = ContextMenuAction()
-                            }
-                            ContextMenu.Element.NONE -> {
-                                contextMenu = null
-                                if (p is CaretPosition.Double && p.getElement(pos) == CaretPosition.Double.Element.INTERIOR
-                                    || p is CaretPosition.GridSelection && p.getElement(pos) == CaretPosition.GridSelection.Element.INTERIOR) {
-                                    touchAction = PlaceCaretAction()
-                                }
-                            }
-                        }
-                    }
+                    // lastPlaceUp?.also { (absPos, t) ->
+                    //     if ((System.currentTimeMillis() - t < DOUBLE_TAP_DELAY) && l2(absPos - ap) <= BoxCaret.SINGLE_MAX_TOUCH_DIST_SQ) {
+                    //         touchAction = SelectWordAction()
+                    //     } else {
+                    //         lastPlaceUp = null
+                    //     }
+                    // } ?: contextMenu?.also {
+                    //     when (it.findElement(pos)) {
+                    //         ContextMenu.Element.INTERIOR -> {
+                    //             touchAction = ContextMenuAction()
+                    //         }
+                    //         ContextMenu.Element.NONE -> {
+                    //             contextMenu = null
+                    //             caret.uniquePosition?.let { p ->
+                    //                 if (p is CaretPosition.Double && p.getElement(pos) == CaretPosition.Double.Element.INTERIOR
+                    //                     || p is CaretPosition.GridSelection && p.getElement(pos) == CaretPosition.GridSelection.Element.INTERIOR) {
+                    //                     touchAction = PlaceCaretAction()
+                    //                 }
+                    //             }
+                    //         }
+                    //     }
+                    // }
                     if (touchAction == null) {
-                        touchAction = when (p) {
-                            is CaretPosition.Single -> {
-                                when (p.getElement(pos)) {
-                                    CaretPosition.Single.Element.BAR ->
-                                        MoveCaretAction()
+                        touchAction = caret.positions.withIndex().firstNotNullOfOrNull { (j, p) ->
+                            when (p) {
+                                is CaretPosition.Single -> {
+                                    when (p.getElement(pos)) {
+                                        CaretPosition.Single.Element.BAR ->
+                                            MoveCaretAction(j)
 
-                                    CaretPosition.Single.Element.NONE ->
-                                        PlaceCaretAction()
+                                        CaretPosition.Single.Element.NONE ->
+                                            null
+                                    }
+                                }
+
+                                is CaretPosition.Double -> {
+                                    when (p.getElement(pos)) {
+                                        CaretPosition.Double.Element.LEFT_BAR -> ModifySelectionAction(j, RectPoint.CENTER_LEFT)
+                                        CaretPosition.Double.Element.RIGHT_BAR -> ModifySelectionAction(j, RectPoint.CENTER_RIGHT)
+                                        CaretPosition.Double.Element.INTERIOR -> null // DisplayContextMenuAction() // !
+                                        CaretPosition.Double.Element.NONE -> null
+                                    }
+                                }
+
+                                is CaretPosition.DiscreteSelection -> {
+                                    when (p.getElement(pos)) {
+                                        CaretPosition.DiscreteSelection.Element.INTERIOR -> SelectionToDoubleAction(j)
+                                        CaretPosition.DiscreteSelection.Element.NONE -> null
+                                    }
+                                }
+
+                                is CaretPosition.GridSelection -> {
+                                    when (p.getElement(pos)) {
+                                        CaretPosition.GridSelection.Element.CORNER_TL -> ModifySelectionAction(j, RectPoint.TOP_LEFT)
+                                        CaretPosition.GridSelection.Element.CORNER_TR -> ModifySelectionAction(j, RectPoint.TOP_RIGHT)
+                                        CaretPosition.GridSelection.Element.CORNER_BR -> ModifySelectionAction(j, RectPoint.BOTTOM_RIGHT)
+                                        CaretPosition.GridSelection.Element.CORNER_BL -> ModifySelectionAction(j, RectPoint.BOTTOM_LEFT)
+                                        CaretPosition.GridSelection.Element.INTERIOR -> null // DisplayContextMenuAction() // !
+                                        CaretPosition.GridSelection.Element.NONE -> null
+                                    }
                                 }
                             }
-
-                            is CaretPosition.MultiSingle -> {
-                                when (val i = p.getBarIndex(pos)) {
-                                    -1 ->
-                                        PlaceMultiCaretAction()
-                                    else ->
-                                        MoveMultiCaretAction(i)
-                                }
-                            }
-
-                            is CaretPosition.None -> {
-                                PlaceCaretAction()
-                            }
-
-                            is CaretPosition.Double -> {
-                                when (p.getElement(pos)) {
-                                    CaretPosition.Double.Element.LEFT_BAR -> ModifySelectionAction(RectPoint.CENTER_LEFT)
-                                    CaretPosition.Double.Element.RIGHT_BAR -> ModifySelectionAction(RectPoint.CENTER_RIGHT)
-                                    CaretPosition.Double.Element.INTERIOR -> DisplayContextMenuAction()
-                                    CaretPosition.Double.Element.NONE -> PlaceCaretAction()
-                                }
-                            }
-
-                            is CaretPosition.DiscreteSelection -> {
-                                when (p.getElement(pos)) {
-                                    CaretPosition.DiscreteSelection.Element.INTERIOR -> SelectionToDoubleAction()
-                                    CaretPosition.DiscreteSelection.Element.NONE -> PlaceCaretAction()
-                                }
-                            }
-
-                            is CaretPosition.GridSelection -> {
-                                when (p.getElement(pos)) {
-                                    CaretPosition.GridSelection.Element.CORNER_TL -> ModifySelectionAction(RectPoint.TOP_LEFT)
-                                    CaretPosition.GridSelection.Element.CORNER_TR -> ModifySelectionAction(RectPoint.TOP_RIGHT)
-                                    CaretPosition.GridSelection.Element.CORNER_BR -> ModifySelectionAction(RectPoint.BOTTOM_RIGHT)
-                                    CaretPosition.GridSelection.Element.CORNER_BL -> ModifySelectionAction(RectPoint.BOTTOM_LEFT)
-                                    CaretPosition.GridSelection.Element.INTERIOR -> DisplayContextMenuAction()
-                                    CaretPosition.GridSelection.Element.NONE -> PlaceCaretAction()
-                                }
-                            }
-                        }
+                        } ?: PlaceCaretAction()
                     }
                 }
             }

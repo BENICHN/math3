@@ -20,8 +20,14 @@ class InputFormulaBox(vararg boxes: FormulaBox) : SequenceFormulaBox(*boxes) {
         val i = ch.indexOf(b)
         removeBoxAt(i)
         val s = CaretPosition.Single(this, i)
-        return DeletionResult(s, s)
+        return DeletionResult(s, true)
     }
+
+    override fun deleteMultiple(indices: List<Int>) = if (indices.size == 1) {
+        val i = indices[0]
+        removeBoxAt(i)
+        DeletionResult(CaretPosition.Single(this, i), true)
+    } else DeletionResult()
 
     fun addFinalBoxes(i: Int, fb: FinalBoxes) : CaretPosition {
         for ((j, b) in fb.boxesBefore.union(fb.boxesAfter).withIndex()) {

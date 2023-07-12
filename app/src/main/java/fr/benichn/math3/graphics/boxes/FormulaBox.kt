@@ -111,13 +111,7 @@ open class FormulaBox {
     open fun addInitialBoxes(ib: InitialBoxes) = FinalBoxes()
 
     val isSelected
-        get() = caret?.position?.let {
-            when (it) {
-                is CaretPosition.Double -> it.contains(this)
-                is CaretPosition.DiscreteSelection -> it.contains(this)
-                else -> false
-            }
-        } ?: false
+        get() = caret?.positions.orEmpty().any { p -> p.contains(this) }
 
     fun deepIndexOf(b: FormulaBox): Int {
         for (p in b.parents) {
@@ -153,6 +147,8 @@ open class FormulaBox {
         }
         else p.forceDelete()
     }
+
+    open fun deleteMultiple(indices: List<Int>) = DeletionResult()
 
     open fun getInitialSingle(): CaretPosition.Single? = null
 
@@ -343,16 +339,18 @@ open class FormulaBox {
         }
         draw()
 
-        if (isRoot && caret?.position is CaretPosition.Single) caret?.absolutePosition?.also { ap ->
-            canvas.translate(ap.x, ap.y-DEFAULT_TEXT_RADIUS*4)
-            canvas.drawPath(magnifierPath, FormulaView.backgroundPaint)
-            canvas.drawPath(magnifierPath, FormulaView.magnifierBorder)
-            canvas.withClip(magnifierPath) {
-                canvas.translate(-ap.x, -ap.y)
-                canvas.scale(MAGNIFIER_FACTOR, MAGNIFIER_FACTOR, ap.x, ap.y)
-                draw()
+        for (p in caret?.positions.orEmpty()) {
+            if (isRoot && p is CaretPosition.Single) p.absPos?.also { ap ->
+                canvas.translate(ap.x, ap.y-DEFAULT_TEXT_RADIUS*4)
+                canvas.drawPath(magnifierPath, FormulaView.backgroundPaint)
+                canvas.drawPath(magnifierPath, FormulaView.magnifierBorder)
+                canvas.withClip(magnifierPath) {
+                    canvas.translate(-ap.x, -ap.y)
+                    canvas.scale(MAGNIFIER_FACTOR, MAGNIFIER_FACTOR, ap.x, ap.y)
+                    draw()
+                }
+                canvas.translate(0f, DEFAULT_TEXT_RADIUS*4)
             }
-            canvas.translate(0f, DEFAULT_TEXT_RADIUS*4)
         }
 
         transform.invert.applyOnCanvas(canvas)

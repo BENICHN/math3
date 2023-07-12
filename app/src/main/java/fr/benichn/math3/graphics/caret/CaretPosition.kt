@@ -16,9 +16,20 @@ import fr.benichn.math3.graphics.types.RectPoint
 import fr.benichn.math3.numpad.types.Pt
 
 sealed class CaretPosition {
-    data object None : CaretPosition()
+    abstract val box: FormulaBox
+    abstract val selectedBoxes: List<FormulaBox>
+    fun contains(b: FormulaBox) =
+        selectedBoxes.any { sb ->
+            sb == b || sb.deepIndexOf(b) != -1
+        }
 
-    data class Single(val box: InputFormulaBox, val index: Int) : CaretPosition() {
+    open fun withoutModif() = this
+    open val absPos: PointF? = null
+
+    data class Single(override val box: InputFormulaBox, val index: Int, override val absPos: PointF? = null) : CaretPosition() {
+        override val selectedBoxes: List<FormulaBox>
+            get() = listOf()
+
         val radius
             get() = box.accTransform.scale * FormulaBox.DEFAULT_TEXT_RADIUS
 
@@ -56,14 +67,17 @@ sealed class CaretPosition {
             BAR,
             NONE
         }
+
+        fun withModif(absPos: PointF) = Single(box, index, absPos)
+        override fun withoutModif()  = Single(box, index)
     }
 
-    data class MultiSingle(val singles: List<Single>) : CaretPosition() {
-        fun getBarIndex(absPos: PointF) = singles.indexOfFirst { it.getElement(absPos) == Single.Element.BAR }
-    }
+    // data class MultiSingle(val singles: List<Single>) : CaretPosition() {
+    //     fun getBarIndex(absPos: PointF) = singles.indexOfFirst { it.getElement(absPos) == Single.Element.BAR }
+    // }
 
-    data class Double(val box: InputFormulaBox, val indexRange: Range) : CaretPosition() {
-        val selectedBoxes
+    data class Double(override val box: InputFormulaBox, val indexRange: Range, override val absPos: PointF? = null, val fixedAbsPos: PointF? = null) : CaretPosition() {
+        override val selectedBoxes
             get() = box.ch.subList(indexRange.start, indexRange.end).toList()
 
         val bounds
@@ -80,11 +94,6 @@ sealed class CaretPosition {
             get() = Single(box, indexRange.start)
         val rightSingle
             get() = Single(box, indexRange.end)
-
-        fun contains(b: FormulaBox): Boolean {
-            val i = box.deepIndexOf(b)
-            return indexRange.start <= i && i < indexRange.end
-        }
 
         fun getElement(absPos: PointF) =
             bounds.run {
@@ -119,6 +128,9 @@ sealed class CaretPosition {
             INTERIOR,
             NONE
         }
+
+        fun withModif(absPos: PointF, fixedAbsPos: PointF) = Double(box, indexRange, absPos, fixedAbsPos)
+        override fun withoutModif() = Double(box, indexRange)
 
         companion object {
             fun mergeSelections(s1: Double?, s2: Double?): Double? {
@@ -177,17 +189,12 @@ sealed class CaretPosition {
         }
     }
 
-    data class DiscreteSelection(val box: FormulaBox, val indices: List<Int>) : CaretPosition() {
-        val selectedBoxes
+    data class DiscreteSelection(override val box: FormulaBox, val indices: List<Int>) : CaretPosition() {
+        override val selectedBoxes
             get() = indices.map { i -> box.ch[i] }
 
         val bounds
             get() = selectedBoxes.map { it.accRealBounds }
-
-        fun contains(b: FormulaBox): Boolean {
-            val i = box.deepIndexOf(b)
-            return indices.contains(i)
-        }
 
         fun getElement(absPos: PointF) =
             if (bounds.any { it.contains(absPos.x, absPos.y) }) Element.INTERIOR else Element.NONE
@@ -198,8 +205,8 @@ sealed class CaretPosition {
         }
     }
 
-    data class GridSelection(val box: GridFormulaBox, val ptsRange: PtsRange) : CaretPosition() {
-        val selectedBoxes
+    data class GridSelection(override val box: GridFormulaBox, val ptsRange: PtsRange, override val absPos: PointF? = null, val fixedAbsPos: PointF? = null) : CaretPosition() {
+        override val selectedBoxes
             get() = ptsRange.map { pt -> box[pt] }
         val selectedInputs
             get() = ptsRange.map { pt -> box.getInput(pt) }
@@ -214,11 +221,6 @@ sealed class CaretPosition {
             get() = box.getInput(ptsRange.bl).firstSingle
         val bottomRightSingle
             get() = box.getInput(ptsRange.br).lastSingle
-
-        fun contains(b: FormulaBox): Boolean {
-            val pt = box.getIndex(box.deepIndexOf(b))
-            return pt in ptsRange
-        }
 
         fun getElement(absPos: PointF): Element = bounds.let {
             val cs = Utils.corners(it)
@@ -239,6 +241,9 @@ sealed class CaretPosition {
                 }
             }
         }
+
+        fun withModif(absPos: PointF, fixedAbsPos: PointF) = GridSelection(box, ptsRange, absPos, fixedAbsPos)
+        override fun withoutModif() = GridSelection(box, ptsRange)
 
         enum class Element {
             CORNER_TL,
@@ -262,4 +267,4 @@ sealed class CaretPosition {
     }
 }
 
-fun CaretPosition?.noneIfNull() = this ?: CaretPosition.None
+// fun CaretPosition?.noneIfNull() = this ?: CaretPosition.None

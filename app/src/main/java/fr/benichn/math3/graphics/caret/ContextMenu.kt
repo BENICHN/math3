@@ -26,6 +26,8 @@ class ContextMenu(vararg entries: ContextMenuEntry) {
         box.transformer = defaultTransformer * BoundsTransformer.Constant(BoxTransform(e.new))
     }
 
+    var index: Int = -1
+
     val onPictureChanged
         get() = box.onPictureChanged
 

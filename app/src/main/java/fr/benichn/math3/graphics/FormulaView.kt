@@ -397,80 +397,89 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : View(context,
 
     }
 
-    // private inner class DisplayContextMenuAction : FormulaViewAction() {
-    //     override fun onDown() {
-    //     }
-//
-    //     override fun onLongDown() {
-    //         replace(CreateSelectionAction())
-    //     }
-//
-    //     override fun onMove() {
-    //         replace(MoveViewAction())
-    //     }
-//
-    //     override fun onUp() {
-    //         contextMenu = getSelectionContextMenu().also {
-    //             it.origin = RectPoint.TOP_CENTER.get((caret.position as? CaretPosition.Double)?.bounds ?: (caret.position as CaretPosition.GridSelection).bounds)
-    //         }
-    //     }
-//
-    //     override fun onPinchDown() {
-    //         replace(MoveViewAction())
-    //     }
-//
-    //     override fun onPinchMove() {
-    //     }
-//
-    //     override fun onPinchUp() {
-    //     }
-//
-    //     override fun beforeFinish(replacement: TouchAction?) {
-    //     }
-//
-    // }
-//
-    // private inner class ContextMenuAction : FormulaViewAction() {
-    //     var downEntry: ContextMenuEntry? = null
-//
-    //     override fun onDown() {
-    //         downEntry = contextMenu!!.findEntry(prim.lastPosition)
-    //         downEntry?.let {
-    //             it.box.background = Color.LTGRAY
-    //         }
-    //     }
-//
-    //     override fun onLongDown() {
-    //     }
-//
-    //     override fun onMove() {
-    //         val entry = contextMenu!!.findEntry(prim.lastPosition)
-    //         downEntry?.let {
-    //             it.box.background = if (it == entry) Color.LTGRAY else Color.WHITE
-    //         }
-    //     }
-//
-    //     override fun onUp() {
-    //         val entry = contextMenu!!.findEntry(prim.lastPosition)
-    //         if (downEntry == entry) {
-    //             entry?.action?.invoke(caret.position)
-    //             contextMenu = null
-    //         }
-    //     }
-//
-    //     override fun onPinchDown() {
-    //     }
-//
-    //     override fun onPinchMove() {
-    //     }
-//
-    //     override fun onPinchUp() {
-    //     }
-//
-    //     override fun beforeFinish(replacement: TouchAction?) {
-    //     }
-//
-    // }
+     private inner class DisplayContextMenuAction(val index: Int) : FormulaViewAction() {
+         override fun onDown() {
+         }
+
+         override fun onLongDown() {
+             replace(CreateSelectionAction())
+         }
+
+         override fun onMove() {
+             replace(MoveViewAction())
+         }
+
+         override fun onUp() {
+             val bounds = when (val p = caret.positions[index]) {
+                 is CaretPosition.Double -> p.bounds
+                 is CaretPosition.GridSelection -> p.bounds
+                 else -> throw UnsupportedOperationException()
+             }
+             contextMenu = getSelectionContextMenu().also {
+                 it.origin = RectPoint.TOP_CENTER.get(bounds)
+                 it.index = index
+             }
+             lastPlaceUp = PositionUp(prim.downAbsPosition, System.currentTimeMillis(), index)
+         }
+
+         override fun onPinchDown() {
+             replace(MoveViewAction())
+         }
+
+         override fun onPinchMove() {
+         }
+
+         override fun onPinchUp() {
+         }
+
+         override fun beforeFinish(replacement: TouchAction?) {
+         }
+
+     }
+
+     private inner class ContextMenuAction : FormulaViewAction() {
+         var downEntry: ContextMenuEntry? = null
+
+         override fun onDown() {
+             downEntry = contextMenu!!.findEntry(prim.lastPosition)
+             downEntry?.let {
+                 it.box.background = Color.LTGRAY
+             }
+         }
+
+         override fun onLongDown() {
+         }
+
+         override fun onMove() {
+             val entry = contextMenu!!.findEntry(prim.lastPosition)
+             downEntry?.let {
+                 it.box.background = if (it == entry) Color.LTGRAY else Color.WHITE
+             }
+         }
+
+         override fun onUp() {
+             contextMenu?.let { cm ->
+                 val entry = cm.findEntry(prim.lastPosition)
+                 if (downEntry == entry) {
+                     entry?.action?.invoke(caret.positions[cm.index])
+                     contextMenu = null
+                 }
+             }
+         }
+
+         override fun onPinchDown() {
+         }
+
+         override fun onPinchMove() {
+         }
+
+         override fun onPinchUp() {
+         }
+
+         override fun beforeFinish(replacement: TouchAction?) {
+         }
+
+     }
 
     private inner class SelectionToDoubleAction(val index: Int) : FormulaViewAction() {
         override fun onDown() {
@@ -529,40 +538,6 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : View(context,
         override fun beforeFinish(replacement: TouchAction?) {
         }
     }
-//
-    // private inner class PlaceMultiCaretAction : FormulaViewAction() {
-    //     override fun onDown() {
-    //     }
-//
-    //     override fun onLongDown() {
-    //         replace(CreateSelectionAction())
-    //     }
-//
-    //     override fun onUp() {
-    //         box.findSingle(prim.downPosition)?.let { s ->
-    //             val ss = (caret.position as CaretPosition.MultiSingle).singles
-    //             caret.position = CaretPosition.MultiSingle(if (s in ss) ss - s else ss + s)
-    //         }
-    //     }
-//
-    //     override fun onPinchDown() {
-    //         replace(MoveViewAction())
-    //     }
-//
-    //     override fun onPinchMove() {
-    //     }
-//
-    //     override fun onPinchUp() {
-    //     }
-//
-    //     override fun beforeFinish(replacement: TouchAction?) {
-    //     }
-//
-    //     override fun onMove() {
-    //         replace(MoveViewAction())
-    //     }
-//
-    // }
 
     init {
         setWillNotDraw(false)
@@ -781,6 +756,22 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : View(context,
                 if (touchAction == null) {
                     val ap = PointF(e.x, e.y)
                     val pos = ap - (offset + origin)
+                    contextMenu?.also {
+                        when (it.findElement(pos)) {
+                            ContextMenu.Element.INTERIOR -> {
+                                touchAction = ContextMenuAction()
+                            }
+                            ContextMenu.Element.NONE -> {
+                                contextMenu = null
+                                caret.uniquePosition?.let { p ->
+                                    if (p is CaretPosition.Double && p.getElement(pos) == CaretPosition.Double.Element.INTERIOR
+                                        || p is CaretPosition.GridSelection && p.getElement(pos) == CaretPosition.GridSelection.Element.INTERIOR) {
+                                        touchAction = PlaceCaretAction()
+                                    }
+                                }
+                            }
+                        }
+                    }
                     lastPlaceUp?.also { (absPos, t, i) ->
                         if ((System.currentTimeMillis() - t < DOUBLE_TAP_DELAY) && l2(absPos - ap) <= BoxCaret.SINGLE_MAX_TOUCH_DIST_SQ) {
                             touchAction = SelectWordAction(i)
@@ -788,22 +779,6 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : View(context,
                             lastPlaceUp = null
                         }
                     }
-                    // } ?: contextMenu?.also {
-                    //     when (it.findElement(pos)) {
-                    //         ContextMenu.Element.INTERIOR -> {
-                    //             touchAction = ContextMenuAction()
-                    //         }
-                    //         ContextMenu.Element.NONE -> {
-                    //             contextMenu = null
-                    //             caret.uniquePosition?.let { p ->
-                    //                 if (p is CaretPosition.Double && p.getElement(pos) == CaretPosition.Double.Element.INTERIOR
-                    //                     || p is CaretPosition.GridSelection && p.getElement(pos) == CaretPosition.GridSelection.Element.INTERIOR) {
-                    //                     touchAction = PlaceCaretAction()
-                    //                 }
-                    //             }
-                    //         }
-                    //     }
-                    // }
                     if (touchAction == null) {
                         touchAction = caret.positions.withIndex().firstNotNullOfOrNull { (j, p) ->
                             when (p) {
@@ -821,7 +796,7 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : View(context,
                                     when (p.getElement(pos)) {
                                         CaretPosition.Double.Element.LEFT_BAR -> ModifySelectionAction(j, RectPoint.CENTER_LEFT)
                                         CaretPosition.Double.Element.RIGHT_BAR -> ModifySelectionAction(j, RectPoint.CENTER_RIGHT)
-                                        CaretPosition.Double.Element.INTERIOR -> null // DisplayContextMenuAction() // !
+                                        CaretPosition.Double.Element.INTERIOR -> DisplayContextMenuAction(j)
                                         CaretPosition.Double.Element.NONE -> null
                                     }
                                 }
@@ -839,7 +814,7 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : View(context,
                                         CaretPosition.GridSelection.Element.CORNER_TR -> ModifySelectionAction(j, RectPoint.TOP_RIGHT)
                                         CaretPosition.GridSelection.Element.CORNER_BR -> ModifySelectionAction(j, RectPoint.BOTTOM_RIGHT)
                                         CaretPosition.GridSelection.Element.CORNER_BL -> ModifySelectionAction(j, RectPoint.BOTTOM_LEFT)
-                                        CaretPosition.GridSelection.Element.INTERIOR -> null // DisplayContextMenuAction() // !
+                                        CaretPosition.GridSelection.Element.INTERIOR -> DisplayContextMenuAction(j)
                                         CaretPosition.GridSelection.Element.NONE -> null
                                     }
                                 }
@@ -882,9 +857,9 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : View(context,
         }
 
         fun getSelectionContextMenu() = ContextMenu(
-            ContextMenuEntry.create<CaretPosition.Double>(TextFormulaBox("copy")) {  },
-            ContextMenuEntry.create<CaretPosition.Double>(TextFormulaBox("cut")) {  },
-            ContextMenuEntry.create<CaretPosition.Double>(TextFormulaBox("paste")) {  }
+            ContextMenuEntry.create<CaretPosition>(TextFormulaBox("copy")) {  },
+            ContextMenuEntry.create<CaretPosition>(TextFormulaBox("cut")) {  },
+            ContextMenuEntry.create<CaretPosition>(TextFormulaBox("paste")) {  }
         )
 
         const val DEFAULT_PADDING = FormulaBox.DEFAULT_TEXT_WIDTH

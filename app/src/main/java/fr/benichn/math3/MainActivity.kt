@@ -5,12 +5,14 @@ import android.os.Bundle
 import androidx.appcompat.app.AppCompatActivity
 import androidx.fragment.app.commit
 import fr.benichn.math3.graphics.FormulaView
+import fr.benichn.math3.graphics.boxes.BigOperatorFormulaBox
 import fr.benichn.math3.graphics.boxes.BracketsInputFormulaBox
 import fr.benichn.math3.graphics.boxes.FormulaBox
 import fr.benichn.math3.graphics.boxes.FractionFormulaBox
 import fr.benichn.math3.graphics.boxes.FunctionFormulaBox
 import fr.benichn.math3.graphics.boxes.InputFormulaBox
 import fr.benichn.math3.graphics.boxes.MatrixFormulaBox
+import fr.benichn.math3.graphics.boxes.OperationFormulaBox
 import fr.benichn.math3.graphics.boxes.ScriptFormulaBox
 import fr.benichn.math3.graphics.boxes.TextFormulaBox
 import fr.benichn.math3.graphics.boxes.types.DeletionResult
@@ -48,7 +50,7 @@ class MainActivity : AppCompatActivity() {
                 else -> {
                     val newBox = {
                         when (id) {
-                            "over" -> FractionFormulaBox()
+                            "over" -> OperationFormulaBox(TextFormulaBox("lim"), InputFormulaBox(), InputFormulaBox(), InputFormulaBox()) // FractionFormulaBox()
                             "clav" -> FunctionFormulaBox("PGCD")
                             "recent" -> ScriptFormulaBox(ScriptFormulaBox.Type.BOTH)
                             "enter" -> MatrixFormulaBox(Pt(3, 3))

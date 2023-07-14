@@ -2,6 +2,7 @@ package fr.benichn.math3.graphics.caret
 
 import android.graphics.Color
 import android.graphics.PointF
+import fr.benichn.math3.graphics.Utils.Companion.with
 import fr.benichn.math3.graphics.boxes.FormulaBox
 import fr.benichn.math3.graphics.boxes.InputFormulaBox
 import fr.benichn.math3.graphics.boxes.TransformerFormulaBox
@@ -17,13 +18,10 @@ class ContextMenu(vararg entries: ContextMenuEntry) {
     val ent = ImmutableList(this.entries)
 
     private val input = InputFormulaBox().also { it.background = Color.WHITE }
-    private val defaultTransformer =
-        BoundsTransformer.Constant(BoxTransform.scale(0.5f)) *
-        BoundsTransformer.Align(RectPoint.BOTTOM_CENTER)
-    val box = TransformerFormulaBox(input, defaultTransformer)
+    val box = TransformerFormulaBox(input, BoundsTransformer.Constant(BoxTransform.scale(0.5f)) * BoundsTransformer.Align(RectPoint.BOTTOM_CENTER))
 
     var origin by ObservableProperty(this, PointF()) { _, e ->
-        box.transformer = defaultTransformer * BoundsTransformer.Constant(BoxTransform(e.new))
+        box.transformers = box.transformers.with(1, BoundsTransformer.Constant(BoxTransform(e.new)))
     }
 
     var index: Int = -1

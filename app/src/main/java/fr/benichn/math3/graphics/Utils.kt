@@ -60,5 +60,10 @@ class Utils {
             else if (i == size-1) this[index]
             else this[i+1]
         }
+
+        fun <T> List<T>.with(index: Int, element: T): List<T> = (0 .. max(index, size-1)).map { i ->
+            if (i == index) element
+            else this[i]
+        }
     }
 }

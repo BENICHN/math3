@@ -16,6 +16,7 @@ import fr.benichn.math3.Utils.Companion.pos
 import fr.benichn.math3.graphics.Utils.Companion.l2
 import fr.benichn.math3.graphics.Utils.Companion.moveToEnd
 import fr.benichn.math3.graphics.Utils.Companion.times
+import fr.benichn.math3.graphics.Utils.Companion.with
 import fr.benichn.math3.graphics.boxes.TransformerFormulaBox
 import fr.benichn.math3.graphics.boxes.FormulaBox
 import fr.benichn.math3.graphics.boxes.InputFormulaBox
@@ -197,7 +198,7 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : View(context,
             val totalDiff = (prim.totalAbsDiff + pinch.totalAbsDiff) * 0.5f
             fun getPos(p: PointF) = p - (origin + baseOffset + totalDiff)
             val c = (getPos(prim.lastAbsPosition) + getPos(pinch.lastAbsPosition)) * 0.5f
-            box.transformer = BoundsTransformer.Align(RectPoint.BOTTOM_CENTER) * BoundsTransformer.Constant(BoxTransform.scale(baseScale * ratio))
+            box.transformers = box.transformers.with(1, BoundsTransformer.Constant(BoxTransform.scale(baseScale * ratio)))
             offset = baseOffset + totalDiff + c * (1 - ratio)
         }
 

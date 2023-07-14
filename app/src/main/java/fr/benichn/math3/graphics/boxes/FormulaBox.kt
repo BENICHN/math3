@@ -109,6 +109,11 @@ open class FormulaBox {
         children.forEach { it.notifyBrothersBoundsChanged() }
     }
 
+    fun replaceBox(i: Int, b: FormulaBox) {
+        removeBoxAt(i)
+        addBox(i, b)
+    }
+
     open fun addInitialBoxes(ib: InitialBoxes) = FinalBoxes()
 
     val isSelected

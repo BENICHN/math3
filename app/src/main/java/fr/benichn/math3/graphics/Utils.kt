@@ -16,9 +16,9 @@ class Utils {
         fun getTextPathAndSize(textSize: Float, text: String): MeasuredPath {
             val res = Path()
             val paint = Paint()
-            paint.typeface = App.instance.resources.getFont(R.font.source_code_pro_light)
+            paint.typeface = App.instance.resources.getFont(R.font.iosevka_fixed_extended_extralight)
             paint.textSize = textSize
-            paint.getTextPath(text, 0, text.length, 0f, 0f-(paint.fontMetrics.ascent+paint.fontMetrics.bottom)/2, res)
+            paint.getTextPath(text, 0, text.length, 0f, 0f-(paint.fontMetrics.ascent+paint.fontMetrics.descent)/2, res)
             return MeasuredPath(res, paint.measureText(text), textSize)
         }
         fun getPathBounds(path: Path): RectF {
@@ -63,6 +63,16 @@ class Utils {
 
         fun <T> List<T>.with(index: Int, element: T): List<T> = (0 .. max(index, size-1)).map { i ->
             if (i == index) element
+            else this[i]
+        }
+
+        fun <T> List<T>.prepend(element: T): List<T> = (0 .. size).map { i ->
+            if (i == 0) element
+            else this[i-1]
+        }
+
+        fun <T> List<T>.append(element: T): List<T> = (0 .. size).map { i ->
+            if (i == size) element
             else this[i]
         }
     }

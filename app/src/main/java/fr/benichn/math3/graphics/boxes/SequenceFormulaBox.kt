@@ -41,9 +41,6 @@ open class SequenceFormulaBox(vararg boxes: FormulaBox) : FormulaBox() {
         }
     }
 
-    override fun shouldEnterInChild(c: FormulaBox, pos: PointF) =
-        c.realBounds.run { pos.x in left..right }
-
     override fun findChildBox(pos: PointF): FormulaBox {
         for (c in ch) {
             if (pos.x <= c.realBounds.right) {

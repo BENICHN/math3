@@ -2,6 +2,7 @@ package fr.benichn.math3.graphics.boxes
 
 import android.graphics.PointF
 import android.graphics.RectF
+import fr.benichn.math3.graphics.Utils.Companion.append
 import fr.benichn.math3.graphics.boxes.types.BoundsTransformer
 import fr.benichn.math3.graphics.boxes.types.BoxTransform
 import fr.benichn.math3.graphics.boxes.types.DeletionResult
@@ -14,23 +15,24 @@ import fr.benichn.math3.graphics.boxes.types.RangeF
 import fr.benichn.math3.graphics.types.RectPoint
 import kotlin.math.max
 
-class FractionFormulaBox(numChildren: Array<FormulaBox> = emptyArray(), denChildren: Array<FormulaBox> = emptyArray()) : FormulaBox() {
-    private val bar = LineFormulaBox(Orientation.H)
-    private val num = TransformerFormulaBox(InputFormulaBox(*numChildren), BoundsTransformer.Align(RectPoint.BOTTOM_CENTER))
-    private val den = TransformerFormulaBox(InputFormulaBox(*denChildren), BoundsTransformer.Align(RectPoint.TOP_CENTER))
-    val numerator
-        get() = num.child as InputFormulaBox
-    val denominator
-        get() = den.child as InputFormulaBox
+class FractionFormulaBox : TopDownFormulaBox(
+    LineFormulaBox(Orientation.H),
+    InputFormulaBox(),
+    InputFormulaBox()
+) {
+    private val bar = middle as LineFormulaBox
+    private val denominator = bottom as InputFormulaBox
+    private val numerator = top as InputFormulaBox
     init {
-        addBox(bar)
-        addBox(num)
-        addBox(den)
+        bottomContainer.apply {
+            transformers = transformers.append(BoundsTransformer.Constant(BoxTransform.yOffset(DEFAULT_TEXT_SIZE * 0.15f)))
+        }
+        topContainer.apply {
+            transformers = transformers.append(BoundsTransformer.Constant(BoxTransform.yOffset(DEFAULT_TEXT_SIZE * -0.15f)))
+        }
         bar.range = getBarWidth()
-        bar.dlgRange.connectValue(num.onBoundsChanged) { _, _ -> getBarWidth() }
-        bar.dlgRange.connectValue(den.onBoundsChanged) { _, _ -> getBarWidth() }
-        setChildTransform(1, BoxTransform.yOffset(-DEFAULT_TEXT_SIZE * 0.15f))
-        setChildTransform(2, BoxTransform.yOffset(DEFAULT_TEXT_SIZE * 0.15f))
+        bar.dlgRange.connectValue(topContainer.onBoundsChanged) { _, _ -> getBarWidth() }
+        bar.dlgRange.connectValue(bottomContainer.onBoundsChanged) { _, _ -> getBarWidth() }
         updateGraphics()
     }
 
@@ -38,14 +40,14 @@ class FractionFormulaBox(numChildren: Array<FormulaBox> = emptyArray(), denChild
         get() = !numerator.ch.isEmpty() || !denominator.ch.isEmpty()
 
     override fun onChildRequiresDelete(b: FormulaBox): DeletionResult = when (b) {
-        num -> {
+        topContainer -> {
             if (numerator.ch.isEmpty() && denominator.ch.isEmpty()) {
                 delete()
             } else {
                 DeletionResult.fromSelection(this)
             }
         }
-        den -> {
+        bottomContainer -> {
             delete().withFinalBoxes(numerator.ch, denominator.ch, !denominator.ch.isEmpty())
         }
         else -> delete()
@@ -71,23 +73,23 @@ class FractionFormulaBox(numChildren: Array<FormulaBox> = emptyArray(), denChild
         denominator.lastSingle
     }
 
-    override fun findChildBox(pos: PointF): FormulaBox =
-        if (bar.realBounds.run { pos.x in left..right }) {
-            if (pos.y > 0) {
-                den
-            } else {
-                num
-            }
-        } else {
-            this
-        }
+    // override fun findChildBox(pos: PointF): FormulaBox =
+    //     if (bar.realBounds.run { pos.x in left..right }) {
+    //         if (pos.y > 0) {
+    //             den
+    //         } else {
+    //             num
+    //         }
+    //     } else {
+    //         this
+    //     }
 
     override fun generateGraphics() = super.generateGraphics().withBounds { r ->
         Padding(DEFAULT_TEXT_WIDTH * 0.25f, 0f).applyOnRect(r)
     }
 
     private fun getBarWidth(): RangeF {
-        val w = max(num.bounds.width(), den.bounds.width()) + DEFAULT_TEXT_WIDTH * 0.25f
+        val w = max(topContainer.bounds.width(), bottomContainer.bounds.width()) + DEFAULT_TEXT_WIDTH * 0.25f
         val r = w * 0.5f
         return RangeF(-r, r)
     }

@@ -15,9 +15,13 @@ import fr.benichn.math3.graphics.boxes.MatrixFormulaBox
 import fr.benichn.math3.graphics.boxes.OperationFormulaBox
 import fr.benichn.math3.graphics.boxes.ScriptFormulaBox
 import fr.benichn.math3.graphics.boxes.TextFormulaBox
+import fr.benichn.math3.graphics.boxes.TopDownFormulaBox
+import fr.benichn.math3.graphics.boxes.TransformerFormulaBox
+import fr.benichn.math3.graphics.boxes.types.BoundsTransformer
 import fr.benichn.math3.graphics.boxes.types.DeletionResult
 import fr.benichn.math3.graphics.boxes.types.InitialBoxes
 import fr.benichn.math3.graphics.caret.CaretPosition
+import fr.benichn.math3.graphics.types.RectPoint
 import fr.benichn.math3.numpad.NumpadFragment
 import fr.benichn.math3.numpad.types.Pt
 
@@ -50,7 +54,13 @@ class MainActivity : AppCompatActivity() {
                 else -> {
                     val newBox = {
                         when (id) {
-                            "over" -> OperationFormulaBox(TextFormulaBox("lim"), InputFormulaBox(), InputFormulaBox(), InputFormulaBox()) // FractionFormulaBox()
+                            "E" -> OperationFormulaBox(
+                                TopDownFormulaBox(
+                                    bottom=TransformerFormulaBox(TextFormulaBox("⌡"), BoundsTransformer.Align(RectPoint.TOP_CENTER)),
+                                    top=TransformerFormulaBox(TextFormulaBox("⌠"), BoundsTransformer.Align(RectPoint.BOTTOM_CENTER))),
+                                ScriptFormulaBox.Type.BOTH, InputFormulaBox(), InputFormulaBox(),
+                                InputFormulaBox(), TextFormulaBox("ⅆ"), InputFormulaBox())
+                            "over" -> FractionFormulaBox()
                             "clav" -> FunctionFormulaBox("PGCD")
                             "recent" -> ScriptFormulaBox(ScriptFormulaBox.Type.BOTH)
                             "enter" -> MatrixFormulaBox(Pt(3, 3))

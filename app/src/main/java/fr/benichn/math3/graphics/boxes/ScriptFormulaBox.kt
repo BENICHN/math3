@@ -138,7 +138,7 @@ class ScriptFormulaBox(type: Type = Type.SUPER, range: RangeF = RangeF(-DEFAULT_
         else -> throw UnsupportedOperationException()
     }
 
-    fun addChildren() {
+    private fun addChildren() {
         when (type) {
             Type.SUPER -> addBox(sup)
             Type.SUB -> addBox(sub)
@@ -149,7 +149,7 @@ class ScriptFormulaBox(type: Type = Type.SUPER, range: RangeF = RangeF(-DEFAULT_
         }
     }
 
-    fun alignChildren() {
+    private fun alignChildren() {
         when (type) {
             Type.SUPER -> setChildTransform(0, BoxTransform.yOffset(range.start+ DEFAULT_V_OFFSET))
             Type.SUB -> setChildTransform(0, BoxTransform.yOffset(range.end- DEFAULT_V_OFFSET))

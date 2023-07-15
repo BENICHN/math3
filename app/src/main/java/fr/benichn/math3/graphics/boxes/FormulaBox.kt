@@ -385,13 +385,13 @@ open class FormulaBox {
     }
 
     companion object {
-        const val DEFAULT_TEXT_SIZE = 96f
+        const val DEFAULT_TEXT_SIZE = 80f
         const val DEFAULT_TEXT_RADIUS = DEFAULT_TEXT_SIZE * 0.5f
         const val DEFAULT_TEXT_WIDTH = DEFAULT_TEXT_SIZE * 0.6f
-        const val DEFAULT_LINE_WIDTH = 4f
+        const val DEFAULT_LINE_WIDTH = 3f
         const val MAGNIFIER_FACTOR = 1f
-        const val SELECTION_CARET_RADIUS = 14f
-        const val CARET_OVERFLOW_RADIUS = 18f
+        // const val SELECTION_CARET_RADIUS = 14f
+        // const val CARET_OVERFLOW_RADIUS = 18f
         const val MAGNIFIER_RADIUS = DEFAULT_TEXT_SIZE
         val magnifierPath = Path().apply {
             val rx = DEFAULT_TEXT_WIDTH * 3

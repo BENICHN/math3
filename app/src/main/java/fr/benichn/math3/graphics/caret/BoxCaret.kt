@@ -127,12 +127,12 @@ class BoxCaret(/* val root: FormulaBox */) {
         }
         val caretPaint = Paint().apply {
             style = Paint.Style.STROKE
-            strokeWidth = 6f
+            strokeWidth = FormulaBox.DEFAULT_LINE_WIDTH + 2f
             color = Color.rgb(255, 255, 0)
         }
         val caretPaintTrans = Paint().apply {
             style = Paint.Style.STROKE
-            strokeWidth = 6f
+            strokeWidth = FormulaBox.DEFAULT_LINE_WIDTH + 2f
             color = Color.argb(127, 255, 255, 0)
         }
         val selectionPaint = Paint().apply {

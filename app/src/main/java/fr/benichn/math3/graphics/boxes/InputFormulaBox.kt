@@ -1,6 +1,7 @@
 package fr.benichn.math3.graphics.boxes
 
 import android.graphics.Path
+import android.graphics.PointF
 import android.graphics.RectF
 import fr.benichn.math3.graphics.boxes.types.DeletionResult
 import fr.benichn.math3.graphics.boxes.types.FinalBoxes
@@ -22,6 +23,9 @@ class InputFormulaBox(vararg boxes: FormulaBox) : SequenceFormulaBox(*boxes) {
         val s = CaretPosition.Single(this, i)
         return DeletionResult(s, true)
     }
+
+    override fun shouldEnterInChild(c: FormulaBox, pos: PointF) =
+        c.realBounds.run { pos.x in left..right }
 
     override fun deleteMultiple(indices: List<Int>) = if (indices.size == 1) {
         val i = indices[0]

@@ -22,6 +22,8 @@ class BoxProperty<S: FormulaBox, T>(private val source: S, val defaultValue: T, 
     private val connections = mutableListOf<CallbackLink<*, *>>()
     fun <A : FormulaBox> connectTo(property: BoxProperty<A, T>) =
         connectValue(property.onChanged, property.get()) { t -> t }
+    fun <A> connectValue(listener: VCL<A, T>) =
+        connectValue(listener) { _, x -> x }
     fun <A, B> connectValue(listener: VCL<A, B>, mapper: (B) -> T) =
         connectValue(listener) { _, x -> mapper(x) }
     fun <A, B> connectValue(listener: VCL<A, B>, mapper: (A, B) -> T) {

@@ -11,17 +11,21 @@ import fr.benichn.math3.graphics.types.RectPoint
 import fr.benichn.math3.types.callback.ValueChangedEvent
 
 class BigOperatorFormulaBox(
+    limitsPosition: LimitsPosition = LimitsPosition.CENTER,
+    limitsScale: Float = 0.75f,
+    type: Type = Type.BOTTOM,
     operator: FormulaBox = FormulaBox(),
     below: FormulaBox = FormulaBox(),
     above: FormulaBox = FormulaBox(),
-    type: ScriptFormulaBox.Type = ScriptFormulaBox.Type.SUB
 ) : TopDownFormulaBox(
+    limitsPosition,
+    limitsScale,
+    type,
     TransformerFormulaBox(operator, BoundsTransformer.Align(RectPoint.NAN_CENTER)).also {
         it.padding = Padding(DEFAULT_TEXT_RADIUS * 0.25f)
     },
     below,
-    above,
-    type
+    above
 ) {
     val dlgOperator = BoxProperty(this, operator)
     var operator by dlgOperator
@@ -32,13 +36,7 @@ class BigOperatorFormulaBox(
 
     init {
         (middle as TransformerFormulaBox).dlgChild.connectValue(dlgOperator.onChanged)
-        bottomContainer.let {
-            it.dlgChild.connectValue(dlgBelow.onChanged)
-            it.transformers = it.transformers.prepend(BoundsTransformer.Constant(BoxTransform.scale(0.75f)))
-        }
-        topContainer.let {
-            it.dlgChild.connectValue(dlgAbove.onChanged)
-            it.transformers = it.transformers.prepend(BoundsTransformer.Constant(BoxTransform.scale(0.75f)))
-        }
+        bottomContainer.dlgChild.connectValue(dlgBelow.onChanged)
+        topContainer.dlgChild.connectValue(dlgAbove.onChanged)
     }
 }

@@ -32,6 +32,7 @@ import fr.benichn.math3.graphics.caret.CaretPosition
 import fr.benichn.math3.graphics.caret.ContextMenu
 import fr.benichn.math3.graphics.caret.ContextMenuEntry
 import fr.benichn.math3.graphics.types.RectPoint
+import fr.benichn.math3.graphics.types.Side
 import fr.benichn.math3.graphics.types.TouchAction
 import fr.benichn.math3.types.callback.*
 import kotlin.concurrent.fixedRateTimer
@@ -223,11 +224,28 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : View(context,
         }
 
         override fun onUp() {
-            val p = findSingle(prim.downPosition)
-            caret.positions = if (isAdding) {
-                getFiltered(caret.positions + p)
-            } else {
-                listOf(p)
+            val b = box.findBox(prim.downPosition)
+            b.contextMenu?.also { cm ->
+                if (b in cm.triggers) {
+                    val p = CaretPosition.DiscreteSelection.fromBox(cm.source!!)!!
+                    caret.positions = if (isAdding) {
+                        getFiltered(caret.positions + p)
+                    } else {
+                        listOf(p)
+                    }
+                    contextMenu = cm.also {
+                        it.origin = RectPoint.TOP_CENTER.get(it.source!!.accRealBounds) - PointF(0f, CONTEXT_MENU_OFFSET)
+                        it.index = caret.positions.size-1
+                    }
+                }
+            }
+            if (contextMenu == null) {
+                val p = findSingle(prim.downPosition)
+                caret.positions = if (isAdding) {
+                    getFiltered(caret.positions + p)
+                } else {
+                    listOf(p)
+                }
             }
             lastPlaceUp = PositionUp(prim.downAbsPosition, System.currentTimeMillis(), caret.positions.size-1)
         }
@@ -417,7 +435,7 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : View(context,
                  else -> throw UnsupportedOperationException()
              }
              contextMenu = getSelectionContextMenu().also {
-                 it.origin = RectPoint.TOP_CENTER.get(bounds)
+                 it.origin = RectPoint.TOP_CENTER.get(bounds) - PointF(0f, CONTEXT_MENU_OFFSET)
                  it.index = index
              }
              lastPlaceUp = PositionUp(prim.downAbsPosition, System.currentTimeMillis(), index)
@@ -462,7 +480,12 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : View(context,
              contextMenu?.let { cm ->
                  val entry = cm.findEntry(prim.lastPosition)
                  if (downEntry == entry) {
-                     entry?.action?.invoke(caret.positions[cm.index])
+                     cm.source?.also {
+                        entry?.action?.invoke(it)
+                         caret.positions = getFiltered(caret.positions.with(cm.index, it.getInitialSingle() ?: CaretPosition.Single.fromBox(it, Side.R)!!))
+                     } ?: run {
+                        entry?.action?.invoke(caret.positions[cm.index])
+                     }
                      contextMenu = null
                  }
              }
@@ -766,7 +789,8 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : View(context,
                                 contextMenu = null
                                 val p = caret.positions[cm.index]
                                 if (p is CaretPosition.Double && p.getElement(pos) == CaretPosition.Double.Element.INTERIOR
-                                    || p is CaretPosition.GridSelection && p.getElement(pos) == CaretPosition.GridSelection.Element.INTERIOR) {
+                                    || p is CaretPosition.GridSelection && p.getElement(pos) == CaretPosition.GridSelection.Element.INTERIOR
+                                    || p is CaretPosition.DiscreteSelection && p.getElement(pos) == CaretPosition.DiscreteSelection.Element.INTERIOR) {
                                     touchAction = PlaceCaretAction()
                                 }
                             }
@@ -869,5 +893,6 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : View(context,
         const val VELOCITY_REDUCTION = 25000f // en px.s^-2
         const val ZOOM_TOLERENCE = 0.1f
         const val DOUBLE_TAP_DELAY = 150
+        const val CONTEXT_MENU_OFFSET = FormulaBox.DEFAULT_TEXT_RADIUS * 0.25f
     }
 }

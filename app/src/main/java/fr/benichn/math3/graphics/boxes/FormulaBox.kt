@@ -24,6 +24,7 @@ import fr.benichn.math3.graphics.boxes.types.Padding
 import fr.benichn.math3.graphics.boxes.types.ParentWithIndex
 import fr.benichn.math3.graphics.boxes.types.PathPainting
 import fr.benichn.math3.graphics.caret.CaretPosition
+import fr.benichn.math3.graphics.caret.ContextMenu
 import fr.benichn.math3.types.Chain
 import fr.benichn.math3.types.callback.*
 
@@ -66,6 +67,10 @@ open class FormulaBox {
     fun removeCaret() {
         caret = null
     }
+
+    val contextMenu: ContextMenu?
+        get() = generateContextMenu()?.also { it.source = this } ?: parent?.contextMenu
+    open fun generateContextMenu(): ContextMenu? = null
 
     private val notifyBrothersBoundsChanged = Callback<FormulaBox, Unit>(this)
     val onBrothersBoundsChanged = notifyBrothersBoundsChanged.Listener()
@@ -178,15 +183,7 @@ open class FormulaBox {
                 CaretPosition.Single(c, 0)
             }
             else {
-                fun getParentInput(b: FormulaBox): ParentWithIndex? {
-                    val pi = b.parentWithIndex
-                    return pi?.let { if (it.box is InputFormulaBox) it else getParentInput(it.box) }
-                }
-                getParentInput(c)?.let {
-                    val s = it.box.ch[it.index].let { b -> if (accTransform.applyOnPoint(pos).x <= b.accRealBounds.centerX()) Side.L else Side.R }
-                    val i = if (s == Side.L) it.index else it.index + 1
-                    CaretPosition.Single(it.box as InputFormulaBox, i)
-                }
+                CaretPosition.Single.fromBox(c, accTransform.applyOnPoint(pos))
             }
         } else {
             c.findSingle(c.transform.invert.applyOnPoint(pos))
@@ -267,6 +264,10 @@ open class FormulaBox {
         }
     }
     var background by dlgBackground
+    fun setBackgroundRecursive(color: Int) {
+        background = color
+        for (c in children) c.setBackgroundRecursive(color)
+    }
 
     private var foregroundPaint = Paint()
     val dlgForeground = BoxProperty(this, Color.WHITE, false).apply {
@@ -276,6 +277,10 @@ open class FormulaBox {
         }
     }
     var foreground by dlgForeground
+    fun setForegroundRecursive(color: Int) {
+        foreground = color
+        for (c in children) c.setForegroundRecursive(color)
+    }
 
     val dlgPadding = BoxProperty(this, Padding(), false).apply {
         onChanged += { _, _ ->

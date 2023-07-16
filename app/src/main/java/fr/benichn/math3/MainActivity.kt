@@ -1,7 +1,9 @@
 package fr.benichn.math3
 
 import android.app.Application
+import android.graphics.PointF
 import android.os.Bundle
+import android.util.Log
 import androidx.appcompat.app.AppCompatActivity
 import androidx.fragment.app.commit
 import fr.benichn.math3.graphics.FormulaView
@@ -21,6 +23,8 @@ import fr.benichn.math3.graphics.boxes.types.BoundsTransformer
 import fr.benichn.math3.graphics.boxes.types.DeletionResult
 import fr.benichn.math3.graphics.boxes.types.InitialBoxes
 import fr.benichn.math3.graphics.caret.CaretPosition
+import fr.benichn.math3.graphics.caret.ContextMenu
+import fr.benichn.math3.graphics.caret.ContextMenuEntry
 import fr.benichn.math3.graphics.types.RectPoint
 import fr.benichn.math3.numpad.NumpadFragment
 import fr.benichn.math3.numpad.types.Pt
@@ -28,6 +32,9 @@ import fr.benichn.math3.numpad.types.Pt
 class App : Application() {
     init {
         instance = this
+        // Thread.setDefaultUncaughtExceptionHandler { thread, throwable ->
+        //     Log.d("erore", "$thread ~ $throwable")
+        // }
     }
 
     companion object {
@@ -54,15 +61,53 @@ class MainActivity : AppCompatActivity() {
                 else -> {
                     val newBox = {
                         when (id) {
-                            "E" -> OperationFormulaBox(
-                                TopDownFormulaBox(
-                                    bottom=TransformerFormulaBox(TextFormulaBox("⌡"), BoundsTransformer.Align(RectPoint.TOP_CENTER)),
-                                    top=TransformerFormulaBox(TextFormulaBox("⌠"), BoundsTransformer.Align(RectPoint.BOTTOM_CENTER))),
-                                ScriptFormulaBox.Type.BOTH, InputFormulaBox(), InputFormulaBox(),
-                                InputFormulaBox(), TextFormulaBox("ⅆ"), InputFormulaBox())
+                            "E" -> {
+                                fun op() = object : TopDownFormulaBox(
+                                    bottom=TransformerFormulaBox(TextFormulaBox("⎳"), BoundsTransformer.Align(RectPoint.TOP_CENTER)),
+                                    top=TransformerFormulaBox(TextFormulaBox("⎲"), BoundsTransformer.Align(RectPoint.BOTTOM_CENTER))) {
+                                    override fun findChildBox(pos: PointF) = this
+                                }
+                                val opp = op()
+                                object : OperationFormulaBox(
+                                    BigOperatorFormulaBox(
+                                        limitsPosition = TopDownFormulaBox.LimitsPosition.RIGHT,
+                                        type = TopDownFormulaBox.Type.BOTH,
+                                        operator = opp,
+                                        below = InputFormulaBox(),
+                                        above = InputFormulaBox()
+                                    ),
+                                    InputFormulaBox(),
+                                    TextFormulaBox("ⅆ"),
+                                    InputFormulaBox()
+                                ) {
+                                    override fun generateContextMenu() =
+                                        ContextMenu(listOf(
+                                            ContextMenuEntry.create<OperationFormulaBox>(BigOperatorFormulaBox(
+                                                operator = op(),
+                                                above = InputFormulaBox(),
+                                                below = InputFormulaBox(),
+                                                type = TopDownFormulaBox.Type.BOTH,
+                                                limitsPosition = TopDownFormulaBox.LimitsPosition.RIGHT
+                                            )) {
+                                                it.bigOperator.type = TopDownFormulaBox.Type.BOTH
+                                            },
+                                            ContextMenuEntry.create<OperationFormulaBox>(BigOperatorFormulaBox(
+                                                operator = op(),
+                                                above = InputFormulaBox(),
+                                                below = InputFormulaBox(),
+                                                type = TopDownFormulaBox.Type.NONE,
+                                            )) {
+                                                it.bigOperator.type = TopDownFormulaBox.Type.NONE
+                                            }),
+                                            listOf(
+                                                opp
+                                            )
+                                        )
+                                }
+                            }
                             "over" -> FractionFormulaBox()
                             "clav" -> FunctionFormulaBox("PGCD")
-                            "recent" -> ScriptFormulaBox(ScriptFormulaBox.Type.BOTH)
+                            "recent" -> ScriptFormulaBox(TopDownFormulaBox.Type.BOTH)
                             "enter" -> MatrixFormulaBox(Pt(3, 3))
                             else -> TextFormulaBox(id)
                         }

@@ -23,8 +23,11 @@ class TransformerFormulaBox(child: FormulaBox = FormulaBox(), transformers: List
     }
     var transformers by dlgTransformers
 
-    val transformer
-        get() = transformers.reduce { a, b -> a * b }
+    var transformer
+        get() = if (transformers.isEmpty()) BoundsTransformer.Id else transformers.reduce { a, b -> a * b }
+        set(value) {
+            transformers = listOf(value)
+        }
 
     init {
         addBox(child)

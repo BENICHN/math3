@@ -13,6 +13,7 @@ import fr.benichn.math3.graphics.boxes.types.ParentWithIndex
 import fr.benichn.math3.graphics.boxes.types.PtsRange
 import fr.benichn.math3.graphics.boxes.types.Range
 import fr.benichn.math3.graphics.types.RectPoint
+import fr.benichn.math3.graphics.types.Side
 import fr.benichn.math3.numpad.types.Pt
 
 sealed class CaretPosition {
@@ -70,6 +71,24 @@ sealed class CaretPosition {
 
         fun withModif(absPos: PointF) = Single(box, index, absPos)
         override fun withoutModif()  = Single(box, index)
+
+        companion object {
+            private fun getParentInput(b: FormulaBox): ParentWithIndex? {
+                val pi = b.parentWithIndex
+                return pi?.let { if (it.box is InputFormulaBox) it else getParentInput(it.box) }
+            }
+            fun fromBox(box: FormulaBox, absPos: PointF) =
+                getParentInput(box)?.let {
+                    val s = it.box.ch[it.index].let { b -> if (absPos.x <= b.accRealBounds.centerX()) Side.L else Side.R }
+                    val i = if (s == Side.L) it.index else it.index + 1
+                    CaretPosition.Single(it.box as InputFormulaBox, i)
+                }
+            fun fromBox(box: FormulaBox, s: Side) =
+                getParentInput(box)?.let {
+                    val i = if (s == Side.L) it.index else it.index + 1
+                    Single(it.box as InputFormulaBox, i)
+                }
+        }
     }
 
     // data class MultiSingle(val singles: List<Single>) : CaretPosition() {
@@ -202,6 +221,10 @@ sealed class CaretPosition {
         enum class Element {
             INTERIOR,
             NONE
+        }
+
+        companion object {
+            fun fromBox(b: FormulaBox) = b.parentWithIndex?.let { DiscreteSelection(it.box, listOf(it.index)) }
         }
     }
 

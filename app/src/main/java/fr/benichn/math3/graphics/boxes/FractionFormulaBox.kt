@@ -16,9 +16,9 @@ import fr.benichn.math3.graphics.types.RectPoint
 import kotlin.math.max
 
 class FractionFormulaBox : TopDownFormulaBox(
-    LineFormulaBox(Orientation.H),
-    InputFormulaBox(),
-    InputFormulaBox()
+    middle = LineFormulaBox(Orientation.H),
+    bottom = InputFormulaBox(),
+    top = InputFormulaBox()
 ) {
     private val bar = middle as LineFormulaBox
     private val denominator = bottom as InputFormulaBox

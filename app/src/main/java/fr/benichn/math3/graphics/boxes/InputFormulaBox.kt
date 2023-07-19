@@ -27,11 +27,11 @@ class InputFormulaBox(vararg boxes: FormulaBox) : SequenceFormulaBox(*boxes) {
     override fun shouldEnterInChild(c: FormulaBox, pos: PointF) =
         c.realBounds.run { pos.x in left..right }
 
-    override fun deleteMultiple(indices: List<Int>) = if (indices.size == 1) {
-        val i = indices[0]
-        removeBoxAt(i)
-        DeletionResult(CaretPosition.Single(this, i), true)
-    } else DeletionResult()
+    // override fun deleteMultiple(indices: List<Int>) = if (indices.size == 1) {
+    //     val i = indices[0]
+    //     removeBoxAt(i)
+    //     DeletionResult(CaretPosition.Single(this, i), true)
+    // } else DeletionResult()
 
     fun addFinalBoxes(i: Int, fb: FinalBoxes) : CaretPosition {
         for ((j, b) in fb.boxesBefore.union(fb.boxesAfter).withIndex()) {

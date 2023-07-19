@@ -16,6 +16,7 @@ import fr.benichn.math3.graphics.boxes.InputFormulaBox
 import fr.benichn.math3.graphics.boxes.MatrixFormulaBox
 import fr.benichn.math3.graphics.boxes.OperationFormulaBox
 import fr.benichn.math3.graphics.boxes.ScriptFormulaBox
+import fr.benichn.math3.graphics.boxes.SequenceChild.Companion.ign
 import fr.benichn.math3.graphics.boxes.TextFormulaBox
 import fr.benichn.math3.graphics.boxes.TopDownFormulaBox
 import fr.benichn.math3.graphics.boxes.TransformerFormulaBox
@@ -62,11 +63,12 @@ class MainActivity : AppCompatActivity() {
                     val newBox = {
                         when (id) {
                             "E" -> {
-                                fun op() = object : TopDownFormulaBox(
-                                    bottom=TransformerFormulaBox(TextFormulaBox("⎳"), BoundsTransformer.Align(RectPoint.TOP_CENTER)),
-                                    top=TransformerFormulaBox(TextFormulaBox("⎲"), BoundsTransformer.Align(RectPoint.BOTTOM_CENTER))) {
-                                    override fun findChildBox(pos: PointF) = this
-                                }
+                                // fun op() = object : TopDownFormulaBox(
+                                //     bottom=TransformerFormulaBox(TextFormulaBox("⎳"), BoundsTransformer.Align(RectPoint.TOP_CENTER)),
+                                //     top=TransformerFormulaBox(TextFormulaBox("⎲"), BoundsTransformer.Align(RectPoint.BOTTOM_CENTER))) {
+                                //     override fun findChildBox(pos: PointF) = this
+                                // }
+                                fun op() = TextFormulaBox("∫", true, 0.5f)
                                 val opp = op()
                                 object : OperationFormulaBox(
                                     BigOperatorFormulaBox(
@@ -76,9 +78,9 @@ class MainActivity : AppCompatActivity() {
                                         below = InputFormulaBox(),
                                         above = InputFormulaBox()
                                     ),
-                                    InputFormulaBox(),
-                                    TextFormulaBox("ⅆ"),
-                                    InputFormulaBox()
+                                    InputFormulaBox() ign false,
+                                    TextFormulaBox("ⅆ") ign true,
+                                    InputFormulaBox() ign false
                                 ) {
                                     override fun generateContextMenu() =
                                         ContextMenu(listOf(

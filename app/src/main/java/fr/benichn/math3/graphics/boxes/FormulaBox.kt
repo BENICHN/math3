@@ -159,14 +159,18 @@ open class FormulaBox {
         else p.forceDelete()
     }
 
-    open fun deleteMultiple(indices: List<Int>) = DeletionResult()
+    open fun deleteMultiple(indices: List<Int>) = when (indices.size) {
+        0 -> DeletionResult()
+        1 -> onChildRequiresDelete(children[indices[0]])
+        else -> delete()
+    }
 
     open fun getInitialSingle(): CaretPosition.Single? = null
 
-    protected open fun shouldEnterInChild(c: FormulaBox, pos: PointF) =
+    open fun shouldEnterInChild(c: FormulaBox, pos: PointF) =
         true
 
-    protected open fun findChildBox(pos: PointF) : FormulaBox {
+    open fun findChildBox(pos: PointF) : FormulaBox {
         for (c in children) {
             if (c.realBounds.contains(pos.x, pos.y)) {
                 return c
@@ -393,7 +397,7 @@ open class FormulaBox {
         const val DEFAULT_TEXT_SIZE = 80f
         const val DEFAULT_TEXT_RADIUS = DEFAULT_TEXT_SIZE * 0.5f
         const val DEFAULT_TEXT_WIDTH = DEFAULT_TEXT_SIZE * 0.6f
-        const val DEFAULT_LINE_WIDTH = 3f
+        const val DEFAULT_LINE_WIDTH = 3.4f
         const val MAGNIFIER_FACTOR = 1f
         // const val SELECTION_CARET_RADIUS = 14f
         // const val CARET_OVERFLOW_RADIUS = 18f

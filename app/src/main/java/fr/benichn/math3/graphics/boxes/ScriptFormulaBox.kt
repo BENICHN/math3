@@ -62,17 +62,6 @@ class ScriptFormulaBox(type: Type = Type.TOP, range: RangeF = RangeF(-DEFAULT_TE
         Type.NONE -> null
     }
 
-    override fun generateGraphics(): FormulaGraphics = FormulaGraphics(
-        Path(),
-        PathPainting.Fill,
-        when (type) {
-            Type.NONE -> RectF(0f, -DEFAULT_TEXT_RADIUS, 0f, DEFAULT_TEXT_RADIUS)
-            Type.BOTTOM -> RectF(0f, -DEFAULT_TEXT_RADIUS, bottomContainer.realBounds.right, bottomContainer.realBounds.bottom)
-            Type.TOP -> RectF(0f, topContainer.realBounds.top, topContainer.realBounds.right, DEFAULT_TEXT_RADIUS)
-            Type.BOTH -> RectF(0f, topContainer.realBounds.top, max(topContainer.realBounds.right, bottomContainer.realBounds.right), bottomContainer.realBounds.bottom)
-        }
-    )
-
     private fun deleteSup() =
         if (type == Type.BOTH) {
             superscript.removeAllBoxes()

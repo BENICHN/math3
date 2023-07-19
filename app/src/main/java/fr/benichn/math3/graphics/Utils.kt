@@ -3,6 +3,7 @@ package fr.benichn.math3.graphics
 import android.graphics.Paint
 import android.graphics.Path
 import android.graphics.PointF
+import android.graphics.Rect
 import android.graphics.RectF
 import fr.benichn.math3.App
 import fr.benichn.math3.R
@@ -13,13 +14,14 @@ import kotlin.math.min
 
 class Utils {
     companion object {
-        fun getTextPathAndSize(textSize: Float, text: String): MeasuredPath {
+        fun getTextPathAndSize(text: String, font: Int, textSize: Float, widthFactor: Float): MeasuredPath {
             val res = Path()
             val paint = Paint()
-            paint.typeface = App.instance.resources.getFont(R.font.iosevka_fixed_extended_extralight)
+            paint.typeface = App.instance.resources.getFont(font)
             paint.textSize = textSize
+            paint.textAlign = Paint.Align.CENTER
             paint.getTextPath(text, 0, text.length, 0f, 0f-(paint.fontMetrics.ascent+paint.fontMetrics.descent)/2, res)
-            return MeasuredPath(res, paint.measureText(text), textSize)
+            return MeasuredPath(res, paint.measureText(text) * widthFactor, textSize)
         }
         fun getPathBounds(path: Path): RectF {
             val res = RectF()
@@ -46,6 +48,14 @@ class Utils {
 
         operator fun PointF.times(scale: Float): PointF = PointF(x*scale,y*scale)
         operator fun PointF.div(scale: Float): PointF = PointF(x/scale,y/scale)
+
+        fun RectF.scale(sx: Float, sy: Float): RectF {
+            val cx = centerX()
+            val cy = centerY()
+            val rx = width() * sx * 0.5f
+            val ry = height() * sy * 0.5f
+            return RectF(cx - rx, cy - ry, cx + rx, cy + ry)
+        }
 
         fun squareDistFromLineToPoint(lineX: Float, lineYStart: Float, lineYEnd: Float, x: Float, y: Float): Float {
             val dx = x - lineX

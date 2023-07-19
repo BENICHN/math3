@@ -62,7 +62,7 @@ class ContextMenu(entries: Iterable<ContextMenuEntry>, val triggers: List<Formul
 
     fun findEntry(pos: PointF): ContextMenuEntry? =
         if (box.bounds.contains(pos.x, pos.y)) {
-            val b = box.findBox(pos)
+            val b = seq.findChildBox(seq.transform.invert.applyOnPoint(pos))
             entries.firstOrNull { it.box == b || it.box.deepIndexOf(b) != -1 }
         } else {
             null

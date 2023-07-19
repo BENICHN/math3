@@ -79,7 +79,7 @@ sealed class CaretPosition {
             }
             fun fromBox(box: FormulaBox, absPos: PointF) =
                 getParentInput(box)?.let {
-                    val s = it.box.ch[it.index].let { b -> if (absPos.x <= b.accRealBounds.centerX()) Side.L else Side.R }
+                    val s = it.box.ch[it.index].let { b -> if (absPos.x < b.accRealBounds.centerX()) Side.L else Side.R }
                     val i = if (s == Side.L) it.index else it.index + 1
                     CaretPosition.Single(it.box as InputFormulaBox, i)
                 }

@@ -45,9 +45,6 @@ class ScriptFormulaBox(type: Type = Type.TOP, range: RangeF = RangeF(-DEFAULT_TE
         }
     }
 
-    override val selectBeforeDeletion: Boolean
-        get() = true
-
     override fun addInitialBoxes(ib: InitialBoxes) = FinalBoxes(
         if (!ib.hasSelection || (ib.selectedBoxes.all { b -> b.isDigit() } && ib.boxesBefore.lastOrNull()?.isDigit() != true)) {
             ib.selectedBoxes
@@ -80,26 +77,26 @@ class ScriptFormulaBox(type: Type = Type.TOP, range: RangeF = RangeF(-DEFAULT_TE
             delete()
         }
 
-    override fun onChildRequiresDelete(b: FormulaBox) =
-        when (b) {
-            topContainer -> {
-                if (superscript.ch.isEmpty()) {
-                    deleteSup()
-                } else {
-                    DeletionResult.fromSelection(topContainer)
-                }
-            }
-            bottomContainer -> {
-                if (subscript.ch.isEmpty()) {
-                    deleteSub()
-                } else {
-                    DeletionResult.fromSelection(bottomContainer)
-                }
-            }
-            else -> delete()
-        }
+    // override fun onChildRequiresDelete(b: FormulaBox) =
+    //     when (b) {
+    //         topContainer -> {
+    //             if (superscript.ch.isEmpty()) {
+    //                 deleteSup()
+    //             } else {
+    //                 DeletionResult.fromSelection(topContainer)
+    //             }
+    //         }
+    //         bottomContainer -> {
+    //             if (subscript.ch.isEmpty()) {
+    //                 deleteSub()
+    //             } else {
+    //                 DeletionResult.fromSelection(bottomContainer)
+    //             }
+    //         }
+    //         else -> delete()
+    //     }
 
-    override fun deleteMultiple(indices: List<Int>) = when (indices.map { ch[it] }) {
+    override fun deleteMultiple(boxes: List<FormulaBox>) = when (boxes) {
         listOf(topContainer) -> deleteSup()
         listOf(bottomContainer) -> deleteSub()
         else -> throw UnsupportedOperationException()

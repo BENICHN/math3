@@ -15,7 +15,6 @@ import fr.benichn.math3.graphics.boxes.types.FormulaGraphics
 import fr.benichn.math3.types.ImmutableList
 import fr.benichn.math3.graphics.boxes.types.InitialBoxes
 import fr.benichn.math3.graphics.types.Orientation
-import fr.benichn.math3.graphics.types.Side
 import fr.benichn.math3.graphics.Utils.Companion.sumOfRects
 import fr.benichn.math3.graphics.boxes.types.BoxProperty
 import fr.benichn.math3.graphics.boxes.types.CommonParentWithIndices
@@ -146,10 +145,47 @@ open class FormulaBox {
         }
     }
 
-    open val selectBeforeDeletion: Boolean = false
+    open val isFilled: Boolean
+        get() = children.any { it.isFilled }
+    open fun clear() {
+        children.forEach { it.clear() }
+    }
 
-    protected open fun onChildRequiresDelete(b: FormulaBox): DeletionResult = delete()
-    fun delete() : DeletionResult = parent?.onChildRequiresDelete(this) ?: DeletionResult()
+    protected inline fun doOnChildrenIfNotFilled(vararg boxes: FormulaBox, action: () -> Unit) =
+        deleteChildrenIfNotFilled(*boxes) {
+            action()
+            DeletionResult()
+        }
+    protected inline fun deleteChildrenIfNotFilled(vararg boxes: FormulaBox, deletion: () -> DeletionResult) =
+        if (boxes.any { it.isFilled }) {
+            DeletionResult(CaretPosition.DiscreteSelection(this, boxes.map { ch.indexOf(it) }))
+        } else {
+            deletion()
+        }
+    protected fun deleteIfNotFilled(vararg boxesToCheck: FormulaBox = arrayOf(this), anticipation: Array<out FormulaBox> = boxesToCheck) =
+        if (boxesToCheck.any { it.isFilled }) {
+            delete(*anticipation)
+        } else {
+            delete()
+        }
+    // protected inline fun selectChIfThisFilledOrDelete(vararg boxes: FormulaBox, deletion: () -> DeletionResult = { delete() }) =
+    //     if (parent !is InputFormulaBox) {
+    //         delete()
+    //     } else {
+    //         if (isFilled) {
+    //             if (boxes.isEmpty()) DeletionResult.fromSelection(this) else DeletionResult(CaretPosition.DiscreteSelection(this, boxes.map { ch.indexOf(it) }))
+    //         } else {
+    //             deletion()
+    //         }
+    //     }
+
+    protected open fun onChildRequiresDelete(b: FormulaBox, vararg anticipation: FormulaBox): DeletionResult =
+        if (anticipation.isNotEmpty() || isFilled) {
+            delete(this)
+        } else {
+            delete()
+        }
+    fun delete(vararg anticipation: FormulaBox) = parent?.onChildRequiresDelete(this, *anticipation) ?: DeletionResult()
 
     fun forceDelete(): CaretPosition.Single? = parentWithIndex?.let { (p, i) ->
         if (p is InputFormulaBox) {
@@ -159,9 +195,9 @@ open class FormulaBox {
         else p.forceDelete()
     }
 
-    open fun deleteMultiple(indices: List<Int>) = when (indices.size) {
+    open fun deleteMultiple(boxes: List<FormulaBox>) = when (boxes.size) {
         0 -> DeletionResult()
-        1 -> onChildRequiresDelete(children[indices[0]])
+        1 -> boxes[0].delete()
         else -> delete()
     }
 

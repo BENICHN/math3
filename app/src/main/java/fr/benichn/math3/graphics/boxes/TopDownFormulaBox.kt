@@ -4,11 +4,15 @@ import android.graphics.PointF
 import android.graphics.RectF
 import android.util.Log
 import androidx.core.graphics.plus
+import fr.benichn.math3.graphics.Utils.Companion.scale
 import fr.benichn.math3.graphics.boxes.types.BoundsTransformer
 import fr.benichn.math3.graphics.boxes.types.BoxProperty
 import fr.benichn.math3.graphics.boxes.types.BoxTransform
+import fr.benichn.math3.graphics.boxes.types.DeletionResult
 import fr.benichn.math3.graphics.types.RectPoint
 import fr.benichn.math3.types.callback.ValueChangedEvent
+import kotlin.math.max
+import kotlin.math.min
 
 open class TopDownFormulaBox(
     limitsPosition: LimitsPosition = LimitsPosition.CENTER,
@@ -39,40 +43,113 @@ open class TopDownFormulaBox(
     }
     var type by dlgType
 
+    var middleBoundsScaleX: Float = 1f
+    var middleBoundsScaleY: Float = 1f
+    var allowedTypes: List<Type> = listOf(type)
+
     init {
         setTransformers()
         resetChildren()
         updateGraphics()
     }
 
-    override fun findChildBox(pos: PointF) = when (limitsPosition) {
-        LimitsPosition.CENTER -> when {
-            type.hasTop && pos.y <= middle.bounds.top -> topContainer
-            type.hasBottom && pos.y >= middle.bounds.bottom -> bottomContainer
-            else -> middle
+    override fun onChildRequiresDelete(b: FormulaBox, vararg anticipation: FormulaBox) = when (b) {
+        bottomContainer -> {
+            if (type.hasTop) {
+                if (Type.TOP in allowedTypes) {
+                    doOnChildrenIfNotFilled(bottomContainer) {
+                        type = Type.TOP
+                        DeletionResult(top.getInitialSingle())
+                    }
+                } else if (Type.NONE in allowedTypes) {
+                    doOnChildrenIfNotFilled(bottomContainer, topContainer) {
+                        type = Type.NONE
+                        DeletionResult.fromSingle(this)
+                    }
+                } else {
+                    deleteIfNotFilled()
+                }
+            } else {
+                if (Type.NONE in allowedTypes) {
+                    doOnChildrenIfNotFilled(bottomContainer) {
+                        type = Type.NONE
+                        DeletionResult.fromSingle(this)
+                    }
+                } else {
+                    deleteIfNotFilled()
+                }
+            }
+        }
+        topContainer -> {
+            if (type.hasBottom) {
+                if (Type.BOTTOM in allowedTypes) {
+                    doOnChildrenIfNotFilled(topContainer) {
+                        type = Type.BOTTOM
+                        DeletionResult(bottom.getInitialSingle())
+                    }
+                } else if (Type.NONE in allowedTypes) {
+                    doOnChildrenIfNotFilled(bottomContainer, topContainer) {
+                        type = Type.NONE
+                        DeletionResult.fromSingle(this)
+                    }
+                } else {
+                    deleteIfNotFilled()
+                }
+            } else {
+                if (Type.NONE in allowedTypes) {
+                    doOnChildrenIfNotFilled(topContainer) {
+                        type = Type.NONE
+                        DeletionResult.fromSingle(this)
+                    }
+                } else {
+                    deleteIfNotFilled()
+                }
+            }
+        }
+        else -> deleteIfNotFilled()
+    }
+
+    override fun deleteMultiple(boxes: List<FormulaBox>) =
+        when (boxes) {
+            listOf(topContainer) -> {
+                if (type == Type.BOTH) {
+                    type = Type.BOTTOM
+                    DeletionResult(bottom.getInitialSingle())
+                } else {
+                    type = Type.NONE
+                    DeletionResult.fromSingle(this)
+                }
+            }
+            listOf(bottomContainer) -> {
+                if (type == Type.BOTH) {
+                    type = Type.TOP
+                    DeletionResult(top.getInitialSingle())
+                } else {
+                    type = Type.NONE
+                    DeletionResult.fromSingle(this)
+                }
+            }
+            listOf(bottomContainer, topContainer) -> {
+                type = Type.NONE
+                DeletionResult.fromSingle(this)
+            }
+            else -> DeletionResult()
         }
 
-        LimitsPosition.LEFT -> if (pos.x <= middle.bounds.left) {
-            when (type) {
-                Type.NONE -> middle
-                Type.BOTTOM -> bottomContainer
-                Type.TOP -> topContainer
-                Type.BOTH -> if (pos.y <= 0) topContainer else bottomContainer
-            }
-        } else {
-            middle
-        }
-        LimitsPosition.RIGHT -> if (pos.x >= middle.bounds.right) {
-            when (type) {
-                Type.NONE -> middle
-                Type.BOTTOM -> bottomContainer
-                Type.TOP -> topContainer
-                Type.BOTH -> if (pos.y <= 0) topContainer else bottomContainer
-            }
-        } else {
-            middle
-        }
+    override fun generateGraphics() = super.generateGraphics().withBounds { r ->
+        RectF(r.left, min(r.top, -DEFAULT_TEXT_RADIUS), r.right, max(r.bottom, DEFAULT_TEXT_RADIUS))
     }
+
+    override fun findChildBox(pos: PointF) =
+        if (middle.bounds.scale(middleBoundsScaleX, middleBoundsScaleY).contains(pos.x, pos.y)) {
+            middle
+        } else when {
+            limitsPosition == LimitsPosition.RIGHT && pos.x < middle.bounds.centerX() -> this
+            limitsPosition == LimitsPosition.LEFT && pos.x > middle.bounds.centerX() -> this
+            type.hasTop && pos.y <= 0f -> topContainer
+            type.hasBottom && pos.y >= 0f -> bottomContainer
+            else -> this
+        }
 
     override fun onChildBoundsChanged(b: FormulaBox, e: ValueChangedEvent<RectF>) {
         when (b) {
@@ -85,7 +162,6 @@ open class TopDownFormulaBox(
     }
 
     private fun setTransformers() {
-        Log.d("fun", "setTransformers")
         when (limitsPosition) {
             LimitsPosition.CENTER -> {
                 bottomContainer.transformer = BoundsTransformer.Constant(BoxTransform.scale(limitsScale)) * BoundsTransformer.Align(RectPoint.TOP_CENTER)
@@ -103,21 +179,20 @@ open class TopDownFormulaBox(
     }
 
     private fun resetChildren() {
-        Log.d("fun", "resetChildren")
+        if (!type.hasTop) top.clear()
+        if (!type.hasBottom) bottom.clear()
         removeAllBoxes()
         addChildren()
         alignChildren()
     }
 
     private fun addChildren() {
-        Log.d("fun", "addChildren")
         addBox(middle)
         if (type.hasBottom) addBox(bottomContainer)
         if (type.hasTop) addBox(topContainer)
     }
 
     private fun alignChildren() {
-        Log.d("fun", "alignChildren")
         when (limitsPosition) {
             LimitsPosition.CENTER -> {
                 if (type.hasBottom) setChildTransform(

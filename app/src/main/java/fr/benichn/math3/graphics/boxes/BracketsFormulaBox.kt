@@ -24,12 +24,9 @@ class BracketsInputFormulaBox(vararg boxes: FormulaBox, type: BracketFormulaBox.
         rightBracket.dlgType.connectTo(dlgType)
     }
 
-    override val selectBeforeDeletion: Boolean
-        get() = input.ch.isNotEmpty()
-
     override fun getInitialSingle() = input.lastSingle
 
-    override fun onChildRequiresDelete(b: FormulaBox) = when (b) {
+    override fun onChildRequiresDelete(b: FormulaBox, vararg anticipation: FormulaBox) = when (b) {
         input -> {
             delete().withFinalBoxes(input.ch.toList())
         }

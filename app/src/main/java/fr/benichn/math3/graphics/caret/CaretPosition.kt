@@ -104,7 +104,7 @@ sealed class CaretPosition {
                 if (r.left.isNaN() && indexRange.start == indexRange.end) {
                     box.accRealBounds.let {
                         val x = leftSingle.getAbsPosition().x
-                        if (x == null) r else RectF(x, it.top, x, it.bottom)
+                        RectF(x, it.top, x, it.bottom)
                     }
                 } else r
             }
@@ -218,6 +218,8 @@ sealed class CaretPosition {
         fun getElement(absPos: PointF) =
             if (bounds.any { it.contains(absPos.x, absPos.y) }) Element.INTERIOR else Element.NONE
 
+        fun callDelete() = box.deleteMultiple(indices.map { box.ch[it] })
+
         enum class Element {
             INTERIOR,
             NONE
@@ -225,6 +227,18 @@ sealed class CaretPosition {
 
         companion object {
             fun fromBox(b: FormulaBox) = b.parentWithIndex?.let { DiscreteSelection(it.box, listOf(it.index)) }
+            fun fromBoxes(vararg boxes: FormulaBox) = if (boxes.isNotEmpty()) {
+                boxes[0].parent?.let { par ->
+                    DiscreteSelection(par, boxes.map {
+                        it.parentWithIndex!!.let { (p, i) ->
+                            if (par != p) {
+                                return null
+                            }
+                            i
+                        }
+                    })
+                }
+            } else null
         }
     }
 

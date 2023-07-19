@@ -77,7 +77,12 @@ class MainActivity : AppCompatActivity() {
                                         operator = opp,
                                         below = InputFormulaBox(),
                                         above = InputFormulaBox()
-                                    ),
+                                    ).apply {
+                                           allowedTypes = listOf(
+                                               TopDownFormulaBox.Type.BOTH,
+                                               TopDownFormulaBox.Type.NONE
+                                           )
+                                    },
                                     InputFormulaBox() ign false,
                                     TextFormulaBox("ⅆ") ign true,
                                     InputFormulaBox() ign false
@@ -109,7 +114,13 @@ class MainActivity : AppCompatActivity() {
                             }
                             "over" -> FractionFormulaBox()
                             "clav" -> FunctionFormulaBox("PGCD")
-                            "recent" -> ScriptFormulaBox(TopDownFormulaBox.Type.BOTH)
+                            "recent" -> ScriptFormulaBox(TopDownFormulaBox.Type.BOTH).apply {
+                                allowedTypes = listOf(
+                                    TopDownFormulaBox.Type.TOP,
+                                    TopDownFormulaBox.Type.BOTTOM,
+                                    TopDownFormulaBox.Type.BOTH,
+                                )
+                            }
                             "enter" -> MatrixFormulaBox(Pt(3, 3))
                             else -> TextFormulaBox(id)
                         }

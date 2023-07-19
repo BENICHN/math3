@@ -35,6 +35,8 @@ class BigOperatorFormulaBox(
     var above by dlgAbove
 
     init {
+        middleBoundsScaleX = 0.5f // !
+        middleBoundsScaleY = 0.33f // !
         (middle as TransformerFormulaBox).dlgChild.connectValue(dlgOperator.onChanged)
         bottomContainer.dlgChild.connectValue(dlgBelow.onChanged)
         topContainer.dlgChild.connectValue(dlgAbove.onChanged)

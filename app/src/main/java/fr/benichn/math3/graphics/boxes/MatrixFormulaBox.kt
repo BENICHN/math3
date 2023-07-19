@@ -8,16 +8,12 @@ import fr.benichn.math3.graphics.boxes.types.BoundsTransformer
 import fr.benichn.math3.graphics.boxes.types.BoxTransform
 import fr.benichn.math3.graphics.boxes.types.DeletionResult
 import fr.benichn.math3.graphics.boxes.types.FinalBoxes
-import fr.benichn.math3.graphics.boxes.types.FormulaGraphics
 import fr.benichn.math3.graphics.boxes.types.InitialBoxes
 import fr.benichn.math3.graphics.boxes.types.Padding
 import fr.benichn.math3.graphics.boxes.types.RangeF
-import fr.benichn.math3.graphics.caret.CaretPosition
 import fr.benichn.math3.graphics.types.RectPoint
 import fr.benichn.math3.numpad.types.Pt
 import fr.benichn.math3.types.callback.ValueChangedEvent
-import kotlin.math.max
-import kotlin.math.min
 
 class GridFormulaBox(shape: Pt = Pt(1, 1)) : FormulaBox() {
     var shape: Pt = shape
@@ -54,13 +50,9 @@ class GridFormulaBox(shape: Pt = Pt(1, 1)) : FormulaBox() {
 
     override fun getInitialSingle() = inputs[0].lastSingle
 
-    override fun onChildRequiresDelete(b: FormulaBox) = when(b) {
+    override fun onChildRequiresDelete(b: FormulaBox, vararg anticipation: FormulaBox) = when(b) {
         this[Pt(0, 0)] ->
-            if (inputs.all { it.ch.isEmpty() }) {
-                delete()
-            } else {
-                delete()
-            }
+            deleteIfNotFilled()
         else -> {
             val pt = getIndex(ch.indexOf(b)-1)
             DeletionResult(getInput(pt).lastSingle)
@@ -163,10 +155,4 @@ class MatrixFormulaBox(shape: Pt = Pt(1, 1)) : FormulaBox() {
     override fun addInitialBoxes(ib: InitialBoxes) = grid.addInitialBoxes(ib)
 
     override fun getInitialSingle() = grid.getInitialSingle()
-
-    override val selectBeforeDeletion: Boolean
-        get() = true
-
-    override fun onChildRequiresDelete(b: FormulaBox) =
-        DeletionResult.fromSelection(this)
 }

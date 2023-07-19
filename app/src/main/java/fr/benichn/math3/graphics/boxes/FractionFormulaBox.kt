@@ -1,18 +1,15 @@
 package fr.benichn.math3.graphics.boxes
 
 import android.graphics.PointF
-import android.graphics.RectF
 import fr.benichn.math3.graphics.Utils.Companion.append
 import fr.benichn.math3.graphics.boxes.types.BoundsTransformer
 import fr.benichn.math3.graphics.boxes.types.BoxTransform
 import fr.benichn.math3.graphics.boxes.types.DeletionResult
 import fr.benichn.math3.graphics.boxes.types.FinalBoxes
-import fr.benichn.math3.graphics.boxes.types.FormulaGraphics
 import fr.benichn.math3.graphics.boxes.types.InitialBoxes
 import fr.benichn.math3.graphics.boxes.types.Padding
 import fr.benichn.math3.graphics.types.Orientation
 import fr.benichn.math3.graphics.boxes.types.RangeF
-import fr.benichn.math3.graphics.types.RectPoint
 import kotlin.math.max
 
 class FractionFormulaBox : TopDownFormulaBox(
@@ -36,16 +33,9 @@ class FractionFormulaBox : TopDownFormulaBox(
         updateGraphics()
     }
 
-    override val selectBeforeDeletion: Boolean
-        get() = !numerator.ch.isEmpty() || !denominator.ch.isEmpty()
-
-    override fun onChildRequiresDelete(b: FormulaBox): DeletionResult = when (b) {
+    override fun onChildRequiresDelete(b: FormulaBox, vararg anticipation: FormulaBox): DeletionResult = when (b) {
         topContainer -> {
-            if (numerator.ch.isEmpty() && denominator.ch.isEmpty()) {
-                delete()
-            } else {
-                DeletionResult.fromSelection(this)
-            }
+            deleteIfNotFilled()
         }
         bottomContainer -> {
             delete().withFinalBoxes(numerator.ch, denominator.ch, !denominator.ch.isEmpty())
@@ -83,6 +73,12 @@ class FractionFormulaBox : TopDownFormulaBox(
     //     } else {
     //         this
     //     }
+
+    override fun findChildBox(pos: PointF) = // !
+        if (-DEFAULT_TEXT_RADIUS * 0.5f < pos.y && pos.y < DEFAULT_TEXT_RADIUS * 0.5f &&
+            (pos.x < bounds.left + DEFAULT_TEXT_WIDTH * 0.33f || pos.x > bounds.right - DEFAULT_TEXT_WIDTH * 0.33f)) {
+            this
+        } else super.findChildBox(pos)
 
     override fun generateGraphics() = super.generateGraphics().withBounds { r ->
         Padding(DEFAULT_TEXT_WIDTH * 0.25f, 0f).applyOnRect(r)

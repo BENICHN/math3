@@ -416,6 +416,18 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : View(context,
 
     }
 
+    private fun displayContextMenu(index: Int) {
+        val bounds = when (val p = caret.positions[index]) {
+            is CaretPosition.Double -> p.bounds
+            is CaretPosition.GridSelection -> p.bounds
+            else -> throw UnsupportedOperationException()
+        }
+        contextMenu = getSelectionContextMenu().also {
+            it.origin = RectPoint.TOP_CENTER.get(bounds) - PointF(0f, CONTEXT_MENU_OFFSET)
+            it.index = index
+        }
+    }
+
      private inner class DisplayContextMenuAction(val index: Int) : FormulaViewAction() {
          override fun onDown() {
          }
@@ -429,15 +441,7 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : View(context,
          }
 
          override fun onUp() {
-             val bounds = when (val p = caret.positions[index]) {
-                 is CaretPosition.Double -> p.bounds
-                 is CaretPosition.GridSelection -> p.bounds
-                 else -> throw UnsupportedOperationException()
-             }
-             contextMenu = getSelectionContextMenu().also {
-                 it.origin = RectPoint.TOP_CENTER.get(bounds) - PointF(0f, CONTEXT_MENU_OFFSET)
-                 it.index = index
-             }
+             displayContextMenu(index)
              lastPlaceUp = PositionUp(prim.downAbsPosition, System.currentTimeMillis(), index)
          }
 
@@ -520,6 +524,7 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : View(context,
         override fun onUp() {
             val p = caret.positions[index] as CaretPosition.DiscreteSelection
             caret.positions = getFiltered(caret.positions.filterIndexed { i, _ -> i != index } + CaretPosition.Double.fromBoxes(p.selectedBoxes)!!)
+            displayContextMenu(caret.positions.size-1)
         }
 
         override fun onPinchDown() {
@@ -613,7 +618,7 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : View(context,
 
     private fun verifyPositions(ps: MutableList<CaretPosition?>) {
         ps.indices.forEach { i -> ps[i] = ps[i]?.let { p ->
-            if (p.box.root == box) p else null
+            if (p.box.root == box && p.selectedBoxes.all { it.root == box }) p else null
         } }
         ps.indices.forEach { i ->
             ps[i] = ps[i]?.let { p ->
@@ -718,7 +723,7 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : View(context,
                             }
                         } else {
                             val b = p.box.ch[p.index - 1]
-                            if (b.selectBeforeDeletion) {
+                            if (b.isFilled) {
                                 DeletionResult.fromSelection(b)
                             } else {
                                 b.delete()
@@ -732,7 +737,7 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : View(context,
                     }
 
                     is CaretPosition.DiscreteSelection -> {
-                        p.box.deleteMultiple(p.indices)
+                        p.callDelete()
                     }
 
                     else -> DeletionResult() // inatteignable

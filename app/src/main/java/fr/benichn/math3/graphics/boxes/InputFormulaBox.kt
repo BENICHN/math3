@@ -17,11 +17,22 @@ class InputFormulaBox(vararg boxes: FormulaBox) : SequenceFormulaBox(*boxes) {
     val lastSingle
         get() = CaretPosition.Single(this, ch.size)
 
-    override fun onChildRequiresDelete(b: FormulaBox): DeletionResult {
-        val i = ch.indexOf(b)
-        removeBoxAt(i)
-        val s = CaretPosition.Single(this, i)
-        return DeletionResult(s, true)
+    override fun onChildRequiresDelete(b: FormulaBox, vararg anticipation: FormulaBox) =
+        if (anticipation.isEmpty()) {
+            val i = ch.indexOf(b)
+            removeBoxAt(i)
+            val s = CaretPosition.Single(this, i)
+            DeletionResult(s, true)
+        } else {
+            DeletionResult.fromSelection(*anticipation)
+        }
+
+    override val isFilled: Boolean
+        get() = ch.isNotEmpty()
+
+    override fun clear() {
+        removeAllBoxes()
+        super.clear()
     }
 
     override fun shouldEnterInChild(c: FormulaBox, pos: PointF) =

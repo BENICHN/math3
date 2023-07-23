@@ -585,14 +585,7 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : View(context,
         fun updateIndex(i: Int) =
             if (i > s.index) i + addedAfter else i
         return when (old) {
-            is CaretPosition.DiscreteSelection -> {
-                if (old.box == s.box) {
-                    CaretPosition.DiscreteSelection(
-                        old.box,
-                        old.indices.map { updateIndex(it) }
-                    )
-                } else old
-            }
+            is CaretPosition.DiscreteSelection -> old
             is CaretPosition.Double -> {
                 if (old.box == s.box) {
                     CaretPosition.Double(

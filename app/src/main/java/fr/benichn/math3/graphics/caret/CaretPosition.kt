@@ -208,9 +208,8 @@ sealed class CaretPosition {
         }
     }
 
-    data class DiscreteSelection(override val box: FormulaBox, val indices: List<Int>) : CaretPosition() {
-        override val selectedBoxes
-            get() = indices.map { i -> box.ch[i] }
+    class DiscreteSelection(override val box: FormulaBox, indices: List<Int>) : CaretPosition() {
+        override val selectedBoxes = indices.map { i -> box.ch[i] }
 
         val bounds
             get() = selectedBoxes.map { it.accRealBounds }
@@ -218,7 +217,7 @@ sealed class CaretPosition {
         fun getElement(absPos: PointF) =
             if (bounds.any { it.contains(absPos.x, absPos.y) }) Element.INTERIOR else Element.NONE
 
-        fun callDelete() = box.deleteMultiple(indices.map { box.ch[it] })
+        fun callDelete() = box.deleteMultiple(selectedBoxes)
 
         enum class Element {
             INTERIOR,

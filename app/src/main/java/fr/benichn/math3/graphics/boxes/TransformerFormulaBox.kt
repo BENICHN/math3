@@ -7,7 +7,7 @@ import fr.benichn.math3.graphics.boxes.types.BoxProperty
 import fr.benichn.math3.types.callback.ValueChangedEvent
 
 class TransformerFormulaBox(child: FormulaBox = FormulaBox(), transformers: List<BoundsTransformer> = listOf()) : FormulaBox() {
-    constructor(child: FormulaBox, transformer: BoundsTransformer) : this(child,  listOf(transformer))
+    constructor(child: FormulaBox = FormulaBox(), transformer: BoundsTransformer) : this(child,  listOf(transformer))
 
     val dlgChild = BoxProperty(this, child).apply {
         onChanged += { _, e ->

@@ -1,33 +1,22 @@
 package fr.benichn.math3
 
 import android.app.Application
-import android.graphics.PointF
 import android.os.Bundle
-import android.util.Log
 import androidx.appcompat.app.AppCompatActivity
 import androidx.fragment.app.commit
 import fr.benichn.math3.graphics.FormulaView
-import fr.benichn.math3.graphics.boxes.BigOperatorFormulaBox
 import fr.benichn.math3.graphics.boxes.BracketsInputFormulaBox
-import fr.benichn.math3.graphics.boxes.FormulaBox
+import fr.benichn.math3.graphics.boxes.DerivativeFormulaBox
 import fr.benichn.math3.graphics.boxes.FractionFormulaBox
-import fr.benichn.math3.graphics.boxes.FunctionFormulaBox
 import fr.benichn.math3.graphics.boxes.InputFormulaBox
 import fr.benichn.math3.graphics.boxes.MatrixFormulaBox
-import fr.benichn.math3.graphics.boxes.OperationFormulaBox
-import fr.benichn.math3.graphics.boxes.ScriptFormulaBox
 import fr.benichn.math3.graphics.boxes.SequenceChild.Companion.ign
 import fr.benichn.math3.graphics.boxes.TextFormulaBox
 import fr.benichn.math3.graphics.boxes.TopDownFormulaBox
-import fr.benichn.math3.graphics.boxes.TransformerFormulaBox
-import fr.benichn.math3.graphics.boxes.types.BoundsTransformer
-import fr.benichn.math3.graphics.boxes.types.DeletionResult
-import fr.benichn.math3.graphics.boxes.types.InitialBoxes
-import fr.benichn.math3.graphics.caret.CaretPosition
+import fr.benichn.math3.graphics.boxes.DerivativeOperatorFormulaBox
 import fr.benichn.math3.graphics.caret.ContextMenu
 import fr.benichn.math3.graphics.caret.ContextMenuEntry
-import fr.benichn.math3.graphics.types.RectPoint
-import fr.benichn.math3.numpad.NumpadFragment
+import fr.benichn.math3.numpad.NumpadView
 import fr.benichn.math3.numpad.types.Pt
 
 class App : Application() {
@@ -46,15 +35,13 @@ class App : Application() {
 
 class MainActivity : AppCompatActivity() {
     private lateinit var fv: FormulaView
+    private lateinit var nv: NumpadView
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
-        val nf = NumpadFragment()
-        supportFragmentManager.commit {
-            add(R.id.numpad, nf)
-        }
         fv = findViewById(R.id.fv)
-        nf.onButtonClicked = { id ->
+        nv = findViewById(R.id.numpad)
+        nv.onButtonClicked += { _, id ->
             when (id) {
                 "del" -> {
                     fv.sendDelete()
@@ -63,64 +50,17 @@ class MainActivity : AppCompatActivity() {
                     val newBox = {
                         when (id) {
                             "E" -> {
-                                // fun op() = object : TopDownFormulaBox(
-                                //     bottom=TransformerFormulaBox(TextFormulaBox("⎳"), BoundsTransformer.Align(RectPoint.TOP_CENTER)),
-                                //     top=TransformerFormulaBox(TextFormulaBox("⎲"), BoundsTransformer.Align(RectPoint.BOTTOM_CENTER))) {
-                                //     override fun findChildBox(pos: PointF) = this
-                                // }
-                                fun op() = TextFormulaBox("∫", true, 0.5f)
-                                val opp = op()
-                                object : OperationFormulaBox(
-                                    BigOperatorFormulaBox(
-                                        limitsPosition = TopDownFormulaBox.LimitsPosition.RIGHT,
-                                        type = TopDownFormulaBox.Type.BOTH,
-                                        operator = opp,
-                                        below = InputFormulaBox(),
-                                        above = InputFormulaBox()
-                                    ).apply {
-                                           allowedTypes = listOf(
-                                               TopDownFormulaBox.Type.BOTH,
-                                               TopDownFormulaBox.Type.NONE
-                                           )
-                                    },
-                                    InputFormulaBox() ign false,
-                                    TextFormulaBox("ⅆ") ign true,
-                                    InputFormulaBox() ign false
-                                ) {
-                                    override fun generateContextMenu() =
-                                        ContextMenu(listOf(
-                                            ContextMenuEntry.create<OperationFormulaBox>(BigOperatorFormulaBox(
-                                                operator = op(),
-                                                above = InputFormulaBox(),
-                                                below = InputFormulaBox(),
-                                                type = TopDownFormulaBox.Type.BOTH,
-                                                limitsPosition = TopDownFormulaBox.LimitsPosition.RIGHT
-                                            )) {
-                                                it.bigOperator.type = TopDownFormulaBox.Type.BOTH
-                                            },
-                                            ContextMenuEntry.create<OperationFormulaBox>(BigOperatorFormulaBox(
-                                                operator = op(),
-                                                above = InputFormulaBox(),
-                                                below = InputFormulaBox(),
-                                                type = TopDownFormulaBox.Type.NONE,
-                                            )) {
-                                                it.bigOperator.type = TopDownFormulaBox.Type.NONE
-                                            }),
-                                            listOf(
-                                                opp
-                                            )
-                                        )
-                                }
+                                TextFormulaBox("E")
                             }
                             "over" -> FractionFormulaBox()
-                            "clav" -> FunctionFormulaBox("PGCD")
-                            "recent" -> ScriptFormulaBox(TopDownFormulaBox.Type.BOTH).apply {
+                            "clav" -> BracketsInputFormulaBox() // FunctionFormulaBox("PGCD")
+                            "recent" -> DerivativeFormulaBox() /*ScriptFormulaBox(TopDownFormulaBox.Type.BOTH).apply {
                                 allowedTypes = listOf(
                                     TopDownFormulaBox.Type.TOP,
                                     TopDownFormulaBox.Type.BOTTOM,
                                     TopDownFormulaBox.Type.BOTH,
                                 )
-                            }
+                            }*/
                             "enter" -> MatrixFormulaBox(Pt(3, 3))
                             else -> TextFormulaBox(id)
                         }

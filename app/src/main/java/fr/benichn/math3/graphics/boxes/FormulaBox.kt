@@ -297,9 +297,9 @@ open class FormulaBox {
         get() = graphics.painting
 
     private var backgroundPaint = PathPainting.Fill.getPaint(Color.TRANSPARENT)
-    val dlgBackground = BoxProperty(this, Color.TRANSPARENT, false).apply {
+    val dlgBackground = BoxProperty<FormulaBox, Int?>(this, null, false).apply {
         onChanged += { _, e ->
-            backgroundPaint = PathPainting.Fill.getPaint(e.new)
+            backgroundPaint = PathPainting.Fill.getPaint(e.new ?: generatedGraphics?.background ?: Color.TRANSPARENT)
             notifyPictureChanged()
         }
     }
@@ -310,9 +310,9 @@ open class FormulaBox {
     }
 
     private var foregroundPaint = Paint()
-    val dlgForeground = BoxProperty(this, Color.WHITE, false).apply {
+    val dlgForeground = BoxProperty<FormulaBox, Int?>(this, null, false).apply {
         onChanged += { _, e ->
-            foregroundPaint = painting.getPaint(e.new)
+            foregroundPaint = painting.getPaint(e.new ?: generatedGraphics?.foreground ?: Color.WHITE)
             notifyPictureChanged()
         }
     }
@@ -348,7 +348,8 @@ open class FormulaBox {
     private fun updateGraphics(regenerate: Boolean) {
         if (regenerate) {
             val g = generateGraphics()
-            foregroundPaint = g.painting.getPaint(foreground)
+            foregroundPaint = g.painting.getPaint(foreground ?: g.foreground)
+            backgroundPaint = PathPainting.Fill.getPaint(background ?: g.background)
             generatedGraphics = g
         }
         generatedGraphics?.run {

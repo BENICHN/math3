@@ -1,5 +1,6 @@
 package fr.benichn.math3.graphics.boxes
 
+import android.graphics.Color
 import android.graphics.Path
 import android.graphics.PointF
 import android.graphics.RectF
@@ -9,6 +10,7 @@ import fr.benichn.math3.graphics.boxes.types.FormulaGraphics
 import fr.benichn.math3.graphics.boxes.types.Padding
 import fr.benichn.math3.graphics.boxes.types.PathPainting
 import fr.benichn.math3.graphics.boxes.types.Range
+import fr.benichn.math3.graphics.boxes.types.RangeF
 import fr.benichn.math3.graphics.caret.CaretPosition
 
 class InputFormulaBox(vararg boxes: FormulaBox) : SequenceFormulaBox(*boxes) {
@@ -57,30 +59,27 @@ class InputFormulaBox(vararg boxes: FormulaBox) : SequenceFormulaBox(*boxes) {
         }
     }
 
-    override fun generateGraphics(): FormulaGraphics =
-        if (ch.isEmpty()) {
-            val rh = DEFAULT_TEXT_RADIUS
-            val w = DEFAULT_TEXT_WIDTH
-            val path = Path()
-            path.moveTo(0f, rh*0.5f)
-            path.lineTo(0f, rh)
-            path.lineTo(w*0.25f, rh)
-            path.moveTo(0f, -rh*0.5f)
-            path.lineTo(0f, -rh)
-            path.lineTo(w*0.25f, -rh)
-            path.moveTo(w, rh*0.5f)
-            path.lineTo(w, rh)
-            path.lineTo(w*0.75f, rh)
-            path.moveTo(w, -rh*0.5f)
-            path.lineTo(w, -rh)
-            path.lineTo(w*0.75f, -rh)
-            val bounds = RectF(0f, -rh, w, rh)
-            FormulaGraphics(
-                path,
-                PathPainting.Stroke(DEFAULT_LINE_WIDTH),
-                Padding(w*0.2f, 0f).applyOnRect(bounds)
-            )
-        } else {
-            super.generateGraphics()
-        }
+    override fun generateGraphics() = if (ch.isEmpty()) {
+        val rx = DEFAULT_TEXT_WIDTH * 0.25f
+        val ry = DEFAULT_TEXT_RADIUS * 0.5f
+        val bds = RectF(0f, -DEFAULT_TEXT_RADIUS, DEFAULT_TEXT_WIDTH, DEFAULT_TEXT_RADIUS)
+        val path = Path()
+        path.moveTo(bds.left+rx, bds.top)
+        path.rLineTo(-rx, 0f)
+        path.rLineTo(0f, ry)
+        path.moveTo(bds.left+rx, bds.bottom)
+        path.rLineTo(-rx, 0f)
+        path.rLineTo(0f, -ry)
+        path.moveTo(bds.right-rx, bds.top)
+        path.rLineTo(rx, 0f)
+        path.rLineTo(0f, ry)
+        path.moveTo(bds.right-rx, bds.bottom)
+        path.rLineTo(rx, 0f)
+        path.rLineTo(0f, -ry)
+        FormulaGraphics(
+            path,
+            PathPainting.Stroke(DEFAULT_LINE_WIDTH),
+            Padding(bds.right*0.2f, 0f).applyOnRect(bds)
+        )
+    } else super.generateGraphics()
 }

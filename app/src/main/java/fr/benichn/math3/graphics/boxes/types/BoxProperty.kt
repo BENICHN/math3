@@ -14,10 +14,15 @@ class BoxProperty<S: FormulaBox, T>(private val source: S, val defaultValue: T, 
     fun set(value: T) {
         val old = field
         field = value
+        isSet = true
         notifyChanged(old, value)
         if (updatesGraphics) {
             source.updateGraphics()
         }
+    }
+    fun reset() {
+        set(defaultValue)
+        isSet = false
     }
     private val connections = mutableListOf<CallbackLink<*, *>>()
     fun <A : FormulaBox> connectTo(property: BoxProperty<A, T>) =
@@ -59,6 +64,8 @@ class BoxProperty<S: FormulaBox, T>(private val source: S, val defaultValue: T, 
     }
     val isConnected
         get() = connections.isNotEmpty()
+    var isSet = false
+        private set
     override fun getValue(thisRef: S, property: KProperty<*>): T = get()
     override fun setValue(thisRef: S, property: KProperty<*>, value: T) {
         if (!isConnected) {

@@ -9,7 +9,7 @@ class Utils {
         fun pos(x: Int) = max(0, x)
         fun neg(x: Float) = pos(-x)
         fun neg(x: Int) = pos(-x)
-        fun trim(x: Float, mn: Float, mx: Float) = min(mx, max(mn, x))
-        fun trim(x: Int, mn: Int, mx: Int) = min(mx, max(mn, x))
+        fun clamp(x: Float, mn: Float, mx: Float) = min(mx, max(mn, x))
+        fun clamp(x: Int, mn: Int, mx: Int) = min(mx, max(mn, x))
     }
 }

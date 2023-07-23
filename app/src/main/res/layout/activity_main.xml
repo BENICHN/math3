@@ -16,10 +16,10 @@
             android:layout_height="match_parent"
             android:id="@+id/fv"/>
     </LinearLayout>
-    <androidx.fragment.app.FragmentContainerView
+    <fr.benichn.math3.numpad.NumpadView
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:layout_weight="1.33"
         android:id="@+id/numpad">
-    </androidx.fragment.app.FragmentContainerView>
+    </fr.benichn.math3.numpad.NumpadView>
 </LinearLayout>

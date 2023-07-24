@@ -2,7 +2,6 @@ package fr.benichn.math3.graphics.boxes
 
 import fr.benichn.math3.graphics.boxes.types.FinalBoxes
 import fr.benichn.math3.graphics.boxes.types.InitialBoxes
-import fr.benichn.math3.graphics.caret.CaretPosition
 import fr.benichn.math3.graphics.caret.ContextMenu
 import fr.benichn.math3.graphics.caret.ContextMenuEntry
 
@@ -16,6 +15,13 @@ class DerivativeOperatorFormulaBox(type: Type = Type.BOTTOM) : TopDownFormulaBox
 ) {
     val variable = bottom as InputFormulaBox
     val order = top as InputFormulaBox
+
+    init {
+        allowedTypes = listOf(
+            Type.BOTH,
+            Type.BOTTOM
+        )
+    }
 
     override fun generateContextMenu() = ContextMenu(listOf(
         ContextMenuEntry.create<DerivativeOperatorFormulaBox>(
@@ -34,13 +40,6 @@ class DerivativeOperatorFormulaBox(type: Type = Type.BOTTOM) : TopDownFormulaBox
     )
 
     override fun getInitialSingle() = (bottom as InputFormulaBox).lastSingle
-
-    init {
-        allowedTypes = listOf(
-            Type.BOTH,
-            Type.BOTTOM
-        )
-    }
 }
 
 class DerivativeFormulaBox(type: TopDownFormulaBox.Type = TopDownFormulaBox.Type.BOTTOM) : SequenceFormulaBox(

@@ -38,7 +38,8 @@ class BracketFormulaBox(range: RangeF = RangeF(-DEFAULT_TEXT_RADIUS,DEFAULT_TEXT
     override fun generateGraphics(): FormulaGraphics {
         val l1 = range.start + DEFAULT_TEXT_RADIUS
         val l2 = range.end - DEFAULT_TEXT_RADIUS
-        val r = DEFAULT_TEXT_RADIUS * 0.9f
+        val offset = DEFAULT_TEXT_RADIUS * 0.1f
+        val r = DEFAULT_TEXT_RADIUS - offset
         val path = Path()
         when (type) {
             Type.BRACE -> {
@@ -69,7 +70,16 @@ class BracketFormulaBox(range: RangeF = RangeF(-DEFAULT_TEXT_RADIUS,DEFAULT_TEXT
                 path.lineTo(0.15f * r, range.end)
             }
             Type.CURLY -> {
-
+                val cr = DEFAULT_TEXT_RADIUS / 3
+                val rw = cr * 0.6f
+                path.addArc(-rw, -2*cr, rw, 0f, 0f, 90f)
+                path.addArc(-rw, 0f, rw, 2*cr, 0f, -90f)
+                path.moveTo(rw, -cr)
+                path.lineTo(rw, range.start + cr)
+                path.moveTo(rw, cr)
+                path.lineTo(rw, range.end - cr)
+                path.addArc(rw, range.end - 2*cr + offset, 3*rw, range.end - offset, 90f, 90f)
+                path.addArc(rw, range.start + offset, 3*rw, range.start + 2*cr - offset, 180f, 90f)
             }
             Type.CHEVRON -> {
                 path.moveTo(0.5f*r, range.start)

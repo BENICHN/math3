@@ -10,7 +10,7 @@ import android.view.MotionEvent
 import android.view.View
 import fr.benichn.math3.graphics.FormulaView
 import fr.benichn.math3.graphics.boxes.FormulaBox
-import fr.benichn.math3.graphics.boxes.NumpadFormulaBox
+import fr.benichn.math3.numpad.NumpadFormulaBox
 import fr.benichn.math3.graphics.types.TouchAction
 import fr.benichn.math3.numpad.types.Direction
 import fr.benichn.math3.numpad.types.Pt

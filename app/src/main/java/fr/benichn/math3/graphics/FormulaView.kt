@@ -825,7 +825,7 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : View(context,
 
                                 is CaretPosition.DiscreteSelection -> {
                                     when (p.getElement(pos)) {
-                                        CaretPosition.DiscreteSelection.Element.INTERIOR -> SelectionToDoubleAction(j)
+                                        CaretPosition.DiscreteSelection.Element.INTERIOR -> PlaceCaretAction() // SelectionToDoubleAction(j)
                                         CaretPosition.DiscreteSelection.Element.NONE -> null
                                     }
                                 }

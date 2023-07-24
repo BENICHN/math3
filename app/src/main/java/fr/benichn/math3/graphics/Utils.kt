@@ -5,6 +5,7 @@ import android.graphics.Path
 import android.graphics.PointF
 import android.graphics.Rect
 import android.graphics.RectF
+import android.util.SizeF
 import fr.benichn.math3.App
 import fr.benichn.math3.R
 import fr.benichn.math3.Utils.Companion.pos
@@ -46,8 +47,10 @@ class Utils {
             PointF(rect.left, rect.bottom)
         )
 
-        operator fun PointF.times(scale: Float): PointF = PointF(x*scale,y*scale)
-        operator fun PointF.div(scale: Float): PointF = PointF(x/scale,y/scale)
+        operator fun PointF.times(scale: Float) = PointF(x*scale,y*scale)
+        operator fun PointF.div(scale: Float) = PointF(x/scale,y/scale)
+        operator fun SizeF.times(scale: Float) = SizeF(width*scale,height*scale)
+        operator fun SizeF.div(scale: Float) = SizeF(width/scale,height/scale)
 
         fun RectF.scale(sx: Float, sy: Float): RectF {
             val cx = centerX()

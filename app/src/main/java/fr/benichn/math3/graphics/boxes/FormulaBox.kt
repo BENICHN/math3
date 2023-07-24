@@ -304,8 +304,9 @@ open class FormulaBox {
         }
     }
     var background by dlgBackground
-    fun setBackgroundRecursive(color: Int) {
-        background = color
+    fun setBackgroundRecursive(color: Int) = setBackgroundRecursive { _ -> color }
+    fun setBackgroundRecursive(color: (FormulaBox) -> Int) {
+        background = color(this)
         for (c in children) c.setBackgroundRecursive(color)
     }
 
@@ -317,8 +318,9 @@ open class FormulaBox {
         }
     }
     var foreground by dlgForeground
-    fun setForegroundRecursive(color: Int) {
-        foreground = color
+    fun setForegroundRecursive(color: Int) = setForegroundRecursive { _ -> color }
+    fun setForegroundRecursive(color: (FormulaBox) -> Int) {
+        foreground = color(this)
         for (c in children) c.setForegroundRecursive(color)
     }
 

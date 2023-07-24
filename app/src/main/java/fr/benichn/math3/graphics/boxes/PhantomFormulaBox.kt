@@ -15,4 +15,8 @@ class PhantomFormulaBox(customBounds: RectF = RectF()) : FormulaBox() {
         PathPainting.Transparent,
         customBounds
     )
+
+    init {
+        updateGraphics()
+    }
 }

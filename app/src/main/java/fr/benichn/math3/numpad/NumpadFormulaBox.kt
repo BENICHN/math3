@@ -1,4 +1,4 @@
-package fr.benichn.math3.graphics.boxes
+package fr.benichn.math3.numpad
 
 import android.animation.ValueAnimator
 import android.graphics.Color
@@ -8,20 +8,37 @@ import android.graphics.RectF
 import android.util.SizeF
 import androidx.core.animation.doOnEnd
 import fr.benichn.math3.Utils.Companion.clamp
+import fr.benichn.math3.graphics.Utils.Companion.times
+import fr.benichn.math3.graphics.boxes.BracketFormulaBox
+import fr.benichn.math3.graphics.boxes.BracketsInputFormulaBox
+import fr.benichn.math3.graphics.boxes.DerivativeOperatorFormulaBox
+import fr.benichn.math3.graphics.boxes.DiscreteOperatorFormulaBox
+import fr.benichn.math3.graphics.boxes.FormulaBox
+import fr.benichn.math3.graphics.boxes.FractionFormulaBox
+import fr.benichn.math3.graphics.boxes.InputFormulaBox
+import fr.benichn.math3.graphics.boxes.IntegralOperatorFormulaBox
+import fr.benichn.math3.graphics.boxes.MatrixFormulaBox
+import fr.benichn.math3.graphics.boxes.ScriptFormulaBox
+import fr.benichn.math3.graphics.boxes.SequenceFormulaBox
+import fr.benichn.math3.graphics.boxes.TextFormulaBox
+import fr.benichn.math3.graphics.boxes.TopDownFormulaBox
+import fr.benichn.math3.graphics.boxes.TransformerFormulaBox
 import fr.benichn.math3.graphics.boxes.types.BoundsTransformer
 import fr.benichn.math3.graphics.boxes.types.BoxProperty
 import fr.benichn.math3.graphics.boxes.types.BoxTransform
 import fr.benichn.math3.graphics.boxes.types.FormulaGraphics
 import fr.benichn.math3.graphics.boxes.types.PathPainting
 import fr.benichn.math3.graphics.types.RectPoint
-import fr.benichn.math3.numpad.Utils
 import fr.benichn.math3.numpad.types.Direction
 import fr.benichn.math3.numpad.types.Pt
 import fr.benichn.math3.types.callback.ValueChangedEvent
 import org.json.JSONObject
 
 class NumpadFormulaBox(pages: List<NumpadPageInfo> = listOf(), size: SizeF = SizeF(0f, 0f)) : FormulaBox() {
-    constructor(pages: JSONObject, size: SizeF = SizeF(0f, 0f)) : this(NumpadPageInfo.listFromJSON(pages), size)
+    constructor(pages: JSONObject, size: SizeF = SizeF(0f, 0f)) : this(
+        NumpadPageInfo.listFromJSON(
+            pages
+        ), size)
 
     val dlgPages = BoxProperty(this, pages).apply {
         onChanged += { _, e ->
@@ -185,6 +202,7 @@ class NumpadPageFormulaBox(page: NumpadPageInfo, size: SizeF, buttonPressed: Pt?
     val dlgPage = BoxProperty(this, page).apply {
         onChanged += { _, _ ->
             removeAllBoxes()
+            updateButtonSize()
             addChildren()
             alignChildren()
         }
@@ -193,15 +211,19 @@ class NumpadPageFormulaBox(page: NumpadPageInfo, size: SizeF, buttonPressed: Pt?
 
     val dlgSize = BoxProperty(this, size).apply {
         onChanged += { _, _ ->
+            updateButtonSize()
+            updateTransformers()
             alignChildren()
         }
     }
     var size by dlgSize
+    private lateinit var buttonSize: SizeF
 
     val dlgButtonPressed = BoxProperty(this, buttonPressed)
     var buttonPressed by dlgButtonPressed
 
     init {
+        updateButtonSize()
         addChildren()
         alignChildren()
     }
@@ -212,11 +234,16 @@ class NumpadPageFormulaBox(page: NumpadPageInfo, size: SizeF, buttonPressed: Pt?
     }
     fun getButtonId(c: FormulaBox) = coordsOf(c).run { page.buttons.getString("${x},${y}") }
 
+    private fun updateButtonSize() {
+        buttonSize = SizeF(
+            size.width / page.width,
+            size.height / page.height
+        )
+    }
+
     override fun findChildBox(pos: PointF): FormulaBox {
-        val bw = size.width / page.width
-        val bh = size.height / page.height
-        val x = (pos.x / bw).toInt()
-        val y = (pos.y / bh).toInt()
+        val x = (pos.x / buttonSize.width).toInt()
+        val y = (pos.y / buttonSize.height).toInt()
         val pt = Pt(
             clamp(x, 0, page.width-1),
             clamp(y, 0, page.height-1)
@@ -235,22 +262,30 @@ class NumpadPageFormulaBox(page: NumpadPageInfo, size: SizeF, buttonPressed: Pt?
             for (i in 0 until pw) {
                 val id = buttons.getString("${i},${j}")
                 val b = getIconFromId(id)
-                addBox(TransformerFormulaBox(b, BoundsTransformer.Align(RectPoint.CENTER)))
+                addBox(TransformerFormulaBox(b))
             }
+        }
+        updateTransformers()
+    }
+
+    private fun updateTransformers() {
+        for (c in ch) {
+            (c as TransformerFormulaBox).transformer =
+                BoundsTransformer.Align(RectPoint.CENTER) *
+                BoundsTransformer.Constant(BoxTransform.scale(0.66f)) *
+                BoundsTransformer.ClampSize(buttonSize * 0.6f)
         }
     }
 
     private fun alignChildren() {
         val (pw, ph, _, _) = page
-        val bw = size.width / pw
-        val bh = size.height / ph
-        val rx = bw * 0.5f
-        val ry = bh * 0.5f
+        val rx = buttonSize.width * 0.5f
+        val ry = buttonSize.height * 0.5f
         for (j in 0 until ph) {
             for (i in 0 until pw) {
                 setChildTransform(j * pw + i, BoxTransform(PointF(
-                    i * bw + rx,
-                    j * bh + ry,
+                    i * buttonSize.width + rx,
+                    j * buttonSize.height + ry,
                 )))
             }
         }
@@ -262,15 +297,13 @@ class NumpadPageFormulaBox(page: NumpadPageInfo, size: SizeF, buttonPressed: Pt?
         val w = size.width
         val h = size.height
         val (pw, ph, _, _) = page
-        val bw = w / pw
-        val bh = h / ph
         for (j in 0..ph) {
-            val y = j * bh
+            val y = j * buttonSize.height
             path.moveTo(0f, y)
             path.rLineTo(w, 0f)
         }
         for (i in 0..pw) {
-            val x = i * bw
+            val x = i * buttonSize.width
             path.moveTo(x, 0f)
             path.rLineTo(0f, h)
         }
@@ -278,9 +311,9 @@ class NumpadPageFormulaBox(page: NumpadPageInfo, size: SizeF, buttonPressed: Pt?
             path,
             PathPainting.Stroke(0.25f),
             buttonPressed?.let { (i, j) ->
-                val x = i * bw
-                val y = j * bh
-                RectF(x, y, x+bw, y+bh)
+                val x = i * buttonSize.width
+                val y = j * buttonSize.height
+                RectF(x, y, x+buttonSize.width, y+buttonSize.height)
             } ?: RectF(),
             Color.BLACK,
             Color.rgb(230, 230, 230)
@@ -288,8 +321,34 @@ class NumpadPageFormulaBox(page: NumpadPageInfo, size: SizeF, buttonPressed: Pt?
     }
 
     companion object {
-        fun getIconFromId(id: String): FormulaBox = TextFormulaBox(id).apply {
-            foreground = Color.BLACK
+        fun getIconFromId(id: String): FormulaBox = when (id) {
+            "over" -> FractionFormulaBox()
+            "brace" -> BracketsInputFormulaBox(type = BracketFormulaBox.Type.BRACE)
+            "bracket" -> BracketsInputFormulaBox(type = BracketFormulaBox.Type.BRACKET)
+            "chevron" -> BracketsInputFormulaBox(type = BracketFormulaBox.Type.CHEVRON)
+            "curly" -> BracketsInputFormulaBox(type = BracketFormulaBox.Type.CURLY)
+            "floor" -> BracketsInputFormulaBox(type = BracketFormulaBox.Type.FLOOR)
+            "ceil" -> BracketsInputFormulaBox(type = BracketFormulaBox.Type.CEIL)
+            "abs" -> BracketsInputFormulaBox(type = BracketFormulaBox.Type.BAR)
+            "superscript" -> SequenceFormulaBox(InputFormulaBox(), ScriptFormulaBox(TopDownFormulaBox.Type.TOP))
+            "subscript" -> SequenceFormulaBox(InputFormulaBox(), ScriptFormulaBox(TopDownFormulaBox.Type.BOTTOM))
+            "int_indef" -> IntegralOperatorFormulaBox(TopDownFormulaBox.Type.NONE)
+            "int_def" -> IntegralOperatorFormulaBox(TopDownFormulaBox.Type.BOTH)
+            "deriv" -> DerivativeOperatorFormulaBox(TopDownFormulaBox.Type.BOTTOM)
+            "deriv_n" -> DerivativeOperatorFormulaBox(TopDownFormulaBox.Type.BOTH)
+            "sum_indef" -> DiscreteOperatorFormulaBox("∑", DiscreteOperatorFormulaBox.Type.INDEFINITE)
+            "sum_bounds" -> DiscreteOperatorFormulaBox("∑", DiscreteOperatorFormulaBox.Type.BOUNDS)
+            "sum_list" -> DiscreteOperatorFormulaBox("∑", DiscreteOperatorFormulaBox.Type.LIST)
+            "prod_indef" -> DiscreteOperatorFormulaBox("∏", DiscreteOperatorFormulaBox.Type.INDEFINITE)
+            "prod_bounds" -> DiscreteOperatorFormulaBox("∏", DiscreteOperatorFormulaBox.Type.BOUNDS)
+            "prod_list" -> DiscreteOperatorFormulaBox("∏", DiscreteOperatorFormulaBox.Type.LIST)
+            "matrix" -> MatrixFormulaBox(Pt(2, 2))
+            else -> TextFormulaBox(id)
+        }.apply {
+            setForegroundRecursive { when(it) {
+                is InputFormulaBox -> Color.GRAY
+                else -> Color.BLACK
+            } }
         }
     }
 }

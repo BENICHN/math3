@@ -1,5 +1,6 @@
 package fr.benichn.math3.graphics.boxes
 
+import fr.benichn.math3.graphics.boxes.SequenceChild.Companion.ign
 import fr.benichn.math3.graphics.boxes.types.BoxProperty
 import fr.benichn.math3.graphics.boxes.types.FinalBoxes
 import fr.benichn.math3.graphics.boxes.types.InitialBoxes
@@ -7,9 +8,9 @@ import fr.benichn.math3.graphics.boxes.types.RangeF
 import fr.benichn.math3.graphics.types.Side
 
 class BracketsInputFormulaBox(vararg boxes: FormulaBox, type: BracketFormulaBox.Type = BracketFormulaBox.Type.BRACE) : SequenceFormulaBox(
-    BracketFormulaBox(side = Side.L),
-    InputFormulaBox(*boxes),
-    BracketFormulaBox(side = Side.R)
+    BracketFormulaBox(side = Side.L) ign true,
+    InputFormulaBox(*boxes) ign false,
+    BracketFormulaBox(side = Side.R) ign true
 ) {
     val dlgType = BoxProperty(this, type)
     var type by dlgType
@@ -40,9 +41,9 @@ class BracketsInputFormulaBox(vararg boxes: FormulaBox, type: BracketFormulaBox.
 }
 
 class BracketsSequenceFormulaBox(vararg boxes: FormulaBox, type: BracketFormulaBox.Type = BracketFormulaBox.Type.BRACE) : SequenceFormulaBox(
-    BracketFormulaBox(side = Side.L),
-    SequenceFormulaBox(*boxes),
-    BracketFormulaBox(side = Side.R)
+    BracketFormulaBox(side = Side.L) ign true,
+    SequenceFormulaBox(*boxes) ign false,
+    BracketFormulaBox(side = Side.R) ign true
 ) {
     val dlgType = BoxProperty(this, type)
     var type by dlgType

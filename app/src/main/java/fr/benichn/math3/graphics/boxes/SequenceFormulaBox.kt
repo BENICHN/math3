@@ -50,6 +50,12 @@ open class SequenceFormulaBox() : FormulaBox() {
         setIgnored(b, ignored)
     }
 
+    fun addBoxes(vararg children: SequenceChild) {
+        for ((box, ig) in children) {
+            addBox(box, ig)
+        }
+    }
+
     final override fun addBox(i: Int, b: FormulaBox) {
         super.addBox(i, b)
         setChildTransform(

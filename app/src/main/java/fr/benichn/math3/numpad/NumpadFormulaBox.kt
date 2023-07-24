@@ -184,17 +184,28 @@ class NumpadFormulaBox(pages: List<NumpadPageInfo> = listOf(), size: SizeF = Siz
     }
 }
 
-data class NumpadPageInfo(val width: Int, val height: Int, val coords: Pt, val buttons: JSONObject) {
+data class NumpadButtonInfo(val id: String, val auxIds: List<String>)
+
+data class NumpadPageInfo(val width: Int, val height: Int, val coords: Pt, val buttons: Map<Pt, NumpadButtonInfo>) {
     companion object {
-        fun listFromJSON(pages: JSONObject) = pages.keys().asSequence().toList().map { k ->
+        fun listFromJSON(pages: JSONObject) = pages.keys().asSequence().map { k ->
             val coords = k.split(",").map { it.toInt() }
             val pt = Pt(coords[0], coords[1])
             val page = pages.getJSONObject(k)
             val pw = page.getInt("w")
             val ph = page.getInt("h")
             val btns = page.getJSONObject("buttons")
-            NumpadPageInfo(pw, ph, pt, btns)
-        }
+            val buttons = btns.keys().asSequence().map { k ->
+                val btnCoords = k.split(",").map { it.toInt() }
+                val btnPt = Pt(btnCoords[0], btnCoords[1])
+                val bi = btns.getJSONArray(k).let { arr ->
+                    val id = arr.getString(0)
+                    NumpadButtonInfo(id, (1 until arr.length()).map { i -> arr.getString(i) })
+                }
+                btnPt to bi
+            }.toMap()
+            NumpadPageInfo(pw, ph, pt, buttons)
+        }.toList()
     }
 }
 
@@ -232,7 +243,7 @@ class NumpadPageFormulaBox(page: NumpadPageInfo, size: SizeF, buttonPressed: Pt?
         val i = ch.indexOf(c)
         return Pt(i % page.width, i / page.width)
     }
-    fun getButtonId(c: FormulaBox) = coordsOf(c).run { page.buttons.getString("${x},${y}") }
+    fun getButtonId(c: FormulaBox) = coordsOf(c).let { pt -> page.buttons.getValue(pt).id }
 
     private fun updateButtonSize() {
         buttonSize = SizeF(
@@ -260,7 +271,7 @@ class NumpadPageFormulaBox(page: NumpadPageInfo, size: SizeF, buttonPressed: Pt?
         val (pw, ph, _, buttons) = page
         for (j in 0 until ph) {
             for (i in 0 until pw) {
-                val id = buttons.getString("${i},${j}")
+                val id = buttons.getValue(Pt(i, j)).id
                 val b = getIconFromId(id)
                 addBox(TransformerFormulaBox(b))
             }
@@ -291,6 +302,8 @@ class NumpadPageFormulaBox(page: NumpadPageInfo, size: SizeF, buttonPressed: Pt?
         }
         updateGraphics()
     }
+
+
 
     override fun generateGraphics(): FormulaGraphics {
         val path = Path()

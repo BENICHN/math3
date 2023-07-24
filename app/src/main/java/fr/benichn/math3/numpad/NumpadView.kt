@@ -42,7 +42,7 @@ class NumpadView(context: Context, attrs: AttributeSet? = null) : View(context, 
         private lateinit var downButton: FormulaBox
         override fun onDown() {
             downButton = box.findBox(prim.lastPosition)
-            downButton.background = Color.LTGRAY
+            box.currentPageBox.let { it.buttonPressed = it.coordsOf(downButton) }
         }
 
         override fun onLongDown() {
@@ -52,18 +52,22 @@ class NumpadView(context: Context, attrs: AttributeSet? = null) : View(context, 
             val d = prim.totalDiff
             when {
                 d.x > SWIPE_DISTANCE -> {
+                    box.currentPageBox.buttonPressed = null
                     box.swipe(Direction.Right)
                     finish()
                 }
                 d.y > SWIPE_DISTANCE -> {
+                    box.currentPageBox.buttonPressed = null
                     box.swipe(Direction.Down)
                     finish()
                 }
                 d.x < -SWIPE_DISTANCE -> {
+                    box.currentPageBox.buttonPressed = null
                     box.swipe(Direction.Left)
                     finish()
                 }
                 d.y < -SWIPE_DISTANCE -> {
+                    box.currentPageBox.buttonPressed = null
                     box.swipe(Direction.Up)
                     finish()
                 }
@@ -85,7 +89,7 @@ class NumpadView(context: Context, attrs: AttributeSet? = null) : View(context, 
         }
 
         override fun beforeFinish(replacement: TouchAction?) {
-            downButton.background = null
+            box.currentPageBox.buttonPressed = null
         }
 
     }

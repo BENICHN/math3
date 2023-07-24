@@ -50,6 +50,14 @@ class NumpadFormulaBox(pages: List<NumpadPageInfo> = listOf(), size: SizeF = Siz
         resetPagesPositions()
     }
 
+    override fun generateGraphics() = FormulaGraphics(
+        Path(),
+        PathPainting.Fill,
+        RectF(0f, 0f, size.width, size.height),
+        Color.TRANSPARENT,
+        Color.WHITE
+    )
+
     private fun addPages() {
         for (p in pages) {
             val b = NumpadPageFormulaBox(p, size)
@@ -173,7 +181,7 @@ data class NumpadPageInfo(val width: Int, val height: Int, val coords: Pt, val b
     }
 }
 
-class NumpadPageFormulaBox(page: NumpadPageInfo, size: SizeF) : FormulaBox() {
+class NumpadPageFormulaBox(page: NumpadPageInfo, size: SizeF, buttonPressed: Pt? = null) : FormulaBox() {
     val dlgPage = BoxProperty(this, page).apply {
         onChanged += { _, _ ->
             removeAllBoxes()
@@ -189,6 +197,9 @@ class NumpadPageFormulaBox(page: NumpadPageInfo, size: SizeF) : FormulaBox() {
         }
     }
     var size by dlgSize
+
+    val dlgButtonPressed = BoxProperty(this, buttonPressed)
+    var buttonPressed by dlgButtonPressed
 
     init {
         addChildren()
@@ -265,10 +276,14 @@ class NumpadPageFormulaBox(page: NumpadPageInfo, size: SizeF) : FormulaBox() {
         }
         return FormulaGraphics(
             path,
-            PathPainting.Stroke(1f),
-            RectF(0f, 0f, w, h),
+            PathPainting.Stroke(0.25f),
+            buttonPressed?.let { (i, j) ->
+                val x = i * bw
+                val y = j * bh
+                RectF(x, y, x+bw, y+bh)
+            } ?: RectF(),
             Color.BLACK,
-            Color.WHITE
+            Color.rgb(230, 230, 230)
         )
     }
 

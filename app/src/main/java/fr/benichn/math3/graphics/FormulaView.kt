@@ -282,6 +282,7 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : View(context,
 
         override fun onUp() {
             if (!hasMoved) {
+                displayContextMenu(index)
                 lastPlaceUp = PositionUp(prim.downAbsPosition, System.currentTimeMillis(), if (isAdding) null else index)
             }
         }
@@ -417,13 +418,15 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : View(context,
     }
 
     private fun displayContextMenu(index: Int) {
-        val bounds = when (val p = caret.positions[index]) {
-            is CaretPosition.Double -> p.bounds
-            is CaretPosition.GridSelection -> p.bounds
+        val p = caret.positions[index]
+        val o = when (p) {
+            is CaretPosition.Double -> RectPoint.TOP_CENTER.get(p.bounds)
+            is CaretPosition.GridSelection -> RectPoint.TOP_CENTER.get(p.bounds)
+            is CaretPosition.Single -> p.getAbsPosition() - PointF(0f, p.radius)
             else -> throw UnsupportedOperationException()
         }
-        contextMenu = getSelectionContextMenu().also {
-            it.origin = RectPoint.TOP_CENTER.get(bounds) - PointF(0f, CONTEXT_MENU_OFFSET)
+        contextMenu = (if (p is CaretPosition.Single) getSingleContextMenu() else getSelectionContextMenu()).also {
+            it.origin = o - PointF(0f, CONTEXT_MENU_OFFSET)
             it.index = index
         }
     }
@@ -880,6 +883,9 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : View(context,
             color = Color.LTGRAY
         }
 
+        fun getSingleContextMenu() = ContextMenu(
+            ContextMenuEntry.create<CaretPosition>(TextFormulaBox("paste")) {  }
+        )
         fun getSelectionContextMenu() = ContextMenu(
             ContextMenuEntry.create<CaretPosition>(TextFormulaBox("copy")) {  },
             ContextMenuEntry.create<CaretPosition>(TextFormulaBox("cut")) {  },

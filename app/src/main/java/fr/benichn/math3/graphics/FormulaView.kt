@@ -24,6 +24,7 @@ import fr.benichn.math3.graphics.boxes.TextFormulaBox
 import fr.benichn.math3.graphics.boxes.types.BoundsTransformer
 import fr.benichn.math3.graphics.boxes.types.BoxTransform
 import fr.benichn.math3.graphics.boxes.types.DeletionResult
+import fr.benichn.math3.graphics.boxes.types.FinalBoxes
 import fr.benichn.math3.graphics.boxes.types.InitialBoxes
 import fr.benichn.math3.graphics.boxes.types.Padding
 import fr.benichn.math3.graphics.boxes.types.Range
@@ -226,7 +227,7 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : View(context,
         override fun onUp() {
             val b = box.findBox(prim.downPosition)
             b.contextMenu?.also { cm ->
-                if (b in cm.triggers) {
+                if (cm.trigger(cm.source!!.accTransform.invert.applyOnPoint(prim.downPosition))) {
                     val p = CaretPosition.DiscreteSelection.fromBox(cm.source!!)!!
                     caret.positions = if (isAdding) {
                         getFiltered(caret.positions + p)
@@ -728,7 +729,7 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : View(context,
                             if (b.isFilled) {
                                 DeletionResult.fromSelection(b)
                             } else {
-                                b.delete()
+                                b.delete().withFinalBoxes(b)
                             }
                         }
                     }

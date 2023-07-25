@@ -4,17 +4,9 @@ import fr.benichn.math3.graphics.boxes.FormulaBox
 import fr.benichn.math3.graphics.caret.CaretPosition
 import fr.benichn.math3.graphics.types.Side
 
-data class DeletionResult(val newPos: CaretPosition? = null, val deleted: Boolean = false, val finalBoxes: FinalBoxes = FinalBoxes()) {
-    fun withFinalBoxes(fb: FinalBoxes) = DeletionResult(newPos, deleted , fb)
-    fun withFinalBoxes(boxesBefore: List<FormulaBox> = emptyList(), boxesAfter: List<FormulaBox> = emptyList(), selectBoxesBefore: Boolean = true, selectBoxesAfter: Boolean = false) =
-        withFinalBoxes(
-            FinalBoxes(
-                boxesBefore.toList(),
-                boxesAfter.toList(),
-                selectBoxesBefore,
-                selectBoxesAfter
-            )
-        )
+data class DeletionResult(val newPos: CaretPosition? = null, val deleted: Boolean = false, val finalBoxesOwner: FormulaBox? = null) {
+    val finalBoxes = finalBoxesOwner?.run { getFinalBoxes() } ?: FinalBoxes()
+    fun withFinalBoxes(owner: FormulaBox?) = DeletionResult(newPos, deleted , owner)
 
     companion object {
         fun fromSingle(b: FormulaBox) = DeletionResult(CaretPosition.Single.fromBox(b, Side.R))

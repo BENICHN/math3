@@ -33,12 +33,14 @@ class FractionFormulaBox : TopDownFormulaBox(
         updateGraphics()
     }
 
+    override fun getFinalBoxes() = FinalBoxes(numerator.ch.toList(), denominator.ch.toList(), !denominator.ch.isEmpty())
+
     override fun onChildRequiresDelete(b: FormulaBox, vararg anticipation: FormulaBox): DeletionResult = when (b) {
         topContainer -> {
             deleteIfNotFilled()
         }
         bottomContainer -> {
-            delete().withFinalBoxes(numerator.ch, denominator.ch, !denominator.ch.isEmpty())
+            delete().withFinalBoxes(this)
         }
         else -> delete()
     }
@@ -50,7 +52,10 @@ class FractionFormulaBox : TopDownFormulaBox(
                 ib.boxesBefore.takeLastWhile { it !is TextFormulaBox || (it.text != "+" && it.text != "-") }
             }
         if (boxes.size == 1 && boxes[0] is BracketsInputFormulaBox) {
-            (boxes[0] as BracketsInputFormulaBox).input.delete().finalBoxes.boxesBefore.forEach { numerator.addBox(it) }
+            (boxes[0] as BracketsInputFormulaBox).input.also {
+                numerator.addBoxes(it.ch)
+                it.delete()
+            }
         } else {
             numerator.addBoxes(boxes)
         }
@@ -73,12 +78,6 @@ class FractionFormulaBox : TopDownFormulaBox(
     //     } else {
     //         this
     //     }
-
-    override fun findChildBox(pos: PointF) = // !
-        if (-DEFAULT_TEXT_RADIUS * 0.5f < pos.y && pos.y < DEFAULT_TEXT_RADIUS * 0.5f &&
-            (pos.x < bounds.left + DEFAULT_TEXT_WIDTH * 0.33f || pos.x > bounds.right - DEFAULT_TEXT_WIDTH * 0.33f)) {
-            this
-        } else super.findChildBox(pos)
 
     override fun generateGraphics() = super.generateGraphics().withBounds { r ->
         Padding(DEFAULT_TEXT_WIDTH * 0.25f, 0f).applyOnRect(r)

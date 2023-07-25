@@ -26,11 +26,16 @@ class BracketsInputFormulaBox(vararg boxes: FormulaBox, type: BracketFormulaBox.
         updateGraphics()
     }
 
+    override val isFilled: Boolean
+        get() = false
+
+    override fun getFinalBoxes() = FinalBoxes(input.ch.toList())
+
     override fun getInitialSingle() = input.lastSingle
 
     override fun onChildRequiresDelete(b: FormulaBox, vararg anticipation: FormulaBox) = when (b) {
         input -> {
-            delete().withFinalBoxes(input.ch.toList())
+            delete().withFinalBoxes(this)
         }
         else -> delete()
     }

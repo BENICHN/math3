@@ -1,5 +1,7 @@
 package fr.benichn.math3.graphics.boxes
 
+import android.graphics.PointF
+import fr.benichn.math3.graphics.Utils.Companion.scale
 import fr.benichn.math3.graphics.boxes.SequenceChild.Companion.ign
 import fr.benichn.math3.graphics.boxes.types.FinalBoxes
 import fr.benichn.math3.graphics.boxes.types.FormulaGraphics
@@ -24,11 +26,9 @@ class IntegralOperatorFormulaBox(type: Type = Type.BOTH) : TopDownFormulaBox(
             Type.BOTH,
             Type.NONE
         )
-        middleBoundsScaleX = 0.5f
-        middleBoundsScaleY = 0.33f
     }
 
-    override fun generateContextMenu() = ContextMenu(listOf(
+    override fun generateContextMenu() = ContextMenu(
         ContextMenuEntry.create<IntegralOperatorFormulaBox>(
             IntegralOperatorFormulaBox(Type.BOTH)
         ) {
@@ -38,12 +38,13 @@ class IntegralOperatorFormulaBox(type: Type = Type.BOTH) : TopDownFormulaBox(
             IntegralOperatorFormulaBox(Type.NONE)
         ) {
             it.type = Type.NONE
-        }),
-        listOf(
-            middle
-        ),
-        true
-    )
+        },
+        trigger = { pos ->
+            middle.realBounds.scale(
+                0.5f,
+                0.33f
+            ).contains(pos.x, pos.y)
+        })
 
     override fun getInitialSingle() = when (type) {
         Type.BOTH -> if (upper.ch.isEmpty()) upper.lastSingle else lower.lastSingle

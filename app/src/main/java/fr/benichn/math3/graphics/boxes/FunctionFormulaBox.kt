@@ -40,8 +40,10 @@ class FunctionFormulaBox(text: String = "", type: BracketFormulaBox.Type = Brack
         else -> delete()
     }
 
+    override fun getFinalBoxes() = FinalBoxes(boxesAfter = brackets.input.ch.toList())
+
     override fun deleteMultiple(boxes: List<FormulaBox>) = if (boxes == listOf(textBox)) {
-        delete().withFinalBoxes(boxesAfter = brackets.input.ch.toList())
+        delete().withFinalBoxes(this)
     } else throw UnsupportedOperationException()
 
     override fun generateGraphics() = super.generateGraphics().withBounds { r ->

@@ -14,8 +14,9 @@ import fr.benichn.math3.graphics.types.RectPoint
 import fr.benichn.math3.types.ImmutableList
 import fr.benichn.math3.types.callback.ObservableProperty
 
-class ContextMenu(entries: Iterable<ContextMenuEntry>, val triggers: List<FormulaBox>, val uniformWidths: Boolean = false) {
-    constructor(vararg entries: ContextMenuEntry) : this(entries.asIterable(), listOf())
+class ContextMenu(entries: Iterable<ContextMenuEntry>, val trigger: (PointF) -> Boolean, val uniformWidths: Boolean = true) {
+    constructor(vararg entries: ContextMenuEntry, trigger: (PointF) -> Boolean, uniformWidths: Boolean = true) : this(entries.asIterable(), trigger, uniformWidths)
+    constructor(vararg entries: ContextMenuEntry) : this(entries.asIterable(), { false }, false)
 
     private val entries = mutableListOf<ContextMenuEntry>()
     val ent = ImmutableList(this.entries)

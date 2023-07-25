@@ -1,5 +1,6 @@
 package fr.benichn.math3.graphics.boxes
 
+import fr.benichn.math3.graphics.Utils.Companion.scale
 import fr.benichn.math3.graphics.boxes.SequenceChild.Companion.ign
 import fr.benichn.math3.graphics.boxes.types.BoxProperty
 import fr.benichn.math3.graphics.boxes.types.FinalBoxes
@@ -32,12 +33,10 @@ class DiscreteOperatorFormulaBox(operator: String, operatorType: Type = Type.BOU
 
     init {
         allowedTypes = listOf()
-        middleBoundsScaleX = 0.66f
-        middleBoundsScaleY = 0.33f
         applyType()
     }
 
-    override fun generateContextMenu() = ContextMenu(listOf(
+    override fun generateContextMenu() = ContextMenu(
         ContextMenuEntry.create<DiscreteOperatorFormulaBox>(
             DiscreteOperatorFormulaBox(operator, Type.BOUNDS)
         ) {
@@ -52,11 +51,13 @@ class DiscreteOperatorFormulaBox(operator: String, operatorType: Type = Type.BOU
             DiscreteOperatorFormulaBox(operator, Type.INDEFINITE)
         ) {
             it.operatorType = Type.INDEFINITE
-        }),
-        listOf(
-            middle
-        ),
-        true
+        },
+        trigger = { pos ->
+            middle.realBounds.scale(
+                0.5f,
+                0.33f
+            ).contains(pos.x, pos.y)
+        },
     )
 
     private fun applyType() = when (operatorType) {

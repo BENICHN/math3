@@ -43,8 +43,6 @@ open class TopDownFormulaBox(
     }
     var type by dlgType
 
-    var middleBoundsScaleX: Float = 1f
-    var middleBoundsScaleY: Float = 1f
     var allowedTypes: List<Type> = listOf(type)
 
     init {
@@ -141,14 +139,9 @@ open class TopDownFormulaBox(
     }
 
     override fun findChildBox(pos: PointF) =
-        if (middle.bounds.scale(middleBoundsScaleX, middleBoundsScaleY).contains(pos.x, pos.y)) {
-            middle
-        } else when {
-            limitsPosition == LimitsPosition.RIGHT && pos.x < middle.bounds.centerX() -> this
-            limitsPosition == LimitsPosition.LEFT && pos.x > middle.bounds.centerX() -> this
-            type.hasTop && pos.y <= 0f -> topContainer
-            type.hasBottom && pos.y >= 0f -> bottomContainer
-            else -> this
+        when {
+            pos.y <= 0 -> if (type.hasTop) topContainer else if (type.hasBottom) bottomContainer else this
+            else -> if (type.hasBottom) bottomContainer else if (type.hasTop) topContainer else this
         }
 
     override fun onChildBoundsChanged(b: FormulaBox, e: ValueChangedEvent<RectF>) {

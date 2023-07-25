@@ -19,6 +19,7 @@ import fr.benichn.math3.graphics.boxes.DiscreteOperationFormulaBox
 import fr.benichn.math3.graphics.boxes.DiscreteOperatorFormulaBox
 import fr.benichn.math3.graphics.boxes.IntegralFormulaBox
 import fr.benichn.math3.graphics.boxes.IntegralOperatorFormulaBox
+import fr.benichn.math3.graphics.boxes.RootFormulaBox
 import fr.benichn.math3.graphics.boxes.ScriptFormulaBox
 import fr.benichn.math3.graphics.caret.ContextMenu
 import fr.benichn.math3.graphics.caret.ContextMenuEntry
@@ -56,6 +57,8 @@ class MainActivity : AppCompatActivity() {
                     val newBox = {
                         when (id) {
                             "over" -> FractionFormulaBox()
+                            "sqrt" -> RootFormulaBox(RootFormulaBox.Type.SQRT)
+                            "sqrt_n" -> RootFormulaBox(RootFormulaBox.Type.ORDER)
                             "brace" -> BracketsInputFormulaBox(type = BracketFormulaBox.Type.BRACE)
                             "bracket" -> BracketsInputFormulaBox(type = BracketFormulaBox.Type.BRACKET)
                             "chevron" -> BracketsInputFormulaBox(type = BracketFormulaBox.Type.CHEVRON)

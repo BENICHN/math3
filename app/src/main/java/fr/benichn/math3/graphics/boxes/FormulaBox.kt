@@ -152,6 +152,8 @@ open class FormulaBox {
         children.forEach { it.clear() }
     }
 
+    open fun getFinalBoxes() = FinalBoxes()
+
     protected inline fun doOnChildrenIfNotFilled(vararg boxes: FormulaBox, action: () -> Unit) =
         deleteChildrenIfNotFilled(*boxes) {
             action()

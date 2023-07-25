@@ -1,5 +1,6 @@
 package fr.benichn.math3.graphics.boxes
 
+import fr.benichn.math3.graphics.Utils.Companion.scale
 import fr.benichn.math3.graphics.boxes.types.FinalBoxes
 import fr.benichn.math3.graphics.boxes.types.InitialBoxes
 import fr.benichn.math3.graphics.caret.ContextMenu
@@ -34,10 +35,12 @@ class DerivativeOperatorFormulaBox(type: Type = Type.BOTTOM) : TopDownFormulaBox
         ) {
             it.type = Type.BOTH
         }),
-        listOf(
-            middle
-        ),
-        true
+        trigger = { pos ->
+            middle.realBounds.scale(
+                1f,
+                1f
+            ).contains(pos.x, pos.y)
+        }
     )
 
     override fun getInitialSingle() = (bottom as InputFormulaBox).lastSingle

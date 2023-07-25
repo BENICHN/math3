@@ -18,6 +18,7 @@ import fr.benichn.math3.graphics.boxes.FractionFormulaBox
 import fr.benichn.math3.graphics.boxes.InputFormulaBox
 import fr.benichn.math3.graphics.boxes.IntegralOperatorFormulaBox
 import fr.benichn.math3.graphics.boxes.MatrixFormulaBox
+import fr.benichn.math3.graphics.boxes.RootFormulaBox
 import fr.benichn.math3.graphics.boxes.ScriptFormulaBox
 import fr.benichn.math3.graphics.boxes.SequenceFormulaBox
 import fr.benichn.math3.graphics.boxes.TextFormulaBox
@@ -419,6 +420,8 @@ class NumpadPageFormulaBox(page: NumpadPageInfo, size: SizeF, buttonPressed: Pt?
     companion object {
         fun getIconFromId(id: String): FormulaBox = when (id) {
             "over" -> FractionFormulaBox()
+            "sqrt" -> RootFormulaBox(RootFormulaBox.Type.SQRT)
+            "sqrt_n" -> RootFormulaBox(RootFormulaBox.Type.ORDER)
             "brace" -> BracketsInputFormulaBox(type = BracketFormulaBox.Type.BRACE)
             "bracket" -> BracketsInputFormulaBox(type = BracketFormulaBox.Type.BRACKET)
             "chevron" -> BracketsInputFormulaBox(type = BracketFormulaBox.Type.CHEVRON)

@@ -13,6 +13,7 @@ import fr.benichn.math3.graphics.boxes.types.Paints
 import fr.benichn.math3.graphics.boxes.types.Range
 import fr.benichn.math3.graphics.boxes.types.RangeF
 import fr.benichn.math3.graphics.caret.CaretPosition
+import kotlin.math.abs
 
 class InputFormulaBox(vararg boxes: FormulaBox) : SequenceFormulaBox(*boxes) {
     val firstSingle
@@ -43,7 +44,10 @@ class InputFormulaBox(vararg boxes: FormulaBox) : SequenceFormulaBox(*boxes) {
     }
 
     override fun shouldEnterInChild(c: FormulaBox, pos: PointF) =
-        c.realBounds.run { pos.x in left..right }
+        c.realBounds.run {
+            pos.x in left..right &&
+            !(pos.y in -DEFAULT_TEXT_RADIUS .. DEFAULT_TEXT_RADIUS && (abs(left - pos.x) < SEP_RADIUS || abs(right - pos.x) < SEP_RADIUS))
+        }
 
     // override fun deleteMultiple(indices: List<Int>) = if (indices.size == 1) {
     //     val i = indices[0]
@@ -88,4 +92,8 @@ class InputFormulaBox(vararg boxes: FormulaBox) : SequenceFormulaBox(*boxes) {
             bounds = Padding(bds.right*0.2f, 0f).applyOnRect(bds)
         )
     } else super.generateGraphics()
+
+    companion object {
+        const val SEP_RADIUS = DEFAULT_TEXT_WIDTH * 0.5f
+    }
 }

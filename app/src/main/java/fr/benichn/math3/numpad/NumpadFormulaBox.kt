@@ -35,6 +35,7 @@ import fr.benichn.math3.numpad.types.Direction
 import fr.benichn.math3.numpad.types.Pt
 import fr.benichn.math3.types.callback.ValueChangedEvent
 import org.json.JSONObject
+import kotlin.math.max
 
 class NumpadFormulaBox(pages: List<NumpadPageInfo> = listOf(), size: SizeF = SizeF(0f, 0f)) : FormulaBox() {
     constructor(pages: JSONObject, size: SizeF = SizeF(0f, 0f)) : this(
@@ -213,38 +214,28 @@ data class NumpadPageInfo(val width: Int, val height: Int, val coords: Pt, val b
             NumpadPageInfo(pw, ph, pt, buttons)
         }.toList()
 
-        fun getAuxPositions(w: Int, h: Int, pos: Pt, n: Int, side: Side = Side.L): List<Pt> {
-            val auxOffsets = when (side) {
-                Side.L -> {
-                    listOf(
-                        Pt(0, 0),
-                        Pt(0, 1),
-                        Pt(1, 1),
-                        Pt(1, 0),
-                        Pt(1, -1),
-                        Pt(0, -1),
-                        Pt(-1, 1),
-                        Pt(-1, 0),
-                        Pt(-1, -1)
-                    )
-                }
-                Side.R -> {
-                    listOf(
-                        Pt(0, 0),
-                        Pt(0, 1),
-                        Pt(-1, 1),
-                        Pt(-1, 0),
-                        Pt(-1, -1),
-                        Pt(0, -1),
-                        Pt(1, 1),
-                        Pt(1, 0),
-                        Pt(1, -1)
-                    )
-                }
+        private fun getAuxPositions(w: Int, h: Int, pos: Pt, n: Int, side: Side = Side.L): List<Pt> {
+            val ux = if (side == Side.L) Pt.r else Pt.l
+            val uy = Pt.t
+            fun makeLoop(r: Int): List<Pt> {
+                if (r == 0) return listOf(Pt.z)
+                val ot = uy * r
+                val t = (0 .. r).map { i -> ot + ux * i }
+                val ol = t.last()
+                val l = (1 .. 2*r).map { i -> ol - uy * i }
+                val ob = l.last()
+                val b = (1 .. r).map { i -> ob - ux * i }
+                val rt = (1 .. r).map { i -> ot - ux * i }
+                val or = rt.last()
+                val rr = (1 .. 2*r).map { i -> or - uy * i }
+                val orr = rr.last()
+                val rb = (1 until r).map { i-> orr + ux * i }
+                return listOf(t, l, b, rt, rr, rb).flatten()
             }
+            val auxOffsets = (0 until max(w, h)).flatMap { r -> makeLoop(r) }
             val auxPos = auxOffsets.map { u -> pos + u }.filter { p ->
-                p.x in 0 .. w &&
-                        p.y in 0 .. h
+                p.x in 0 until w &&
+                p.y in 0 until h
             }
             return auxPos.take(n)
         }
@@ -404,8 +395,8 @@ class NumpadPageFormulaBox(page: NumpadPageInfo, size: SizeF, buttonPressed: Pt?
                 val auxPts = realButtons.map { it.pt }
                 PaintedPath(
                     Path().apply {
-                        for (i in 0 .. page.width) {
-                            for (j in 0 .. page.height) {
+                        for (i in 0 until page.width) {
+                            for (j in 0 until page.height) {
                                 val pt = Pt(i, j)
                                 if (pt !in auxPts) {
                                     addRect(rectFromCoords(pt), Path.Direction.CCW)

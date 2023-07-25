@@ -18,6 +18,9 @@ data class Pt(val x: Int, val y: Int) {
     operator fun times(p: Pt): Pt {
         return Pt(x * p.x, y * p.y)
     }
+    operator fun times(f: Int): Pt {
+        return Pt(x * f, y * f)
+    }
     fun and(p: Pt): Pt {
         return Pt(
             if (p.x != 0) x else 0,
@@ -28,7 +31,7 @@ data class Pt(val x: Int, val y: Int) {
         val z = Pt(0, 0)
         val l = Pt(-1, 0)
         val r = Pt(1, 0)
-        val t = Pt(-1, 0)
-        val b = Pt(1, 0)
+        val t = Pt(0, -1)
+        val b = Pt(0, 1)
     }
 }

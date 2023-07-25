@@ -272,7 +272,7 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : View(context,
     private inner class MoveCaretAction(val index: Int) : FormulaViewAction() {
         private lateinit var basePositions: List<CaretPosition>
         private lateinit var downSingle: CaretPosition.Single
-        private lateinit var newSingle: CaretPosition.Single
+        private var newSingle: CaretPosition.Single? = null
 
         override fun onDown() {
             basePositions = caret.positions.filterIndexed { i, _ -> i != index }
@@ -304,7 +304,7 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : View(context,
             if (!hasMoved && isAdding) {
                 caret.positions = basePositions
             } else {
-                caret.positions = getFiltered(basePositions + newSingle)
+                caret.positions = getFiltered(basePositions + (newSingle ?: findSingle(prim.lastPosition)))
             }
         }
 

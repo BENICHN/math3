@@ -2,18 +2,12 @@ package fr.benichn.math3.numpad
 
 import android.content.Context
 import android.graphics.Canvas
-import android.graphics.Color
 import android.util.AttributeSet
-import android.util.Log
 import android.util.SizeF
 import android.view.MotionEvent
 import android.view.View
-import fr.benichn.math3.graphics.FormulaView
-import fr.benichn.math3.graphics.boxes.FormulaBox
-import fr.benichn.math3.numpad.NumpadFormulaBox
 import fr.benichn.math3.graphics.types.TouchAction
 import fr.benichn.math3.numpad.types.Direction
-import fr.benichn.math3.numpad.types.Pt
 import fr.benichn.math3.types.callback.Callback
 import fr.benichn.math3.types.callback.ObservableProperty
 import org.json.JSONObject
@@ -27,6 +21,8 @@ class NumpadView(context: Context, attrs: AttributeSet? = null) : View(context, 
             invalidate()
         }
     }
+    private val pageBox
+        get() = box.currentPageBox
 
     val notifyButtonClicked = Callback<NumpadView, String>(this)
     val onButtonClicked = notifyButtonClicked.Listener()
@@ -38,45 +34,56 @@ class NumpadView(context: Context, attrs: AttributeSet? = null) : View(context, 
         }
     }
 
-    private inner class NumpadTouchAction : TouchAction() {
-        private lateinit var downButton: FormulaBox
+    private inner class NumpadTouchAction : TouchAction(longPressTimeout = 200L) {
+        private lateinit var downButton: NumpadButtonInfo
         override fun onDown() {
-            downButton = box.findBox(prim.lastPosition)
-            box.currentPageBox.let { it.buttonPressed = it.coordsOf(downButton) }
+            downButton = pageBox.findButton(prim.lastPosition)
+            pageBox.buttonPressed = downButton.pt
         }
 
         override fun onLongDown() {
+            if (downButton.hasAux) {
+                pageBox.buttonExpanded = downButton.pt
+            }
         }
 
         override fun onMove() {
-            val d = prim.totalDiff
-            when {
-                d.x > SWIPE_DISTANCE -> {
-                    box.currentPageBox.buttonPressed = null
-                    box.swipe(Direction.Right)
-                    finish()
+            if (!isLongPressed || !downButton.hasAux) {
+                val d = prim.totalDiff
+                when {
+                    d.x > SWIPE_DISTANCE -> {
+                        pageBox.buttonPressed = null
+                        box.swipe(Direction.Right)
+                        finish()
+                    }
+                    d.y > SWIPE_DISTANCE -> {
+                        pageBox.buttonPressed = null
+                        box.swipe(Direction.Down)
+                        finish()
+                    }
+                    d.x < -SWIPE_DISTANCE -> {
+                        pageBox.buttonPressed = null
+                        box.swipe(Direction.Left)
+                        finish()
+                    }
+                    d.y < -SWIPE_DISTANCE -> {
+                        pageBox.buttonPressed = null
+                        box.swipe(Direction.Up)
+                        finish()
+                    }
                 }
-                d.y > SWIPE_DISTANCE -> {
-                    box.currentPageBox.buttonPressed = null
-                    box.swipe(Direction.Down)
-                    finish()
-                }
-                d.x < -SWIPE_DISTANCE -> {
-                    box.currentPageBox.buttonPressed = null
-                    box.swipe(Direction.Left)
-                    finish()
-                }
-                d.y < -SWIPE_DISTANCE -> {
-                    box.currentPageBox.buttonPressed = null
-                    box.swipe(Direction.Up)
-                    finish()
-                }
+            } else {
+                pageBox.buttonPressed = pageBox.findCoords(prim.lastPosition)
             }
         }
 
         override fun onUp() {
-            val id = box.currentPageBox.getButtonId(downButton)
-            notifyButtonClicked(id)
+            if (pageBox.buttonExpanded == null) {
+                notifyButtonClicked(downButton.id)
+            } else {
+                val btn = pageBox.findAuxButton(prim.lastPosition)
+                btn?.let { notifyButtonClicked(it.id) }
+            }
         }
 
         override fun onPinchDown() {
@@ -89,7 +96,8 @@ class NumpadView(context: Context, attrs: AttributeSet? = null) : View(context, 
         }
 
         override fun beforeFinish(replacement: TouchAction?) {
-            box.currentPageBox.buttonPressed = null
+            pageBox.buttonExpanded = null
+            pageBox.buttonPressed = null
         }
 
     }

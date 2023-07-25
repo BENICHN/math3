@@ -32,7 +32,7 @@ data class TouchData(
     }
 }
 
-abstract class TouchAction(val getPos: (PointF) -> PointF = { it }) {
+abstract class TouchAction(val getPos: (PointF) -> PointF = { it }, val longPressTimeout: Long = DEFAULT_LONG_PRESS_TIMEOUT) {
     val isLaunched
         get() = primaryData != null
     val isPinched
@@ -77,7 +77,7 @@ abstract class TouchAction(val getPos: (PointF) -> PointF = { it }) {
     private val notifyReplaced = VCC<TouchAction, TouchAction>(this)
     val onReplaced = notifyReplaced.Listener()
 
-    private val downTimer = object : CountDownTimer(LONG_PRESS_TIMEOUT, LONG_PRESS_TIMEOUT) {
+    private val downTimer = object : CountDownTimer(longPressTimeout, longPressTimeout) {
         override fun onTick(p0: Long) {}
         override fun onFinish() {
             isLongPressed = true
@@ -264,7 +264,7 @@ abstract class TouchAction(val getPos: (PointF) -> PointF = { it }) {
     }
 
     companion object {
-        const val LONG_PRESS_TIMEOUT = 300L
+        const val DEFAULT_LONG_PRESS_TIMEOUT = 300L
         const val MINIMAL_MOVE_DISTANCE_SQ = 100
         const val MOVE_VELOCITY_DELAY = 100L
     }

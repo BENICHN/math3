@@ -10,7 +10,6 @@ import fr.benichn.math3.graphics.boxes.types.DeletionResult
 import fr.benichn.math3.graphics.boxes.types.FinalBoxes
 import fr.benichn.math3.graphics.boxes.types.FormulaGraphics
 import fr.benichn.math3.graphics.boxes.types.InitialBoxes
-import fr.benichn.math3.graphics.boxes.types.PathPainting
 import fr.benichn.math3.graphics.boxes.types.RangeF
 import fr.benichn.math3.graphics.types.RectPoint
 import kotlin.math.max

@@ -7,7 +7,8 @@ import android.graphics.Path
 import android.graphics.RectF
 import fr.benichn.math3.graphics.boxes.types.BoxProperty
 import fr.benichn.math3.graphics.boxes.types.FormulaGraphics
-import fr.benichn.math3.graphics.boxes.types.PathPainting
+import fr.benichn.math3.graphics.boxes.types.PaintedPath
+import fr.benichn.math3.graphics.boxes.types.Paints
 import fr.benichn.math3.graphics.boxes.types.RangeF
 import fr.benichn.math3.graphics.types.Side
 
@@ -95,9 +96,11 @@ class BracketFormulaBox(range: RangeF = RangeF(-DEFAULT_TEXT_RADIUS,DEFAULT_TEXT
         }
         val bounds = RectF(-0.25f * DEFAULT_TEXT_RADIUS, range.start, 0.5f * DEFAULT_TEXT_RADIUS, range.end)
         return FormulaGraphics(
-            path,
-            PathPainting.Stroke(DEFAULT_LINE_WIDTH),
-            bounds
+            PaintedPath(
+                path,
+                Paints.stroke(DEFAULT_LINE_WIDTH)
+            ),
+            bounds = bounds
         )
     }
 }

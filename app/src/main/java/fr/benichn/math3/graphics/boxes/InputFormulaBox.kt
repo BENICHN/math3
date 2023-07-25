@@ -8,7 +8,8 @@ import fr.benichn.math3.graphics.boxes.types.DeletionResult
 import fr.benichn.math3.graphics.boxes.types.FinalBoxes
 import fr.benichn.math3.graphics.boxes.types.FormulaGraphics
 import fr.benichn.math3.graphics.boxes.types.Padding
-import fr.benichn.math3.graphics.boxes.types.PathPainting
+import fr.benichn.math3.graphics.boxes.types.PaintedPath
+import fr.benichn.math3.graphics.boxes.types.Paints
 import fr.benichn.math3.graphics.boxes.types.Range
 import fr.benichn.math3.graphics.boxes.types.RangeF
 import fr.benichn.math3.graphics.caret.CaretPosition
@@ -77,9 +78,10 @@ class InputFormulaBox(vararg boxes: FormulaBox) : SequenceFormulaBox(*boxes) {
         path.rLineTo(rx, 0f)
         path.rLineTo(0f, -ry)
         FormulaGraphics(
-            path,
-            PathPainting.Stroke(DEFAULT_LINE_WIDTH),
-            Padding(bds.right*0.2f, 0f).applyOnRect(bds)
+            PaintedPath(
+                path,
+                Paints.stroke(DEFAULT_LINE_WIDTH)),
+            bounds = Padding(bds.right*0.2f, 0f).applyOnRect(bds)
         )
     } else super.generateGraphics()
 }

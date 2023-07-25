@@ -6,7 +6,8 @@ import android.graphics.Path
 import android.graphics.RectF
 import fr.benichn.math3.graphics.boxes.types.BoxProperty
 import fr.benichn.math3.graphics.boxes.types.FormulaGraphics
-import fr.benichn.math3.graphics.boxes.types.PathPainting
+import fr.benichn.math3.graphics.boxes.types.PaintedPath
+import fr.benichn.math3.graphics.boxes.types.Paints
 import fr.benichn.math3.graphics.types.Orientation
 import fr.benichn.math3.graphics.boxes.types.RangeF
 
@@ -26,23 +27,21 @@ class LineFormulaBox(orientation: Orientation = Orientation.V,
     override fun generateGraphics(): FormulaGraphics = when (orientation) {
         Orientation.H -> {
             FormulaGraphics(
-                Path().apply {
+                PaintedPath(Path().apply {
                     moveTo(range.start, 0f)
                     lineTo(range.end, 0f)
-                },
-                PathPainting.Stroke(DEFAULT_LINE_WIDTH),
-                RectF(range.start, 0f, range.end, 0f)
+                }, Paints.stroke(DEFAULT_LINE_WIDTH)),
+                bounds = RectF(range.start, 0f, range.end, 0f)
             )
         }
 
         Orientation.V -> {
             FormulaGraphics(
-                Path().apply {
+                PaintedPath(Path().apply {
                     moveTo(0f, range.start)
                     lineTo(0f, range.end)
-                },
-                PathPainting.Stroke(DEFAULT_LINE_WIDTH),
-                RectF(0f, range.start, 0f, range.end)
+                }, Paints.stroke(DEFAULT_LINE_WIDTH)),
+                bounds = RectF(0f, range.start, 0f, range.end)
             )
         }
     }

@@ -27,8 +27,10 @@ import fr.benichn.math3.graphics.boxes.types.BoundsTransformer
 import fr.benichn.math3.graphics.boxes.types.BoxProperty
 import fr.benichn.math3.graphics.boxes.types.BoxTransform
 import fr.benichn.math3.graphics.boxes.types.FormulaGraphics
-import fr.benichn.math3.graphics.boxes.types.PathPainting
+import fr.benichn.math3.graphics.boxes.types.PaintedPath
+import fr.benichn.math3.graphics.boxes.types.Paints
 import fr.benichn.math3.graphics.types.RectPoint
+import fr.benichn.math3.graphics.types.Side
 import fr.benichn.math3.numpad.types.Direction
 import fr.benichn.math3.numpad.types.Pt
 import fr.benichn.math3.types.callback.ValueChangedEvent
@@ -68,11 +70,8 @@ class NumpadFormulaBox(pages: List<NumpadPageInfo> = listOf(), size: SizeF = Siz
     }
 
     override fun generateGraphics() = FormulaGraphics(
-        Path(),
-        PathPainting.Fill,
-        RectF(0f, 0f, size.width, size.height),
-        Color.TRANSPARENT,
-        Color.WHITE
+        PaintedPath(),
+        bounds = RectF(0f, 0f, size.width, size.height),
     )
 
     private fun addPages() {
@@ -184,9 +183,14 @@ class NumpadFormulaBox(pages: List<NumpadPageInfo> = listOf(), size: SizeF = Siz
     }
 }
 
-data class NumpadButtonInfo(val id: String, val auxIds: List<String>)
+data class NumpadButtonInfo(val pt: Pt, val id: String, val aux: List<NumpadButtonInfo>) {
+    val hasAux
+        get() = aux.isNotEmpty()
+}
 
-data class NumpadPageInfo(val width: Int, val height: Int, val coords: Pt, val buttons: Map<Pt, NumpadButtonInfo>) {
+data class NumpadPageInfo(val width: Int, val height: Int, val coords: Pt, val buttons: List<NumpadButtonInfo>) {
+    fun getButton(pt: Pt) = buttons.first { it.pt == pt }
+
     companion object {
         fun listFromJSON(pages: JSONObject) = pages.keys().asSequence().map { k ->
             val coords = k.split(",").map { it.toInt() }
@@ -198,18 +202,56 @@ data class NumpadPageInfo(val width: Int, val height: Int, val coords: Pt, val b
             val buttons = btns.keys().asSequence().map { k ->
                 val btnCoords = k.split(",").map { it.toInt() }
                 val btnPt = Pt(btnCoords[0], btnCoords[1])
-                val bi = btns.getJSONArray(k).let { arr ->
+                btns.getJSONArray(k).let { arr ->
                     val id = arr.getString(0)
-                    NumpadButtonInfo(id, (1 until arr.length()).map { i -> arr.getString(i) })
+                    val auxIds = (1 until arr.length()).map { i -> arr.getString(i) }
+                    val auxPos = getAuxPositions(pw, ph, btnPt, auxIds.size)
+                    val aux = auxIds.zip(auxPos) { id, pt -> NumpadButtonInfo(pt, id, listOf()) }
+                    NumpadButtonInfo(btnPt, id, aux)
                 }
-                btnPt to bi
-            }.toMap()
+            }.toList()
             NumpadPageInfo(pw, ph, pt, buttons)
         }.toList()
+
+        fun getAuxPositions(w: Int, h: Int, pos: Pt, n: Int, side: Side = Side.L): List<Pt> {
+            val auxOffsets = when (side) {
+                Side.L -> {
+                    listOf(
+                        Pt(0, 0),
+                        Pt(0, 1),
+                        Pt(1, 1),
+                        Pt(1, 0),
+                        Pt(1, -1),
+                        Pt(0, -1),
+                        Pt(-1, 1),
+                        Pt(-1, 0),
+                        Pt(-1, -1)
+                    )
+                }
+                Side.R -> {
+                    listOf(
+                        Pt(0, 0),
+                        Pt(0, 1),
+                        Pt(-1, 1),
+                        Pt(-1, 0),
+                        Pt(-1, -1),
+                        Pt(0, -1),
+                        Pt(1, 1),
+                        Pt(1, 0),
+                        Pt(1, -1)
+                    )
+                }
+            }
+            val auxPos = auxOffsets.map { u -> pos + u }.filter { p ->
+                p.x in 0 .. w &&
+                        p.y in 0 .. h
+            }
+            return auxPos.take(n)
+        }
     }
 }
 
-class NumpadPageFormulaBox(page: NumpadPageInfo, size: SizeF, buttonPressed: Pt? = null) : FormulaBox() {
+class NumpadPageFormulaBox(page: NumpadPageInfo, size: SizeF, buttonPressed: Pt? = null, buttonExpanded: Pt? = null) : FormulaBox() {
     val dlgPage = BoxProperty(this, page).apply {
         onChanged += { _, _ ->
             removeAllBoxes()
@@ -233,17 +275,38 @@ class NumpadPageFormulaBox(page: NumpadPageInfo, size: SizeF, buttonPressed: Pt?
     val dlgButtonPressed = BoxProperty(this, buttonPressed)
     var buttonPressed by dlgButtonPressed
 
+    val dlgButtonExpanded = BoxProperty(this, buttonExpanded).apply {
+        onChanged += { _, e ->
+            removeAllBoxes()
+            addChildren()
+            alignChildren()
+        }
+    }
+    var buttonExpanded by dlgButtonExpanded
+
+    val realButtons
+        get() = buttonExpanded?.let { pt -> page.getButton(pt).aux } ?: page.buttons
+
     init {
         updateButtonSize()
         addChildren()
         alignChildren()
     }
 
-    fun coordsOf(c: FormulaBox): Pt {
-        val i = ch.indexOf(c)
-        return Pt(i % page.width, i / page.width)
+    // fun coordsOf(c: FormulaBox): Pt {
+    //     val i = ch.indexOf(c)
+    //     return Pt(i % page.width, i / page.width)
+    // }
+    // fun getButtonId(c: FormulaBox) = coordsOf(c).let { pt -> page.getButton(pt).id }
+    fun posFromCoords(pt: Pt): PointF {
+        val x = pt.x * buttonSize.width
+        val y = pt.y * buttonSize.height
+        return PointF(x, y)
     }
-    fun getButtonId(c: FormulaBox) = coordsOf(c).let { pt -> page.buttons.getValue(pt).id }
+    fun rectFromCoords(pt: Pt): RectF {
+        val pos = posFromCoords(pt)
+        return RectF(pos.x, pos.y, pos.x + buttonSize.width, pos.y + buttonSize.height)
+    }
 
     private fun updateButtonSize() {
         buttonSize = SizeF(
@@ -252,14 +315,27 @@ class NumpadPageFormulaBox(page: NumpadPageInfo, size: SizeF, buttonPressed: Pt?
         )
     }
 
-    override fun findChildBox(pos: PointF): FormulaBox {
+    fun findAuxButton(pos: PointF) = buttonExpanded?.let { _ ->
+        val pt = findCoords(pos)
+        realButtons.firstOrNull { it.pt == pt }
+    }
+
+    fun findButton(pos: PointF) =
+        page.getButton(findCoords(pos))
+
+    fun findCoords(pos: PointF): Pt {
         val x = (pos.x / buttonSize.width).toInt()
         val y = (pos.y / buttonSize.height).toInt()
-        val pt = Pt(
+        return Pt(
             clamp(x, 0, page.width-1),
             clamp(y, 0, page.height-1)
         )
-        return ch[pt.y * page.width + pt.x]
+    }
+
+    override fun findChildBox(pos: PointF): FormulaBox {
+        val pt = findCoords(pos)
+        val i = realButtons.indexOfFirst { btn -> btn.pt == pt }
+        return if (i == -1) this else ch[i]
     }
 
     override fun shouldEnterInChild(c: FormulaBox, pos: PointF) = false
@@ -267,14 +343,14 @@ class NumpadPageFormulaBox(page: NumpadPageInfo, size: SizeF, buttonPressed: Pt?
     override fun onChildBoundsChanged(b: FormulaBox, e: ValueChangedEvent<RectF>) {
     }
 
+    private fun addButton(btn: NumpadButtonInfo) {
+        val b = getIconFromId(btn.id)
+        addBox(TransformerFormulaBox(b))
+    }
+
     private fun addChildren() {
-        val (pw, ph, _, buttons) = page
-        for (j in 0 until ph) {
-            for (i in 0 until pw) {
-                val id = buttons.getValue(Pt(i, j)).id
-                val b = getIconFromId(id)
-                addBox(TransformerFormulaBox(b))
-            }
+        for (btn in realButtons) {
+            addButton(btn)
         }
         updateTransformers()
     }
@@ -289,21 +365,16 @@ class NumpadPageFormulaBox(page: NumpadPageInfo, size: SizeF, buttonPressed: Pt?
     }
 
     private fun alignChildren() {
-        val (pw, ph, _, _) = page
         val rx = buttonSize.width * 0.5f
         val ry = buttonSize.height * 0.5f
-        for (j in 0 until ph) {
-            for (i in 0 until pw) {
-                setChildTransform(j * pw + i, BoxTransform(PointF(
-                    i * buttonSize.width + rx,
-                    j * buttonSize.height + ry,
-                )))
-            }
+        realButtons.forEachIndexed { i, btn ->
+            setChildTransform(i, BoxTransform(PointF(
+                btn.pt.x * buttonSize.width + rx,
+                btn.pt.y * buttonSize.height + ry,
+            )))
         }
         updateGraphics()
     }
-
-
 
     override fun generateGraphics(): FormulaGraphics {
         val path = Path()
@@ -321,15 +392,36 @@ class NumpadPageFormulaBox(page: NumpadPageInfo, size: SizeF, buttonPressed: Pt?
             path.rLineTo(0f, h)
         }
         return FormulaGraphics(
-            path,
-            PathPainting.Stroke(0.25f),
-            buttonPressed?.let { (i, j) ->
-                val x = i * buttonSize.width
-                val y = j * buttonSize.height
-                RectF(x, y, x+buttonSize.width, y+buttonSize.height)
-            } ?: RectF(),
-            Color.BLACK,
-            Color.rgb(230, 230, 230)
+            buttonPressed?.let { pt -> // btnPressed
+                PaintedPath(
+                    Path().apply {
+                        addRect(rectFromCoords(pt), Path.Direction.CCW)
+                    },
+                    Paints.fill(Color.rgb(230, 230, 230))
+                )
+            },
+            buttonExpanded?.let { _ -> // aux
+                val auxPts = realButtons.map { it.pt }
+                PaintedPath(
+                    Path().apply {
+                        for (i in 0 .. page.width) {
+                            for (j in 0 .. page.height) {
+                                val pt = Pt(i, j)
+                                if (pt !in auxPts) {
+                                    addRect(rectFromCoords(pt), Path.Direction.CCW)
+                                }
+                            }
+                        }
+                    },
+                    Paints.fill(Color.WHITE)
+                )
+            },
+            PaintedPath( // grille
+                path,
+                Paints.stroke(0.25f, Color.BLACK)
+            ),
+            bounds = RectF(0f, 0f, size.width, size.height),
+            background = Color.WHITE
         )
     }
 

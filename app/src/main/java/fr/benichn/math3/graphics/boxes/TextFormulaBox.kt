@@ -7,7 +7,8 @@ import fr.benichn.math3.R
 import fr.benichn.math3.graphics.boxes.types.BoxProperty
 import fr.benichn.math3.graphics.boxes.types.FormulaGraphics
 import fr.benichn.math3.graphics.Utils
-import fr.benichn.math3.graphics.boxes.types.PathPainting
+import fr.benichn.math3.graphics.boxes.types.PaintedPath
+import fr.benichn.math3.graphics.boxes.types.Paints
 
 class TextFormulaBox(text: String = "", big: Boolean = false, widthFactor: Float = 1f) : FormulaBox() {
     val dlgText = BoxProperty(this, text)
@@ -41,7 +42,11 @@ class TextFormulaBox(text: String = "", big: Boolean = false, widthFactor: Float
                 )
             }
         val bounds = RectF(-w * 0.5f, -h * 0.5f, w * 0.5f, h * 0.5f)
-        return FormulaGraphics(p, PathPainting.Fill, bounds)
+        return FormulaGraphics(
+            PaintedPath(
+                p,
+                Paints.fill()),
+            bounds = bounds)
     }
 }
 

@@ -20,8 +20,9 @@ import fr.benichn.math3.graphics.boxes.types.BoxProperty
 import fr.benichn.math3.graphics.boxes.types.CommonParentWithIndices
 import fr.benichn.math3.graphics.boxes.types.FinalBoxes
 import fr.benichn.math3.graphics.boxes.types.Padding
+import fr.benichn.math3.graphics.boxes.types.PaintedPath
+import fr.benichn.math3.graphics.boxes.types.Paints
 import fr.benichn.math3.graphics.boxes.types.ParentWithIndex
-import fr.benichn.math3.graphics.boxes.types.PathPainting
 import fr.benichn.math3.graphics.caret.CaretPosition
 import fr.benichn.math3.graphics.caret.ContextMenu
 import fr.benichn.math3.types.Chain
@@ -279,27 +280,22 @@ open class FormulaBox {
             val old = field
             field = value
             notifyGraphicsChanged(old, value)
-            if (old.path != value.path) notifyPathChanged(old.path, value.path)
-            if (old.painting != value.painting) notifyPaintingChanged(old.painting, value.painting)
+            if (old.pictures != value.pictures) notifyPaintedPathsChanged(old.pictures, value.pictures)
             if (old.bounds != value.bounds) notifyBoundsChanged(old.bounds, value.bounds)
         }
     private val notifyBoundsChanged = VCC<FormulaBox, RectF>(this)
     val onBoundsChanged = notifyBoundsChanged.Listener()
     val bounds
         get() = graphics.bounds
-    private val notifyPathChanged = VCC<FormulaBox, Path>(this)
-    val onPathChanged = notifyPathChanged.Listener()
-    val path
-        get() = graphics.path
-    private val notifyPaintingChanged = VCC<FormulaBox, PathPainting>(this)
-    val onPaintingChanged = notifyPaintingChanged.Listener()
-    val painting
-        get() = graphics.painting
+    private val notifyPaintedPathsChanged = VCC<FormulaBox, List<PaintedPath>>(this)
+    val onPaintedPathsChanged = notifyPaintedPathsChanged.Listener()
+    val paintedPaths
+        get() = graphics.pictures
 
-    private var backgroundPaint = PathPainting.Fill.getPaint(Color.TRANSPARENT)
+    private var backgroundPaint = Paints.transparent
     val dlgBackground = BoxProperty<FormulaBox, Int?>(this, null, false).apply {
         onChanged += { _, e ->
-            backgroundPaint = PathPainting.Fill.getPaint(e.new ?: generatedGraphics?.background ?: Color.TRANSPARENT)
+            backgroundPaint = Paints.fill(e.new ?: generatedGraphics?.background ?: Color.TRANSPARENT)
             notifyPictureChanged()
         }
     }
@@ -310,10 +306,11 @@ open class FormulaBox {
         for (c in children) c.setBackgroundRecursive(color)
     }
 
-    private var foregroundPaint = Paint()
     val dlgForeground = BoxProperty<FormulaBox, Int?>(this, null, false).apply {
         onChanged += { _, e ->
-            foregroundPaint = painting.getPaint(e.new ?: generatedGraphics?.foreground ?: Color.WHITE)
+            generatedGraphics?.pictures?.forEach { p ->
+                p.forcedColor = e.new
+            }
             notifyPictureChanged()
         }
     }
@@ -341,17 +338,16 @@ open class FormulaBox {
     }
 
     protected open fun generateGraphics(): FormulaGraphics = FormulaGraphics(
-        Path(),
-        painting,
-        sumOfRects(ch.map { it.realBounds })
+        PaintedPath(),
+        bounds = sumOfRects(ch.map { it.realBounds })
     )
 
     private var generatedGraphics: FormulaGraphics? = null
     private fun updateGraphics(regenerate: Boolean) {
         if (regenerate) {
             val g = generateGraphics()
-            foregroundPaint = g.painting.getPaint(foreground ?: g.foreground)
-            backgroundPaint = PathPainting.Fill.getPaint(background ?: g.background)
+            g.pictures.forEach { p -> p.forcedColor = foreground }
+            backgroundPaint = Paints.fill(background ?: g.background)
             generatedGraphics = g
         }
         generatedGraphics?.run {
@@ -377,7 +373,9 @@ open class FormulaBox {
             }
 
             canvas.drawRect(bounds, backgroundPaint)
-            canvas.drawPath(path, foregroundPaint)
+            for (p in paintedPaths) {
+                canvas.drawPath(p.path, p.realPaint)
+            }
             // canvas.drawRect(bounds, FormulaView.red)
             for (b in children) {
                 b.drawOnCanvas(canvas)
@@ -414,7 +412,7 @@ open class FormulaBox {
             parent?.notifyPictureChanged?.invoke()
         }
         onGraphicsChanged += { _, e ->
-            if (e.old.path != e.new.path || e.old.painting != e.new.painting) {
+            if (e.old.pictures != e.new.pictures) {
                 notifyPictureChanged()
             }
         }

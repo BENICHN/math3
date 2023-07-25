@@ -23,6 +23,7 @@ class FunctionFormulaBox(text: String = "", type: BracketFormulaBox.Type = Brack
     init {
         textBox.dlgText.connectTo(dlgText)
         brackets.dlgType.connectTo(dlgType)
+        updateGraphics()
     }
 
     override fun getInitialSingle() = brackets.input.lastSingle

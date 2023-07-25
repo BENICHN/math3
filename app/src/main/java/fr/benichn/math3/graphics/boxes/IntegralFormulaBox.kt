@@ -24,7 +24,7 @@ class IntegralOperatorFormulaBox(type: Type = Type.BOTH) : TopDownFormulaBox(
             Type.BOTH,
             Type.NONE
         )
-        middleBoundsScaleX = 0.33f
+        middleBoundsScaleX = 0.5f
         middleBoundsScaleY = 0.33f
     }
 
@@ -41,7 +41,8 @@ class IntegralOperatorFormulaBox(type: Type = Type.BOTH) : TopDownFormulaBox(
         }),
         listOf(
             middle
-        )
+        ),
+        true
     )
 
     override fun getInitialSingle() = when (type) {
@@ -59,6 +60,10 @@ class IntegralFormulaBox(type: TopDownFormulaBox.Type = TopDownFormulaBox.Type.B
     val operator = ch[0] as IntegralOperatorFormulaBox
     val integrand = ch[1] as InputFormulaBox
     val variable = ch[3] as InputFormulaBox
+
+    init {
+        updateGraphics()
+    }
 
     override fun getInitialSingle() = if (integrand.ch.isEmpty()) integrand.lastSingle else operator.getInitialSingle()
 

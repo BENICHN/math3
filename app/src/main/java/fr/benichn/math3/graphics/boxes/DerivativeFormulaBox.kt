@@ -36,7 +36,8 @@ class DerivativeOperatorFormulaBox(type: Type = Type.BOTTOM) : TopDownFormulaBox
         }),
         listOf(
             middle
-        )
+        ),
+        true
     )
 
     override fun getInitialSingle() = (bottom as InputFormulaBox).lastSingle
@@ -49,6 +50,10 @@ class DerivativeFormulaBox(type: TopDownFormulaBox.Type = TopDownFormulaBox.Type
     val operator = ch[0] as DerivativeOperatorFormulaBox
     val brackets = ch[1] as BracketsInputFormulaBox
     override fun getInitialSingle() = operator.variable.lastSingle
+
+    init {
+        updateGraphics()
+    }
 
     override fun addInitialBoxes(ib: InitialBoxes): FinalBoxes {
         brackets.input.addBoxes(ib.selectedBoxes)

@@ -25,10 +25,6 @@ open class SequenceFormulaBox() : FormulaBox() {
 
     private val ignMap = mutableMapOf<FormulaBox, Boolean>()
 
-    init {
-        updateGraphics()
-    }
-
     override fun onChildBoundsChanged(b: FormulaBox, e: ValueChangedEvent<RectF>) {
         val j = ch.indexOf(b)
         offsetFrom(j, e.old.left - e.new.left)

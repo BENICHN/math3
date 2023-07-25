@@ -20,6 +20,10 @@ class InputFormulaBox(vararg boxes: FormulaBox) : SequenceFormulaBox(*boxes) {
     val lastSingle
         get() = CaretPosition.Single(this, ch.size)
 
+    init {
+        updateGraphics()
+    }
+
     override fun onChildRequiresDelete(b: FormulaBox, vararg anticipation: FormulaBox) =
         if (anticipation.isEmpty()) {
             val i = ch.indexOf(b)

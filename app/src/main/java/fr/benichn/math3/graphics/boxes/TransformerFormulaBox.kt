@@ -29,6 +29,10 @@ class TransformerFormulaBox(child: FormulaBox = FormulaBox(), transformers: List
             transformers = listOf(value)
         }
 
+    fun modifyTransformers(f: (List<BoundsTransformer>) -> List<BoundsTransformer>) {
+        transformers = f(transformers)
+    }
+
     init {
         addBox(child)
     }

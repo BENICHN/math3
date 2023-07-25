@@ -23,6 +23,7 @@ class BracketsInputFormulaBox(vararg boxes: FormulaBox, type: BracketFormulaBox.
         rightBracket.dlgRange.connectValue(input.onBoundsChanged, input.bounds) { r -> RangeF.fromRectV(r) }
         leftBracket.dlgType.connectTo(dlgType)
         rightBracket.dlgType.connectTo(dlgType)
+        updateGraphics()
     }
 
     override fun getInitialSingle() = input.lastSingle
@@ -56,5 +57,6 @@ class BracketsSequenceFormulaBox(vararg boxes: FormulaBox, type: BracketFormulaB
         rightBracket.dlgRange.connectValue(sequence.onBoundsChanged, sequence.bounds) { r -> RangeF.fromRectV(r) }
         leftBracket.dlgType.connectValue(dlgType.onChanged, type) { t -> t }
         rightBracket.dlgType.connectValue(dlgType.onChanged, type) { t -> t }
+        updateGraphics()
     }
 }

@@ -22,10 +22,10 @@ class FractionFormulaBox : TopDownFormulaBox(
     private val numerator = top as InputFormulaBox
     init {
         bottomContainer.apply {
-            transformers = transformers.append(BoundsTransformer.Constant(BoxTransform.yOffset(DEFAULT_TEXT_SIZE * 0.15f)))
+            modifyTransformers { it.append(BoundsTransformer.Constant(BoxTransform.yOffset(DEFAULT_TEXT_SIZE * 0.15f))) }
         }
         topContainer.apply {
-            transformers = transformers.append(BoundsTransformer.Constant(BoxTransform.yOffset(DEFAULT_TEXT_SIZE * -0.15f)))
+            modifyTransformers { it.append(BoundsTransformer.Constant(BoxTransform.yOffset(DEFAULT_TEXT_SIZE * -0.15f))) }
         }
         bar.range = getBarWidth()
         bar.dlgRange.connectValue(topContainer.onBoundsChanged) { _, _ -> getBarWidth() }

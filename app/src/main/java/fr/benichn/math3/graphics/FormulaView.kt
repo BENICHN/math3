@@ -199,7 +199,7 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : View(context,
             val totalDiff = (prim.totalAbsDiff + pinch.totalAbsDiff) * 0.5f
             fun getPos(p: PointF) = p - (origin + baseOffset + totalDiff)
             val c = (getPos(prim.lastAbsPosition) + getPos(pinch.lastAbsPosition)) * 0.5f
-            box.transformers = box.transformers.with(1, BoundsTransformer.Constant(BoxTransform.scale(baseScale * ratio)))
+            box.modifyTransformers { it.with(1, BoundsTransformer.Constant(BoxTransform.scale(baseScale * ratio))) }
             offset = baseOffset + totalDiff + c * (1 - ratio)
         }
 
@@ -462,11 +462,13 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : View(context,
 
      private inner class ContextMenuAction : FormulaViewAction() {
          var downEntry: ContextMenuEntry? = null
+         val downEntryIndex
+             get() = contextMenu!!.ent.indexOf(downEntry)
 
          override fun onDown() {
              downEntry = contextMenu!!.findEntry(prim.lastPosition)
              downEntry?.let {
-                 it.box.background = Color.LTGRAY
+                 contextMenu!!.fb.pressedItem = downEntryIndex
              }
          }
 
@@ -476,7 +478,7 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : View(context,
          override fun onMove() {
              val entry = contextMenu!!.findEntry(prim.lastPosition)
              downEntry?.let {
-                 it.box.background = if (it == entry) Color.LTGRAY else Color.WHITE
+                 contextMenu!!.fb.pressedItem = if (it == entry) downEntryIndex else null
              }
          }
 

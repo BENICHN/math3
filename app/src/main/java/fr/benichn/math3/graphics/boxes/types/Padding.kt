@@ -8,4 +8,6 @@ data class Padding(val left: Float, val top: Float, val right: Float, val bottom
     constructor() : this(0f, 0f, 0f, 0f)
     fun applyOnRect(r: RectF) =
         RectF(r.left-left, r.top-top, r.right+right, r.bottom+bottom)
+
+    operator fun plus(p: Padding) = Padding(left + p.left, top + p.top, right + p.right, bottom + p.bottom)
 }

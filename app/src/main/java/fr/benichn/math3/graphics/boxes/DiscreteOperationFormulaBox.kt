@@ -55,7 +55,8 @@ class DiscreteOperatorFormulaBox(operator: String, operatorType: Type = Type.BOU
         }),
         listOf(
             middle
-        )
+        ),
+        true
     )
 
     private fun applyType() = when (operatorType) {
@@ -96,6 +97,10 @@ class DiscreteOperationFormulaBox(operator: String, operatorType: DiscreteOperat
 ) {
     val operator = ch[0] as DiscreteOperatorFormulaBox
     val operand = ch[1] as InputFormulaBox
+
+    init {
+        updateGraphics()
+    }
 
     override fun getInitialSingle() = if (operand.ch.isEmpty()) operand.lastSingle else operator.getInitialSingle()
 

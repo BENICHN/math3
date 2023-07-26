@@ -2,8 +2,11 @@ package fr.benichn.math3
 
 import android.app.Application
 import android.os.Bundle
+import android.util.Log
 import androidx.appcompat.app.AppCompatActivity
 import androidx.fragment.app.commit
+import fr.benichn.math3.formulas.FormulaGroupedToken.Companion.readGroupedToken
+import fr.benichn.math3.formulas.FormulaToken.Companion.readToken
 import fr.benichn.math3.graphics.FormulaView
 import fr.benichn.math3.graphics.boxes.BracketFormulaBox
 import fr.benichn.math3.graphics.boxes.BracketsInputFormulaBox
@@ -25,6 +28,7 @@ import fr.benichn.math3.graphics.caret.ContextMenu
 import fr.benichn.math3.graphics.caret.ContextMenuEntry
 import fr.benichn.math3.numpad.NumpadView
 import fr.benichn.math3.numpad.types.Pt
+import java.io.StringReader
 
 class App : Application() {
     init {
@@ -86,5 +90,10 @@ class MainActivity : AppCompatActivity() {
                 }
             }
         }
+
+        val s = "(a b^1)2 + a2[2]"
+        val sr = StringReader(s)
+        val gtk = sr.readGroupedToken()
+        Log.d("gtk", gtk.toString())
     }
 }

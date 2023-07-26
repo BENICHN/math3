@@ -91,7 +91,7 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        val s = "(a b^1)2 + a2[2]"
+        val s = "(a* b^1)(x)*2 + a2*[2+6].real(5+(9+9))" // "(3*(-5 - Sqrt[33])*(2*x - 4*x^2 + 4*x^3 - n*x^n - n^2*x^n + 2*x^(1 + n) + 2*n^2*x^(1 + n) - 4*x^(2 + n) + n*x^(2 + n) - n^2*x^(2 + n) + 4*x*Sin[x] - 4*x^2*Sin[x] - 4*x^n*Sin[x] + 4*x^(1 + n)*Sin[x]))/(2*(-1 + x)^3*x)"
         val sr = StringReader(s)
         val gtk = sr.readGroupedToken()
         Log.d("gtk", gtk.toString())

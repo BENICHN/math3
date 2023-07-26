@@ -29,19 +29,25 @@ sealed class FormulaToken {
     data class Variable(val value: String) : FormulaToken() {
         override fun toString() = value
     }
+    data class Method(val value: String) : FormulaToken() {
+        override fun toString() = ".$value"
+    }
     data class Symbol(val value: Char) : FormulaToken() {
         override fun toString() = value.toString()
     }
     companion object {
+        fun Reader.readChar() = read().let { i -> if (i == -1) null else i.toChar() }
+        fun Reader.peekChar(): Char? {
+            mark(1)
+            return readChar().also { reset() }
+        }
         fun Reader.readToken(): FormulaToken? {
-            val c0 = read().also { if (it == -1) return null }.toChar()
+            val c0 = readChar() ?: return null
             var s = c0.toString()
             fun readChars(check: (Char) -> Boolean) {
                 while (true) {
                     mark(1)
-                    val i = read()
-                    if (i == -1) break
-                    val c = i.toChar()
+                    val c = readChar() ?: break
                     if (check(c)) {
                         s += c
                     } else {
@@ -51,13 +57,17 @@ sealed class FormulaToken {
                 }
             }
             return when {
-                c0.isDigit() -> {
-                    readChars { c -> c.isDigit() }
+                c0.isDigit() || c0 == '.' && peekChar()?.isDigit() == true -> {
+                    readChars { c -> c.isDigit() || c == '.' }
                     Number(BigDecimal(s))
                 }
                 c0.isLetter() -> {
                     readChars { c -> c.isLetter() || c.isDigit() }
                     Variable(s)
+                }
+                c0 == '.' && peekChar()?.isLetter() == true -> {
+                    readChars { c -> c.isLetter() }
+                    Method(s.substring(1))
                 }
                 c0 == ' ' -> readToken()
                 else -> {
@@ -78,26 +88,34 @@ sealed class FormulaGroupedToken {
     data class Group(val begin: String, val end: String, val value: FormulaGroupedToken) : FormulaGroupedToken() {
         override fun toString() = "$begin$value$end"
     }
-    data class Unary(val operator: String, val value: FormulaGroupedToken) : FormulaGroupedToken() {
-        override fun toString() = "$$operator$value$"
+    data class Function(val name: FormulaGroupedToken, val param: FormulaGroupedToken) : FormulaGroupedToken() {
+        override fun toString() = "$$name($param)$"
     }
-    data class Binary(val operator: String, val values: List<FormulaGroupedToken>) : FormulaGroupedToken() {
-        override fun toString() = "<$operator:${values.joinToString(operator)}:$operator>"
+    data class Unary(val operator: String, val value: FormulaGroupedToken) : FormulaGroupedToken() {
+        override fun toString() = "<$operator:$operator$value:>"
+    }
+    data class Method(val obj: FormulaGroupedToken, val name: String, val param: FormulaGroupedToken) : FormulaGroupedToken() {
+        override fun toString() = "@$obj@$name($param)"
+    }
+    data class Binary(val operator: String, val left: FormulaGroupedToken, val right: FormulaGroupedToken) : FormulaGroupedToken() {
+        override fun toString() = "<$operator:$left$operator$right:$operator>"
     }
 
     private class GroupedTokenWithEnd(
         val gtk: FormulaGroupedToken,
-        val end: FormulaToken?
+        val end: FormulaToken? = null
     )
 
     companion object {
         val priorities = mapOf(
             '+' to -1,
             '-' to -1,
-            '(' to 0,
+            '*' to 0,
             '/' to 0,
             '^' to 1,
-            '[' to 7,
+            ']' to -7,
+            ')' to -7,
+            '}' to -7,
         )
         val groupDelimiters = mapOf(
             '(' to ')',
@@ -108,65 +126,47 @@ sealed class FormulaGroupedToken {
 
         private fun Reader.readGroupedTokenWithEnd(
             priority: Int = -8,
-            stopChar: Char? = null,
         ): GroupedTokenWithEnd {
-            val values = mutableListOf<FormulaGroupedToken>()
+            var result: FormulaGroupedToken = Empty
             var tk = readToken()
-            fun makeResultGroup(): FormulaGroupedToken {
-                val res = when(values.size) {
-                    0 -> Empty
-                    1 -> values[0]
-                    else -> Binary("", values.toList())
-                }
-                values.clear()
-                return res
-            }
-            fun makeResult(end: FormulaToken?) =
-                GroupedTokenWithEnd(makeResultGroup(), end)
             while (true) {
                 when (tk) {
                     null -> break
                     else -> {
                         when (tk) {
                             is FormulaToken.Number, is FormulaToken.Variable -> {
-                                if (priority > 0 && values.isNotEmpty()) {
-                                    return makeResult(tk)
-                                } else {
-                                    values.add(Token(tk))
-                                }
+                                assert(result is Empty)
+                                result = Token(tk)
+                            }
+                            is FormulaToken.Method -> {
+                                val beg = readToken()
+                                assert(beg is FormulaToken.Symbol && beg.value == '(')
+                                val content = readGroupedTokenWithEnd(-7)
+                                result = Method(result, tk.value, content.gtk)
                             }
                             is FormulaToken.Symbol -> {
                                 val c = tk.value
-                                if (c == stopChar) {
-                                    return makeResult(tk)
-                                }
-                                val p = getPriority(c)
-                                if (p <= priority) {
-                                    return makeResult(tk)
-                                }
                                 val g = groupDelimiters[c]?.let { del ->
-                                    val content = readGroupedTokenWithEnd(-7, del)
-                                    val gtk = Group(c.toString(), del.toString(), content.gtk)
+                                    val content = readGroupedTokenWithEnd(-7)
                                     GroupedTokenWithEnd(
-                                        if (c == '[') {
-                                            val op = ((values.removeLast() as Token).value as FormulaToken.Variable).value
-                                            Unary(op, gtk)
-                                        } else gtk,
+                                        if (c == '(' && result !is Empty) {
+                                            Function(result, content.gtk).also { result = Empty }
+                                        } else Group(c.toString(), del.toString(), content.gtk),
                                         null)
                                 } ?: run {
-                                    val left =
-                                        if (p >= 0)
-                                            values.lastOrNull()?.also {
-                                                values.removeLast()
-                                            } ?: Empty
-                                        else makeResultGroup()
+                                    val p = getPriority(c)
+                                    if (p <= priority) {
+                                        return GroupedTokenWithEnd(result, tk)
+                                    }
                                     val right = readGroupedTokenWithEnd(p)
                                     GroupedTokenWithEnd(
-                                        Binary(c.toString(), listOf(left, right.gtk)),
+                                        if (result == Empty) Unary(c.toString(), right.gtk)
+                                        else Binary(c.toString(), result, right.gtk).also { result = Empty },
                                         right.end
                                     )
                                 }
-                                if (g.gtk !is Empty) values.add(g.gtk)
+                                assert(result is Empty)
+                                result = g.gtk
                                 if (g.end != null) {
                                     tk = g.end
                                     continue
@@ -177,7 +177,7 @@ sealed class FormulaGroupedToken {
                 }
                 tk = readToken()
             }
-            return makeResult(null)
+            return GroupedTokenWithEnd(result)
         }
         fun Reader.readGroupedToken() = readGroupedTokenWithEnd().gtk
     }

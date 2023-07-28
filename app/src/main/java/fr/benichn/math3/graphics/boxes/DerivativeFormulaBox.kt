@@ -62,4 +62,11 @@ class DerivativeFormulaBox(type: TopDownFormulaBox.Type = TopDownFormulaBox.Type
         brackets.input.addBoxes(ib.selectedBoxes)
         return FinalBoxes()
     }
+
+    override fun toSage() = "diff(${brackets.input.toSage()}, " +
+            when (operator.type) {
+                TopDownFormulaBox.Type.BOTTOM -> operator.variable.toSage()
+                TopDownFormulaBox.Type.BOTH -> "[${operator.variable.toSage()}] * ${operator.order.toSage()}"
+                else -> throw UnsupportedOperationException()
+            } + ")"
 }

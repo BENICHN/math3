@@ -48,6 +48,14 @@ class TextFormulaBox(text: String = "", big: Boolean = false, widthFactor: Float
                 Paints.fill()),
             bounds = bounds)
     }
+
+    override fun toSage() = when(text) {
+        "×" -> "*"
+        "ⅈ" -> "I"
+        "ℼ" -> "pi"
+        "ⅇ" -> "e"
+        else -> text
+    }
 }
 
 fun FormulaBox.isDigit() = this is TextFormulaBox && text.all { c -> c.isDigit() || c == '.' }

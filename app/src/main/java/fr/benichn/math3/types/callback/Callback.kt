@@ -4,6 +4,12 @@ class Callback<S, T>(val source: S) {
     inner class Listener {
         val source
             get() = this@Callback.source
+        fun add(l: (S, T) -> Any) {
+            action.add(l)
+        }
+        fun remove(l: (S, T) -> Any) {
+            action.remove(l)
+        }
         operator fun plusAssign(l: (S, T) -> Unit) {
             action.add(l)
         }
@@ -11,18 +17,13 @@ class Callback<S, T>(val source: S) {
             action.remove(l)
         }
     }
-    private val action: MutableList<(S, T) -> Unit> = mutableListOf()
+    private val action: MutableList<(S, T) -> Any> = mutableListOf()
     operator fun invoke(e: T) {
-        for (l in action) {
-            l(source, e)
+        for (l in action.toList()) {
+            val r = l(source, e)
+            if (r == true) action.remove(l)
         }
     }
-    // operator fun plusAssign(l: (S, T) -> Unit) {
-    //     listeners.add(l)
-    // }
-    // operator fun minusAssign(l: (S, T) -> Unit) {
-    //     listeners.remove(l)
-    // }
 }
 
 operator fun <S> Callback<S, Unit>.invoke() = this.invoke(Unit)

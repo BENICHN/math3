@@ -1,7 +1,6 @@
 package fr.benichn.math3.graphics.types
 
 import android.graphics.PointF
-import android.os.CountDownTimer
 import android.view.MotionEvent
 import androidx.core.graphics.minus
 import androidx.core.graphics.plus
@@ -11,6 +10,10 @@ import fr.benichn.math3.graphics.Utils.Companion.times
 import fr.benichn.math3.types.callback.Callback
 import fr.benichn.math3.types.callback.VCC
 import fr.benichn.math3.types.callback.invoke
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 data class TouchData(
     val id: Int,
@@ -26,9 +29,9 @@ data class TouchData(
     val totalDiff
         get() = lastPosition - downPosition
     fun isTargeted(e: MotionEvent) = e.actionIndex == e.findPointerIndex(id)
-    fun getAbsPos(e: MotionEvent): PointF {
+    fun getAbsPos(e: MotionEvent): PointF? {
         val i = e.findPointerIndex(id)
-        return PointF(e.getX(i), e.getY(i))
+        return if (i == -1) null else PointF(e.getX(i), e.getY(i))
     }
 }
 
@@ -77,9 +80,14 @@ abstract class TouchAction(val getPos: (PointF) -> PointF = { it }, val longPres
     private val notifyReplaced = VCC<TouchAction, TouchAction>(this)
     val onReplaced = notifyReplaced.Listener()
 
-    private val downTimer = object : CountDownTimer(longPressTimeout, longPressTimeout) {
-        override fun onTick(p0: Long) {}
-        override fun onFinish() {
+    private var canLongPress = true
+    private fun cancelLongPress() {
+        canLongPress = false
+    }
+
+    private suspend fun waitForLongPress() {
+        delay(longPressTimeout)
+        if (canLongPress) {
             isLongPressed = true
             onLongDown()
         }
@@ -131,14 +139,22 @@ abstract class TouchAction(val getPos: (PointF) -> PointF = { it }, val longPres
                 when (e.actionMasked) {
                     MotionEvent.ACTION_MOVE -> {
                         val absPos = prim.getAbsPos(e)
+                        if (absPos == null) {
+                            finish()
+                            return
+                        }
                         updatePos(absPos, false)
                         if (!hasMoved && Utils.l2(prim.downAbsPosition - absPos) > MINIMAL_MOVE_DISTANCE_SQ) {
                             hasMoved = true
-                            downTimer.cancel()
+                            cancelLongPress()
                         }
                         if (hasMoved) {
                             if (isPinched) {
                                 val pinchAbsPos = pinch.getAbsPos(e)
+                                if (pinchAbsPos == null) {
+                                    finish()
+                                    return
+                                }
                                 updatePos(pinchAbsPos, true)
                                 onPinchMove()
                             } else {
@@ -159,7 +175,12 @@ abstract class TouchAction(val getPos: (PointF) -> PointF = { it }, val longPres
                                 onPinchUp()
                                 pinchData = null
                             } else {
-                                updatePos(prim.getAbsPos(e), false)
+                                val absPos = prim.getAbsPos(e)
+                                if (absPos == null) {
+                                    finish()
+                                    return
+                                }
+                                updatePos(absPos, false)
                                 finish(true)
                             }
                         }
@@ -168,7 +189,12 @@ abstract class TouchAction(val getPos: (PointF) -> PointF = { it }, val longPres
                     if (pinch.isTargeted(e)) {
                         when (e.actionMasked) {
                             MotionEvent.ACTION_POINTER_UP -> {
-                                updatePos(pinch.getAbsPos(e), true)
+                                val absPos = pinch.getAbsPos(e)
+                                if (absPos == null) {
+                                    finish()
+                                    return
+                                }
+                                updatePos(absPos, true)
                                 onPinchUp()
                                 pinchData = null
                             }
@@ -199,7 +225,7 @@ abstract class TouchAction(val getPos: (PointF) -> PointF = { it }, val longPres
         )
 
     private fun createPinch(id: Int, downAbsPos: PointF) {
-        downTimer.cancel()
+        cancelLongPress()
         hasMoved = true
         createData(
             id,
@@ -224,7 +250,9 @@ abstract class TouchAction(val getPos: (PointF) -> PointF = { it }, val longPres
             isLongPressed = true
             onLongDown()
         } else {
-            downTimer.start()
+            CoroutineScope(Dispatchers.IO).launch {
+                waitForLongPress()
+            }
             onDown()
         }
     }
@@ -235,15 +263,15 @@ abstract class TouchAction(val getPos: (PointF) -> PointF = { it }, val longPres
         launch(PointF(downEvent.getX(downEvent.actionIndex), downEvent.getY(downEvent.actionIndex)), id, longPress)
     }
 
-    fun forceLongDown() {
-        if (!isLongPressed) {
-            downTimer.cancel()
-            downTimer.onFinish()
-        }
-    }
+    // fun forceLongDown() {
+    //     if (!isLongPressed) {
+    //         cancelLongPress()
+    //         downTimer.onFinish()
+    //     }
+    // }
 
     fun replace(a: TouchAction, longPress: Boolean = false) {
-        downTimer.cancel()
+        cancelLongPress()
         beforeFinish(a)
         isFinished = true
         if (isPinched) {
@@ -256,7 +284,7 @@ abstract class TouchAction(val getPos: (PointF) -> PointF = { it }, val longPres
 
     fun finish() = finish(false)
     private fun finish(callOnUp: Boolean) {
-        downTimer.cancel()
+        cancelLongPress()
         if (callOnUp) onUp()
         beforeFinish(null)
         isFinished = true

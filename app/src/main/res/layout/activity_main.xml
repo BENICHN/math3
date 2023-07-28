@@ -5,17 +5,19 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical">
-    <LinearLayout
+    <ScrollView
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:layout_weight="1"
-        android:orientation="vertical"
-        android:id="@+id/mll">
-        <fr.benichn.math3.graphics.FormulaView
+        android:orientation="vertical">
+        <LinearLayout
+            android:paddingTop="20dp"
+            android:orientation="vertical"
             android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:id="@+id/fv"/>
-    </LinearLayout>
+            android:layout_height="wrap_content"
+            android:id="@+id/cellsContainer"
+            />
+    </ScrollView>
     <fr.benichn.math3.numpad.NumpadView
         android:layout_width="match_parent"
         android:layout_height="match_parent"

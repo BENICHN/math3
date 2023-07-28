@@ -113,4 +113,19 @@ class DiscreteOperationFormulaBox(operator: String, operatorType: DiscreteOperat
     override fun generateGraphics() = super.generateGraphics().withBounds { r ->
         Padding(0f, 0f, DEFAULT_TEXT_WIDTH * 0.25f, 0f).applyOnRect(r)
     }
+
+    override fun toSage(): String {
+        val name = when (operator.operator) {
+            "∑" -> "sum"
+            "∏" -> "product"
+            else -> throw UnsupportedOperationException()
+        }
+        return when (operator.operatorType) {
+            DiscreteOperatorFormulaBox.Type.LIST ->
+                "$name([${operand.toSage()} for ${operator.bottom.ch[0].toSage()} in [${(operator.bottom.ch[2] as BracketsInputFormulaBox).input.toSage()}]])"
+            DiscreteOperatorFormulaBox.Type.BOUNDS ->
+                "$name(${operand.toSage()}, ${operator.bottom.ch[0].toSage()}, ${operator.bottom.ch[2].toSage()}, ${operator.top.toSage()})"
+            DiscreteOperatorFormulaBox.Type.INDEFINITE -> TODO()
+        }
+    }
 }

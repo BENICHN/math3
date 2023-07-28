@@ -4,6 +4,7 @@ import android.graphics.Color
 import android.graphics.Path
 import android.graphics.PointF
 import android.graphics.RectF
+import fr.benichn.math3.graphics.boxes.types.BoxProperty
 import fr.benichn.math3.graphics.boxes.types.DeletionResult
 import fr.benichn.math3.graphics.boxes.types.FinalBoxes
 import fr.benichn.math3.graphics.boxes.types.FormulaGraphics
@@ -15,14 +16,18 @@ import fr.benichn.math3.graphics.boxes.types.RangeF
 import fr.benichn.math3.graphics.caret.CaretPosition
 import kotlin.math.abs
 
-class InputFormulaBox(vararg boxes: FormulaBox) : SequenceFormulaBox(*boxes) {
+class InputFormulaBox(vararg boxes: FormulaBox, isVisible: Boolean = true) : SequenceFormulaBox() {
     val firstSingle
         get() = CaretPosition.Single(this, 0)
     val lastSingle
         get() = CaretPosition.Single(this, ch.size)
 
+    private val dlgIsVisible = BoxProperty(this, isVisible)
+    var isVisible by dlgIsVisible
+
     init {
-        updateGraphics()
+        addBoxes(*boxes)
+        if (ch.isEmpty()) updateGraphics()
     }
 
     override fun onChildRequiresDelete(b: FormulaBox, vararg anticipation: FormulaBox) =
@@ -49,12 +54,6 @@ class InputFormulaBox(vararg boxes: FormulaBox) : SequenceFormulaBox(*boxes) {
             !(pos.y in -DEFAULT_TEXT_RADIUS .. DEFAULT_TEXT_RADIUS && (abs(left - pos.x) < SEP_RADIUS || abs(right - pos.x) < SEP_RADIUS))
         }
 
-    // override fun deleteMultiple(indices: List<Int>) = if (indices.size == 1) {
-    //     val i = indices[0]
-    //     removeBoxAt(i)
-    //     DeletionResult(CaretPosition.Single(this, i), true)
-    // } else DeletionResult()
-
     fun addFinalBoxes(i: Int, fb: FinalBoxes) : CaretPosition {
         for ((j, b) in fb.boxesBefore.union(fb.boxesAfter).withIndex()) {
             addBox(i+j, b)
@@ -68,7 +67,7 @@ class InputFormulaBox(vararg boxes: FormulaBox) : SequenceFormulaBox(*boxes) {
         }
     }
 
-    override fun generateGraphics() = if (ch.isEmpty()) {
+    override fun generateGraphics() = if (isVisible && ch.isEmpty()) {
         val rx = DEFAULT_TEXT_WIDTH * 0.25f
         val ry = DEFAULT_TEXT_RADIUS * 0.5f
         val bds = RectF(0f, -DEFAULT_TEXT_RADIUS, DEFAULT_TEXT_WIDTH, DEFAULT_TEXT_RADIUS)
@@ -93,7 +92,39 @@ class InputFormulaBox(vararg boxes: FormulaBox) : SequenceFormulaBox(*boxes) {
         )
     } else super.generateGraphics()
 
+    override fun toSage(): String {
+        var result = ""
+        var check: ((FormulaBox) -> Boolean)? = null
+        for (c in ch) {
+            if (check?.invoke(c) != true) {
+                if (result.isNotEmpty() && !(c is TextFormulaBox && c.text in binaryOperators) && result.last().toString() !in binaryOperators) {
+                    result += "*"
+                }
+                check = null
+            }
+            result += c.toSage()
+            check = check ?: when (c) {
+                is TextFormulaBox -> {
+                    val t = c.text
+                    if (t.length == 1) {
+                        val char = t[0]
+                        when {
+                            char in specialCharacters -> { _ -> false }
+                            char.isDigit() || char == '.' -> { b: FormulaBox -> b is TextFormulaBox && b.text.length == 1 && b.text[0].let { it.isDigit() || it == '.' } || b is ScriptFormulaBox }
+                            char.isLetter() -> { b: FormulaBox -> b is TextFormulaBox && b.text.length == 1 && b.text[0].let { (it.isLetter() || it.isDigit()) && it !in specialCharacters } || b is ScriptFormulaBox }
+                            else -> null
+                        }
+                    } else null
+                }
+                else -> null
+            }
+        }
+        return result
+    }
+
     companion object {
+        val binaryOperators = listOf( "+", "-", "×", "*", "^" )
+        val specialCharacters = listOf('ⅇ', 'ⅈ', 'ℼ')
         const val SEP_RADIUS = DEFAULT_TEXT_WIDTH * 0.5f
     }
 }

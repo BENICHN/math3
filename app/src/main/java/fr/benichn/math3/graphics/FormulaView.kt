@@ -5,10 +5,13 @@ import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.PointF
+import android.graphics.Rect
 import android.graphics.RectF
 import android.util.AttributeSet
+import android.util.Log
 import android.view.MotionEvent
 import android.view.View
+import android.view.ViewGroup
 import androidx.core.graphics.minus
 import androidx.core.graphics.plus
 import fr.benichn.math3.Utils.Companion.neg
@@ -38,10 +41,13 @@ import fr.benichn.math3.graphics.types.TouchAction
 import fr.benichn.math3.types.callback.*
 import kotlin.concurrent.fixedRateTimer
 import kotlin.math.abs
+import kotlin.math.ceil
+import kotlin.math.max
 import kotlin.math.sign
 
 class FormulaView(context: Context, attrs: AttributeSet? = null) : View(context, attrs) {
-    private var box = TransformerFormulaBox(InputFormulaBox(), BoundsTransformer.Align(RectPoint.BOTTOM_CENTER))
+    val input = InputFormulaBox()
+    private var box = TransformerFormulaBox(input, BoundsTransformer.Align(RectPoint.BOTTOM_CENTER))
     private var caret: BoxCaret
     private val origin
         get() = PointF(width * 0.5f, height - FormulaBox.DEFAULT_TEXT_RADIUS)
@@ -142,9 +148,21 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : View(context,
         return PointF(x, y)
     }
 
+    var isReadOnly by ObservableProperty(this, false).apply {
+        onChanged += { _, e ->
+            clearCaretPositions()
+            input.isVisible = !e.new
+        }
+    }
+
+    fun clearCaretPositions() {
+        caret.positions = listOf()
+    }
+
     override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
-        touchAction?.finish()
+        // touchAction?.finish()
         contextMenu = null
+        adjustOffset()
         invalidate()
     }
 
@@ -225,27 +243,29 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : View(context,
         }
 
         override fun onUp() {
-            val b = box.findBox(prim.downPosition)
-            b.contextMenu?.also { cm ->
-                if (cm.trigger(cm.source!!.accTransform.invert.applyOnPoint(prim.downPosition))) {
-                    val p = CaretPosition.DiscreteSelection.fromBox(cm.source!!)!!
+            if (!isReadOnly) {
+                val b = box.findBox(prim.downPosition)
+                b.contextMenu?.also { cm ->
+                    if (cm.trigger(cm.source!!.accTransform.invert.applyOnPoint(prim.downPosition))) {
+                        val p = CaretPosition.DiscreteSelection.fromBox(cm.source!!)!!
+                        caret.positions = if (isAdding) {
+                            getFiltered(caret.positions + p)
+                        } else {
+                            listOf(p)
+                        }
+                        contextMenu = cm.also {
+                            it.origin = RectPoint.TOP_CENTER.get(it.source!!.accRealBounds) - PointF(0f, CONTEXT_MENU_OFFSET)
+                            it.index = caret.positions.size-1
+                        }
+                    }
+                }
+                if (contextMenu == null) {
+                    val p = findSingle(prim.downPosition)
                     caret.positions = if (isAdding) {
                         getFiltered(caret.positions + p)
                     } else {
                         listOf(p)
                     }
-                    contextMenu = cm.also {
-                        it.origin = RectPoint.TOP_CENTER.get(it.source!!.accRealBounds) - PointF(0f, CONTEXT_MENU_OFFSET)
-                        it.index = caret.positions.size-1
-                    }
-                }
-            }
-            if (contextMenu == null) {
-                val p = findSingle(prim.downPosition)
-                caret.positions = if (isAdding) {
-                    getFiltered(caret.positions + p)
-                } else {
-                    listOf(p)
                 }
             }
             lastPlaceUp = PositionUp(prim.downAbsPosition, System.currentTimeMillis(), caret.positions.size-1)
@@ -332,7 +352,10 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : View(context,
             val s = findSingle(prim.lastPosition)
             val d = doubleFromSingles(downSingle, s)
             if (d.indexRange.start == d.indexRange.end) {
-                caret.positions = getFiltered(basePositions + CaretPosition.Single(d.box, d.indexRange.start))
+                caret.positions = getFiltered(
+                    if (isReadOnly) basePositions
+                    else basePositions + CaretPosition.Single(d.box, d.indexRange.start)
+                )
             }
         }
 
@@ -390,7 +413,10 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : View(context,
                 val s = findSingle(prim.lastPosition)
                 val d = doubleFromSingles(fixedSingle, s)
                 if (d.indexRange.start == d.indexRange.end) {
-                    caret.positions = getFiltered(basePositions + CaretPosition.Single(d.box, d.indexRange.start))
+                    caret.positions = getFiltered(
+                        if (isReadOnly) basePositions
+                        else basePositions + CaretPosition.Single(d.box, d.indexRange.start)
+                    )
                 }
             } else {
                 lastPlaceUp = PositionUp(prim.downAbsPosition, System.currentTimeMillis(), index)
@@ -578,11 +604,41 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : View(context,
         }
     }
 
+    var syncHeight by ObservableProperty(this, true).apply {
+        onChanged += { _, _ -> requestLayout() }
+    }
+
+    override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
+        setMeasuredDimension(
+            widthMeasureSpec,
+            if (syncHeight) {
+                max(MIN_HEIGHT, ceil(box.realBounds.height() + 2 * DEFAULT_PADDING).toInt())
+            } else {
+                heightMeasureSpec
+            }
+        )
+    }
+
+    override fun onFocusChanged(gainFocus: Boolean, direction: Int, previouslyFocusedRect: Rect?) {
+        Log.d("fc", gainFocus.toString())
+        super.onFocusChanged(gainFocus, direction, previouslyFocusedRect)
+    }
+
+    override fun onWindowFocusChanged(hasWindowFocus: Boolean) {
+        Log.d("wfc", hasWindowFocus.toString())
+        super.onWindowFocusChanged(hasWindowFocus)
+    }
+
     init {
+        isClickable = true
+        isLongClickable = true
+        isFocusable = true
+        isFocusableInTouchMode = true
         setWillNotDraw(false)
         box.onPictureChanged += { _, _ ->
             invalidate() }
         box.onBoundsChanged += { _, _ ->
+            requestLayout()
             adjustOffset()
         }
         caret = box.createCaret()
@@ -898,6 +954,7 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : View(context,
         )
 
         const val DEFAULT_PADDING = FormulaBox.DEFAULT_TEXT_WIDTH
+        const val MIN_HEIGHT = (FormulaBox.DEFAULT_TEXT_SIZE + 2 * DEFAULT_PADDING).toInt()
         val defaultPadding = Padding(DEFAULT_PADDING)
         const val VELOCITY_REDUCTION_PERIOD = 8L
         const val VELOCITY_REDUCTION_MULT = VELOCITY_REDUCTION_PERIOD * 0.001f

@@ -104,4 +104,7 @@ class ScriptFormulaBox(type: Type = Type.TOP, range: RangeF = RangeF(-DEFAULT_TE
     private fun applyRange() {
         phantom.customBounds = RectF(0f, range.start, 0f, range.end)
     }
+
+    override fun toSage() =
+        (if (type.hasBottom) "_(${bottom.toSage()})" else "") + (if (type.hasTop) "^(${top.toSage()})" else "")
 }

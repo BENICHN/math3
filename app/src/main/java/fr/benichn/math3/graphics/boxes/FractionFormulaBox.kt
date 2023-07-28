@@ -53,7 +53,7 @@ class FractionFormulaBox : TopDownFormulaBox(
             }
         if (boxes.size == 1 && boxes[0] is BracketsInputFormulaBox) {
             (boxes[0] as BracketsInputFormulaBox).input.also {
-                numerator.addBoxes(it.ch)
+                numerator.addBoxes(it.ch.toList())
                 it.delete()
             }
         } else {
@@ -88,4 +88,6 @@ class FractionFormulaBox : TopDownFormulaBox(
         val r = w * 0.5f
         return RangeF(-r, r)
     }
+
+    override fun toSage() = "(${numerator.toSage()})/(${denominator.toSage()})"
 }

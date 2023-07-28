@@ -155,4 +155,7 @@ class MatrixFormulaBox(shape: Pt = Pt(1, 1)) : FormulaBox() {
     override fun addInitialBoxes(ib: InitialBoxes) = grid.addInitialBoxes(ib)
 
     override fun getInitialSingle() = grid.getInitialSingle()
+
+    override fun toSage() =
+        grid.rows.joinToString(",") { row -> "[${row.joinToString(", ") { b -> b.toSage() }}]" }.let { "[$it]" }
 }

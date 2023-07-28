@@ -157,4 +157,9 @@ class RootFormulaBox(type: Type = Type.SQRT) : FormulaBox() {
         SQRT,
         ORDER
     }
+
+    override fun toSage() = when(type) {
+        Type.SQRT -> "sqrt(${input.toSage()})"
+        Type.ORDER -> "(${input.toSage()})^(1/(${order.toSage()}))"
+    }
 }

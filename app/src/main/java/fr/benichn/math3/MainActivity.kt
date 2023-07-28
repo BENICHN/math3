@@ -3,39 +3,35 @@ package fr.benichn.math3
 import android.app.Application
 import android.os.Bundle
 import android.util.Log
+import android.view.ViewGroup
+import android.widget.LinearLayout
 import androidx.appcompat.app.AppCompatActivity
-import androidx.fragment.app.commit
+import fr.benichn.math3.Utils.Companion.dp
 import fr.benichn.math3.formulas.FormulaGroupedToken.Companion.readGroupedToken
-import fr.benichn.math3.formulas.FormulaToken.Companion.readToken
-import fr.benichn.math3.graphics.FormulaView
+import fr.benichn.math3.graphics.FormulaCell
 import fr.benichn.math3.graphics.boxes.BracketFormulaBox
 import fr.benichn.math3.graphics.boxes.BracketsInputFormulaBox
 import fr.benichn.math3.graphics.boxes.DerivativeFormulaBox
-import fr.benichn.math3.graphics.boxes.FractionFormulaBox
-import fr.benichn.math3.graphics.boxes.InputFormulaBox
-import fr.benichn.math3.graphics.boxes.MatrixFormulaBox
-import fr.benichn.math3.graphics.boxes.SequenceChild.Companion.ign
-import fr.benichn.math3.graphics.boxes.TextFormulaBox
-import fr.benichn.math3.graphics.boxes.TopDownFormulaBox
-import fr.benichn.math3.graphics.boxes.DerivativeOperatorFormulaBox
 import fr.benichn.math3.graphics.boxes.DiscreteOperationFormulaBox
 import fr.benichn.math3.graphics.boxes.DiscreteOperatorFormulaBox
+import fr.benichn.math3.graphics.boxes.FractionFormulaBox
 import fr.benichn.math3.graphics.boxes.IntegralFormulaBox
-import fr.benichn.math3.graphics.boxes.IntegralOperatorFormulaBox
+import fr.benichn.math3.graphics.boxes.MatrixFormulaBox
 import fr.benichn.math3.graphics.boxes.RootFormulaBox
 import fr.benichn.math3.graphics.boxes.ScriptFormulaBox
-import fr.benichn.math3.graphics.caret.ContextMenu
-import fr.benichn.math3.graphics.caret.ContextMenuEntry
+import fr.benichn.math3.graphics.boxes.TextFormulaBox
+import fr.benichn.math3.graphics.boxes.TopDownFormulaBox
 import fr.benichn.math3.numpad.NumpadView
 import fr.benichn.math3.numpad.types.Pt
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import java.io.StringReader
+
 
 class App : Application() {
     init {
         instance = this
-        // Thread.setDefaultUncaughtExceptionHandler { thread, throwable ->
-        //     Log.d("erore", "$thread ~ $throwable")
-        // }
     }
 
     companion object {
@@ -43,19 +39,46 @@ class App : Application() {
     }
 }
 
-
 class MainActivity : AppCompatActivity() {
-    private lateinit var fv: FormulaView
+    private lateinit var cellsContainer: LinearLayout
     private lateinit var nv: NumpadView
+    private val engine = SageEngine().apply {
+        CoroutineScope(Dispatchers.IO).launch {
+            start()
+        }
+    }
+
+    private fun addCell() = FormulaCell(applicationContext).also {
+        it.layoutParams = LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT,
+            ViewGroup.LayoutParams.WRAP_CONTENT
+        ).apply {
+            setMargins(20.dp(), 0, 20.dp(), 20.dp())
+        }
+        cellsContainer.addView(it)
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
-        fv = findViewById(R.id.fv)
+        cellsContainer = findViewById(R.id.cellsContainer)
+        val cell = FormulaCell(applicationContext)
+        addCell()
+        val fv = addCell().inputFV
         nv = findViewById(R.id.numpad)
         nv.onButtonClicked += { _, id ->
             when (id) {
                 "⌫" -> {
                     fv.sendDelete()
+                }
+                "↵" -> {
+                    CoroutineScope(Dispatchers.IO).launch {
+                        val c = fv.input.toSage()
+                        engine.waitForStatus(Engine.Status.READY)
+                        Log.d("sage", "-> input : $c")
+                        val r = engine.run(c)
+                        Log.d("sage", r.toString())
+                    }
                 }
                 else -> {
                     val newBox = {

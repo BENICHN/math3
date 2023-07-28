@@ -103,4 +103,14 @@ class BracketFormulaBox(range: RangeF = RangeF(-DEFAULT_TEXT_RADIUS,DEFAULT_TEXT
             bounds = bounds
         )
     }
+
+    override fun toSage() = when (type) {
+        Type.BRACE -> if (side == Side.L) "(" else ")"
+        Type.BAR -> if (side == Side.L) "|" else "|"
+        Type.BRACKET -> if (side == Side.L) "[" else "]"
+        Type.FLOOR -> if (side == Side.L) "⌊" else "⌋"
+        Type.CEIL -> if (side == Side.L) "⌈" else "⌉"
+        Type.CURLY -> if (side == Side.L) "{" else "}"
+        Type.CHEVRON -> if (side == Side.L) "<" else ">"
+    }
 }

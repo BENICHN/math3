@@ -7,11 +7,8 @@ import fr.benichn.math3.graphics.types.RectPoint
 import kotlin.math.max
 
 abstract class BoundsTransformer {
-    data object Id : BoundsTransformer() {
-        override fun invoke(bounds: RectF) = BoxTransform()
-    }
-    data class Constant(val bt: BoxTransform) : BoundsTransformer() {
-        override fun invoke(bounds: RectF) = bt
+    data class Constant(val value: BoxTransform) : BoundsTransformer() {
+        override fun invoke(bounds: RectF) = value
     }
     data class ClampSize(val size: SizeF) : BoundsTransformer() {
         override fun invoke(bounds: RectF): BoxTransform {
@@ -36,5 +33,8 @@ abstract class BoundsTransformer {
             val newBounds = tr.applyOnRect(bounds)
             return tr * btr(newBounds)
         }
+    }
+    companion object {
+        val id = Constant(BoxTransform())
     }
 }

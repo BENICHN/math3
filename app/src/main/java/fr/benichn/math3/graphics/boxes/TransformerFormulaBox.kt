@@ -7,6 +7,7 @@ import fr.benichn.math3.graphics.boxes.types.BoxProperty
 import fr.benichn.math3.types.callback.ValueChangedEvent
 
 class TransformerFormulaBox(child: FormulaBox = FormulaBox(), transformers: List<BoundsTransformer> = listOf()) : FormulaBox() {
+    constructor(child: FormulaBox = FormulaBox(), vararg transformers: BoundsTransformer) : this(child,  transformers.asList())
     constructor(child: FormulaBox = FormulaBox(), transformer: BoundsTransformer) : this(child,  listOf(transformer))
 
     val dlgChild = BoxProperty(this, child).apply {
@@ -24,7 +25,7 @@ class TransformerFormulaBox(child: FormulaBox = FormulaBox(), transformers: List
     var transformers by dlgTransformers
 
     var transformer
-        get() = if (transformers.isEmpty()) BoundsTransformer.Id else transformers.reduce { a, b -> a * b }
+        get() = if (transformers.isEmpty()) BoundsTransformer.id else transformers.reduce { a, b -> a * b }
         set(value) {
             transformers = listOf(value)
         }

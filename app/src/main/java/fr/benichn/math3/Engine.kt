@@ -181,7 +181,7 @@ abstract class SSHEngine : Engine() {
         status = Status.STARTING
         // Log.d("jsch", "op")
         client.connect("192.168.1.60")
-        client.authPassword("", "")
+        client.authPassword("benichn", "jtk;swlm*")
         return client.startSession().also {
             session = it
         }

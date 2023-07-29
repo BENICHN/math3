@@ -5,19 +5,16 @@ import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.PointF
-import android.graphics.Rect
 import android.graphics.RectF
 import android.util.AttributeSet
 import android.util.Log
 import android.view.MotionEvent
 import android.view.View
-import android.view.ViewGroup
 import androidx.core.graphics.minus
 import androidx.core.graphics.plus
 import fr.benichn.math3.Utils.Companion.neg
 import fr.benichn.math3.Utils.Companion.pos
 import fr.benichn.math3.graphics.Utils.Companion.l2
-import fr.benichn.math3.graphics.Utils.Companion.moveToEnd
 import fr.benichn.math3.graphics.Utils.Companion.times
 import fr.benichn.math3.graphics.Utils.Companion.with
 import fr.benichn.math3.graphics.boxes.TransformerFormulaBox
@@ -27,7 +24,6 @@ import fr.benichn.math3.graphics.boxes.TextFormulaBox
 import fr.benichn.math3.graphics.boxes.types.BoundsTransformer
 import fr.benichn.math3.graphics.boxes.types.BoxTransform
 import fr.benichn.math3.graphics.boxes.types.DeletionResult
-import fr.benichn.math3.graphics.boxes.types.FinalBoxes
 import fr.benichn.math3.graphics.boxes.types.InitialBoxes
 import fr.benichn.math3.graphics.boxes.types.Padding
 import fr.benichn.math3.graphics.boxes.types.Range
@@ -47,8 +43,14 @@ import kotlin.math.sign
 
 class FormulaView(context: Context, attrs: AttributeSet? = null) : View(context, attrs) {
     val input = InputFormulaBox()
-    var box = TransformerFormulaBox(input, BoundsTransformer.Align(RectPoint.BOTTOM_CENTER))
-        private set
+    val box = TransformerFormulaBox(input, BoundsTransformer.Align(RectPoint.BOTTOM_CENTER), BoundsTransformer.id).apply {
+        dlgTransformers.onChanged += { _, e ->
+            notifyScaleChanged(
+                (e.old[1] as BoundsTransformer.Constant).value.scale,
+                (e.new[1] as BoundsTransformer.Constant).value.scale
+            )
+        }
+    }
     var caret: BoxCaret
         private set
     private val origin
@@ -58,6 +60,17 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : View(context,
             field = adjustOffset(value)
             invalidate()
         }
+
+    private val notifyScaleChanged = VCC<FormulaView, Float>(this)
+    val onScaleChanged = notifyScaleChanged.Listener()
+
+    var scale
+        get() = (box.transformers[1] as BoundsTransformer.Constant).value.scale
+        set(value) {
+            box.modifyTransformers { it.with(1, BoundsTransformer.Constant(BoxTransform.scale(value))) }
+        }
+
+    var magneticScale = 1f
 
     private fun findSingle(absPos: PointF) = box.findSingle(absPos)!!
     private fun doubleFromSingles(p1: CaretPosition.Single, p2: CaretPosition.Single) = CaretPosition.Double.fromSingles(p1, p2)!!
@@ -194,8 +207,9 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : View(context,
     private var lastPlaceUp: PositionUp? = null
     private var isAdding = false
 
-    var canMove = false
-        private set
+    val canMove
+        get() = isMoving || touchAction == null
+    private var isMoving = false
 
     private abstract inner class FormulaViewAction : TouchAction({ it - (origin + offset) })
 
@@ -215,19 +229,19 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : View(context,
         }
 
         override fun onPinchDown() {
-            baseScale = box.transformer(RectF()).scale
+            baseScale = scale
             baseGap = (prim.lastAbsPosition - pinch.lastAbsPosition).length()
             baseOffset = offset
         }
 
         override fun onPinchMove() {
-            canMove = true
+            isMoving = true
             val newGap = (prim.lastAbsPosition - pinch.lastAbsPosition).length()
-            val ratio = (newGap / baseGap).let { if (abs(baseScale * it - 1f) < ZOOM_TOLERENCE) 1f/baseScale else it }
+            val ratio = (newGap / baseGap).let { if (abs(baseScale * it - magneticScale) < ZOOM_TOLERENCE) magneticScale/baseScale else it }
             val totalDiff = (prim.totalAbsDiff + pinch.totalAbsDiff) * 0.5f
             fun getPos(p: PointF) = p - (origin + baseOffset + totalDiff)
             val c = (getPos(prim.lastAbsPosition) + getPos(pinch.lastAbsPosition)) * 0.5f
-            box.modifyTransformers { it.with(1, BoundsTransformer.Constant(BoxTransform.scale(baseScale * ratio))) }
+            scale = baseScale * ratio
             offset = baseOffset + totalDiff + c * (1 - ratio)
         }
 
@@ -235,11 +249,11 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : View(context,
         }
 
         override fun beforeFinish(replacement: TouchAction?) {
-            canMove = false
+            isMoving = false
         }
 
         override fun onMove() {
-            canMove = true
+            isMoving = true
             offset += prim.lastAbsDiff
         }
 
@@ -640,10 +654,6 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : View(context,
     }
 
     init {
-        isClickable = true
-        isLongClickable = true
-        isFocusable = true
-        isFocusableInTouchMode = true
         setWillNotDraw(false)
         box.onPictureChanged += { _, _ ->
             invalidate() }
@@ -854,6 +864,7 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : View(context,
                 if (touchAction == null) {
                     val ap = PointF(e.x, e.y)
                     val pos = ap - (offset + origin)
+                    Log.d("pos", "${e.x},${e.y} ~ $pos ~ $offset ~ $origin ~ $width ~ $height")
                     contextMenu?.also { cm ->
                         when (cm.findElement(pos)) {
                             ContextMenu.Element.INTERIOR -> {

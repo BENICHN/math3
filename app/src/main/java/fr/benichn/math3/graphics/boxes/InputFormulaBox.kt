@@ -67,23 +67,25 @@ class InputFormulaBox(vararg boxes: FormulaBox, isVisible: Boolean = true) : Seq
         }
     }
 
-    override fun generateGraphics() = if (isVisible && ch.isEmpty()) {
+    override fun generateGraphics() = if (ch.isEmpty()) {
         val rx = DEFAULT_TEXT_WIDTH * 0.25f
         val ry = DEFAULT_TEXT_RADIUS * 0.5f
         val bds = RectF(0f, -DEFAULT_TEXT_RADIUS, DEFAULT_TEXT_WIDTH, DEFAULT_TEXT_RADIUS)
         val path = Path()
-        path.moveTo(bds.left+rx, bds.top)
-        path.rLineTo(-rx, 0f)
-        path.rLineTo(0f, ry)
-        path.moveTo(bds.left+rx, bds.bottom)
-        path.rLineTo(-rx, 0f)
-        path.rLineTo(0f, -ry)
-        path.moveTo(bds.right-rx, bds.top)
-        path.rLineTo(rx, 0f)
-        path.rLineTo(0f, ry)
-        path.moveTo(bds.right-rx, bds.bottom)
-        path.rLineTo(rx, 0f)
-        path.rLineTo(0f, -ry)
+        if (isVisible) {
+            path.moveTo(bds.left+rx, bds.top)
+            path.rLineTo(-rx, 0f)
+            path.rLineTo(0f, ry)
+            path.moveTo(bds.left+rx, bds.bottom)
+            path.rLineTo(-rx, 0f)
+            path.rLineTo(0f, -ry)
+            path.moveTo(bds.right-rx, bds.top)
+            path.rLineTo(rx, 0f)
+            path.rLineTo(0f, ry)
+            path.moveTo(bds.right-rx, bds.bottom)
+            path.rLineTo(rx, 0f)
+            path.rLineTo(0f, -ry)
+        }
         FormulaGraphics(
             PaintedPath(
                 path,

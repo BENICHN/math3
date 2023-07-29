@@ -139,6 +139,10 @@ abstract class TouchAction(val getPos: (PointF) -> PointF = { it }, val longPres
         if (!isFinished) {
             if (isLaunched) {
                 when (e.actionMasked) {
+                    MotionEvent.ACTION_CANCEL -> {
+                        finish()
+                        return
+                    }
                     MotionEvent.ACTION_MOVE -> {
                         val absPos = prim.getAbsPos(e)
                         if (absPos == null) {

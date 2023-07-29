@@ -3,6 +3,7 @@ package fr.benichn.math3.numpad
 import android.content.Context
 import android.graphics.Canvas
 import android.util.AttributeSet
+import android.util.Log
 import android.util.SizeF
 import android.view.MotionEvent
 import android.view.View
@@ -111,6 +112,7 @@ class NumpadView(context: Context, attrs: AttributeSet? = null) : View(context, 
     }
 
     override fun onTouchEvent(e: MotionEvent): Boolean {
+        Log.d("nump", e.toString())
         when (e.actionMasked) {
             MotionEvent.ACTION_DOWN -> {
                 touchAction = NumpadTouchAction()

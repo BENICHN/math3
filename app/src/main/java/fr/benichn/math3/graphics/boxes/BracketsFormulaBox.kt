@@ -28,7 +28,7 @@ class BracketsInputFormulaBox(vararg boxes: FormulaBox, type: BracketFormulaBox.
     override fun getInitialSingle() = input.lastSingle
 
     override fun onChildRequiresDelete(b: FormulaBox, vararg anticipation: FormulaBox) = when (b) {
-        input -> {
+        sequence -> {
             delete().withFinalBoxes(this)
         }
         else -> delete()

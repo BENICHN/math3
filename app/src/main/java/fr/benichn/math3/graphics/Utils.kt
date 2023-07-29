@@ -79,6 +79,11 @@ class Utils {
             else this[i]
         }
 
+        fun <T> List<T>.with(index: Int, f: (T) -> T): List<T> = (0 .. max(index, size-1)).map { i ->
+            if (i == index) f(this[i])
+            else this[i]
+        }
+
         fun <T> List<T>.prepend(element: T): List<T> = (0 .. size).map { i ->
             if (i == 0) element
             else this[i-1]

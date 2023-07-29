@@ -47,8 +47,10 @@ import kotlin.math.sign
 
 class FormulaView(context: Context, attrs: AttributeSet? = null) : View(context, attrs) {
     val input = InputFormulaBox()
-    private var box = TransformerFormulaBox(input, BoundsTransformer.Align(RectPoint.BOTTOM_CENTER))
-    private var caret: BoxCaret
+    var box = TransformerFormulaBox(input, BoundsTransformer.Align(RectPoint.BOTTOM_CENTER))
+        private set
+    var caret: BoxCaret
+        private set
     private val origin
         get() = PointF(width * 0.5f, height - FormulaBox.DEFAULT_TEXT_RADIUS)
     var offset = PointF()
@@ -72,7 +74,9 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : View(context,
             if (x.sign == accVelocity.x.sign) x else 0f,
             if (y.sign == accVelocity.y.sign) y else 0f
         ) }
-        offset += diff
+        if (diff != PointF(0f, 0f)) {
+            offset += diff
+        }
     }
 
     private fun moveToCaret() {
@@ -156,6 +160,7 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : View(context,
     }
 
     fun clearCaretPositions() {
+        contextMenu = null
         caret.positions = listOf()
     }
 
@@ -189,6 +194,9 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : View(context,
     private var lastPlaceUp: PositionUp? = null
     private var isAdding = false
 
+    var canMove = false
+        private set
+
     private abstract inner class FormulaViewAction : TouchAction({ it - (origin + offset) })
 
     private inner class MoveViewAction : FormulaViewAction() {
@@ -213,6 +221,7 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : View(context,
         }
 
         override fun onPinchMove() {
+            canMove = true
             val newGap = (prim.lastAbsPosition - pinch.lastAbsPosition).length()
             val ratio = (newGap / baseGap).let { if (abs(baseScale * it - 1f) < ZOOM_TOLERENCE) 1f/baseScale else it }
             val totalDiff = (prim.totalAbsDiff + pinch.totalAbsDiff) * 0.5f
@@ -226,24 +235,35 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : View(context,
         }
 
         override fun beforeFinish(replacement: TouchAction?) {
+            canMove = false
         }
 
         override fun onMove() {
+            canMove = true
             offset += prim.lastAbsDiff
         }
 
     }
+
+    private val notifyEnter = Callback<FormulaView, Unit>(this)
+    val onEnter = notifyEnter.Listener()
 
     private inner class PlaceCaretAction : FormulaViewAction() {
         override fun onDown() {
         }
 
         override fun onLongDown() {
+            if (caret.positions.isEmpty()) {
+                notifyEnter()
+            }
             replace(CreateSelectionAction())
         }
 
         override fun onUp() {
             if (!isReadOnly) {
+                if (caret.positions.isEmpty()) {
+                    notifyEnter()
+                }
                 val b = box.findBox(prim.downPosition)
                 b.contextMenu?.also { cm ->
                     if (cm.trigger(cm.source!!.accTransform.invert.applyOnPoint(prim.downPosition))) {
@@ -617,16 +637,6 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : View(context,
                 heightMeasureSpec
             }
         )
-    }
-
-    override fun onFocusChanged(gainFocus: Boolean, direction: Int, previouslyFocusedRect: Rect?) {
-        Log.d("fc", gainFocus.toString())
-        super.onFocusChanged(gainFocus, direction, previouslyFocusedRect)
-    }
-
-    override fun onWindowFocusChanged(hasWindowFocus: Boolean) {
-        Log.d("wfc", hasWindowFocus.toString())
-        super.onWindowFocusChanged(hasWindowFocus)
     }
 
     init {

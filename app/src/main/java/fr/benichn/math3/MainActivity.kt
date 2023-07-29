@@ -9,6 +9,7 @@ import androidx.appcompat.app.AppCompatActivity
 import fr.benichn.math3.Utils.Companion.dp
 import fr.benichn.math3.formulas.FormulaGroupedToken.Companion.readGroupedToken
 import fr.benichn.math3.graphics.FormulaCell
+import fr.benichn.math3.graphics.FormulaCellsContainer
 import fr.benichn.math3.graphics.boxes.BracketFormulaBox
 import fr.benichn.math3.graphics.boxes.BracketsInputFormulaBox
 import fr.benichn.math3.graphics.boxes.DerivativeFormulaBox
@@ -40,7 +41,7 @@ class App : Application() {
 }
 
 class MainActivity : AppCompatActivity() {
-    private lateinit var cellsContainer: LinearLayout
+    private lateinit var cc: FormulaCellsContainer
     private lateinit var nv: NumpadView
     private val engine = SageEngine().apply {
         CoroutineScope(Dispatchers.IO).launch {
@@ -48,68 +49,84 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun addCell() = FormulaCell(applicationContext).also {
-        it.layoutParams = LinearLayout.LayoutParams(
-            ViewGroup.LayoutParams.MATCH_PARENT,
-            ViewGroup.LayoutParams.WRAP_CONTENT
-        ).apply {
-            setMargins(20.dp(), 0, 20.dp(), 20.dp())
-        }
-        cellsContainer.addView(it)
-    }
-
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
-        cellsContainer = findViewById(R.id.cellsContainer)
-        val cell = FormulaCell(applicationContext)
-        addCell()
-        val fv = addCell().inputFV
+        cc = findViewById(R.id.cellsContainer)
+        repeat(3) { cc.addCell() }
         nv = findViewById(R.id.numpad)
         nv.onButtonClicked += { _, id ->
-            when (id) {
-                "⌫" -> {
-                    fv.sendDelete()
-                }
-                "↵" -> {
-                    CoroutineScope(Dispatchers.IO).launch {
-                        val c = fv.input.toSage()
-                        engine.waitForStatus(Engine.Status.READY)
-                        Log.d("sage", "-> input : $c")
-                        val r = engine.run(c)
-                        Log.d("sage", r.toString())
+            cc.realCurrentFV?.let { fv ->
+                when (id) {
+                    "⌫" -> {
+                        fv.sendDelete()
                     }
-                }
-                else -> {
-                    val newBox = {
-                        when (id) {
-                            "over" -> FractionFormulaBox()
-                            "sqrt" -> RootFormulaBox(RootFormulaBox.Type.SQRT)
-                            "sqrt_n" -> RootFormulaBox(RootFormulaBox.Type.ORDER)
-                            "brace" -> BracketsInputFormulaBox(type = BracketFormulaBox.Type.BRACE)
-                            "bracket" -> BracketsInputFormulaBox(type = BracketFormulaBox.Type.BRACKET)
-                            "chevron" -> BracketsInputFormulaBox(type = BracketFormulaBox.Type.CHEVRON)
-                            "curly" -> BracketsInputFormulaBox(type = BracketFormulaBox.Type.CURLY)
-                            "floor" -> BracketsInputFormulaBox(type = BracketFormulaBox.Type.FLOOR)
-                            "ceil" -> BracketsInputFormulaBox(type = BracketFormulaBox.Type.CEIL)
-                            "abs" -> BracketsInputFormulaBox(type = BracketFormulaBox.Type.BAR)
-                            "superscript" -> ScriptFormulaBox(TopDownFormulaBox.Type.TOP)
-                            "subscript" -> ScriptFormulaBox(TopDownFormulaBox.Type.BOTTOM)
-                            "int_indef" -> IntegralFormulaBox(TopDownFormulaBox.Type.NONE)
-                            "int_def" -> IntegralFormulaBox(TopDownFormulaBox.Type.BOTH)
-                            "deriv" -> DerivativeFormulaBox(TopDownFormulaBox.Type.BOTTOM)
-                            "deriv_n" -> DerivativeFormulaBox(TopDownFormulaBox.Type.BOTH)
-                            "sum_indef" -> DiscreteOperationFormulaBox("∑", DiscreteOperatorFormulaBox.Type.INDEFINITE)
-                            "sum_bounds" -> DiscreteOperationFormulaBox("∑", DiscreteOperatorFormulaBox.Type.BOUNDS)
-                            "sum_list" -> DiscreteOperationFormulaBox("∑", DiscreteOperatorFormulaBox.Type.LIST)
-                            "prod_indef" -> DiscreteOperationFormulaBox("∏", DiscreteOperatorFormulaBox.Type.INDEFINITE)
-                            "prod_bounds" -> DiscreteOperationFormulaBox("∏", DiscreteOperatorFormulaBox.Type.BOUNDS)
-                            "prod_list" -> DiscreteOperationFormulaBox("∏", DiscreteOperatorFormulaBox.Type.LIST)
-                            "matrix" -> MatrixFormulaBox(Pt(2, 2))
-                            else -> TextFormulaBox(id)
+
+                    "↵" -> {
+                        CoroutineScope(Dispatchers.IO).launch {
+                            val c = fv.input.toSage()
+                            engine.waitForStatus(Engine.Status.READY)
+                            Log.d("sage", "-> input : $c")
+                            val r = engine.run(c)
+                            Log.d("sage", r.toString())
                         }
                     }
-                    fv.sendAdd(newBox)
+
+                    else -> {
+                        val newBox = {
+                            when (id) {
+                                "over" -> FractionFormulaBox()
+                                "sqrt" -> RootFormulaBox(RootFormulaBox.Type.SQRT)
+                                "sqrt_n" -> RootFormulaBox(RootFormulaBox.Type.ORDER)
+                                "brace" -> BracketsInputFormulaBox(type = BracketFormulaBox.Type.BRACE)
+                                "bracket" -> BracketsInputFormulaBox(type = BracketFormulaBox.Type.BRACKET)
+                                "chevron" -> BracketsInputFormulaBox(type = BracketFormulaBox.Type.CHEVRON)
+                                "curly" -> BracketsInputFormulaBox(type = BracketFormulaBox.Type.CURLY)
+                                "floor" -> BracketsInputFormulaBox(type = BracketFormulaBox.Type.FLOOR)
+                                "ceil" -> BracketsInputFormulaBox(type = BracketFormulaBox.Type.CEIL)
+                                "abs" -> BracketsInputFormulaBox(type = BracketFormulaBox.Type.BAR)
+                                "superscript" -> ScriptFormulaBox(TopDownFormulaBox.Type.TOP)
+                                "subscript" -> ScriptFormulaBox(TopDownFormulaBox.Type.BOTTOM)
+                                "int_indef" -> IntegralFormulaBox(TopDownFormulaBox.Type.NONE)
+                                "int_def" -> IntegralFormulaBox(TopDownFormulaBox.Type.BOTH)
+                                "deriv" -> DerivativeFormulaBox(TopDownFormulaBox.Type.BOTTOM)
+                                "deriv_n" -> DerivativeFormulaBox(TopDownFormulaBox.Type.BOTH)
+                                "sum_indef" -> DiscreteOperationFormulaBox(
+                                    "∑",
+                                    DiscreteOperatorFormulaBox.Type.INDEFINITE
+                                )
+
+                                "sum_bounds" -> DiscreteOperationFormulaBox(
+                                    "∑",
+                                    DiscreteOperatorFormulaBox.Type.BOUNDS
+                                )
+
+                                "sum_list" -> DiscreteOperationFormulaBox(
+                                    "∑",
+                                    DiscreteOperatorFormulaBox.Type.LIST
+                                )
+
+                                "prod_indef" -> DiscreteOperationFormulaBox(
+                                    "∏",
+                                    DiscreteOperatorFormulaBox.Type.INDEFINITE
+                                )
+
+                                "prod_bounds" -> DiscreteOperationFormulaBox(
+                                    "∏",
+                                    DiscreteOperatorFormulaBox.Type.BOUNDS
+                                )
+
+                                "prod_list" -> DiscreteOperationFormulaBox(
+                                    "∏",
+                                    DiscreteOperatorFormulaBox.Type.LIST
+                                )
+
+                                "matrix" -> MatrixFormulaBox(Pt(2, 2))
+                                else -> TextFormulaBox(id)
+                            }
+                        }
+                        fv.sendAdd(newBox)
+                    }
                 }
             }
         }

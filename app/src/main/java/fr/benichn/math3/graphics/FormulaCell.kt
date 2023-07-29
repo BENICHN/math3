@@ -7,6 +7,8 @@ import android.graphics.Paint
 import android.graphics.RectF
 import android.graphics.drawable.ColorDrawable
 import android.util.AttributeSet
+import android.util.Log
+import android.view.MotionEvent
 import android.view.View
 import android.widget.LinearLayout
 
@@ -33,7 +35,7 @@ class FormulaCell(context: Context, attrs: AttributeSet? = null) : LinearLayout(
 
     override fun dispatchDraw(canvas: Canvas) {
         super.dispatchDraw(canvas)
-        canvas.drawRect(0f, 0f, width.toFloat(), height.toFloat(), borderPaint)
+        canvas.drawRect(0f, 0f, width.toFloat(), height.toFloat(), borderPaint) // !
     }
 
     init {

@@ -62,16 +62,18 @@ abstract class TouchAction(val getPos: (PointF) -> PointF = { it }, val longPres
     val velocity: PointF // en px/s
         get() {
             val t = System.currentTimeMillis()
-            return if (moves.isEmpty()) PointF() else moves
-                .filter { t - it.millis < MOVE_VELOCITY_DELAY }
-                .drop(1)
-                .fold(Move(PointF(), moves[0].millis)) { acc, m ->
-                    Move(
-                        acc.diff + m.diff / (m.millis - acc.millis).toFloat(),
-                        m.millis
-                    )
-                }
-                .diff * 1000f
+            return moves.filter { t - it.millis < MOVE_VELOCITY_DELAY }.let { mvs ->
+                if (mvs.isEmpty()) PointF() else mvs
+                    .drop(1)
+                    .groupBy { it.millis }
+                    .map { (_, ms) -> ms.last() }
+                    .fold(Move(PointF(), mvs[0].millis)) { acc, m ->
+                        Move(
+                            acc.diff + m.diff / (m.millis - acc.millis).toFloat(),
+                            m.millis
+                        )
+                    }.diff * 1000f
+            }
         }
 
     private val notifyFinished = Callback<TouchAction, Unit>(this)

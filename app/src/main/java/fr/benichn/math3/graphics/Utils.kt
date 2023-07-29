@@ -3,15 +3,15 @@ package fr.benichn.math3.graphics
 import android.graphics.Paint
 import android.graphics.Path
 import android.graphics.PointF
-import android.graphics.Rect
 import android.graphics.RectF
 import android.util.SizeF
+import android.view.View
 import fr.benichn.math3.App
-import fr.benichn.math3.R
 import fr.benichn.math3.Utils.Companion.pos
-import fr.benichn.math3.graphics.types.*
+import fr.benichn.math3.graphics.types.MeasuredPath
 import kotlin.math.max
 import kotlin.math.min
+
 
 class Utils {
     companion object {

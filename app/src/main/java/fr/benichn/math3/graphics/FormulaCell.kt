@@ -18,7 +18,7 @@ import fr.benichn.math3.graphics.boxes.TextFormulaBox
 class FormulaCell(context: Context, attrs: AttributeSet? = null) : LinearLayout(context, attrs) {
     val inputFV = FormulaView(context)
     val outputFV = FormulaView(context).apply {
-        // isReadOnly = true
+        isReadOnly = true
         scale = 0.8f
         magneticScale = 0.8f
         input.addBoxes(IntegralFormulaBox().apply { integrand.addBoxes(TextFormulaBox("output")) })

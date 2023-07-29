@@ -301,6 +301,8 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : View(context,
                         listOf(p)
                     }
                 }
+            } else {
+                clearCaretPositions()
             }
             lastPlaceUp = PositionUp(prim.downAbsPosition, System.currentTimeMillis(), caret.positions.size-1)
         }
@@ -623,9 +625,16 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : View(context,
         }
         override fun onUp() {
             if (!isLongPressed) {
-                caret.positions = getFiltered(caret.positions.filterIndexed { i, _ -> i != index } + findSingle(prim.downPosition).let { s ->
-                    CaretPosition.Double(s.box, Range(0, s.box.ch.size))
-                })
+                notifyEnter()
+                val s = findSingle(prim.downPosition)
+                val n = s.box.ch.size
+                caret.positions = getFiltered(caret.positions.filterIndexed { i, _ -> i != index } +
+                        when {
+                            n != 0 -> listOf(CaretPosition.Double(s.box, Range(0, n)))
+                            isReadOnly -> listOf()
+                            else -> listOf(CaretPosition.Single(s.box, 0))
+                        }
+                )
             }
         }
         override fun onPinchDown() {

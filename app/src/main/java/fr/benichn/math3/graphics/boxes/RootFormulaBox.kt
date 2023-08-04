@@ -158,6 +158,11 @@ class RootFormulaBox(type: Type = Type.SQRT) : FormulaBox() {
         ORDER
     }
 
+    override fun toWolfram() = when(type) {
+        Type.SQRT -> "Sqrt[${input.toWolfram()}]"
+        Type.ORDER -> "(${input.toWolfram()})^(1/(${order.toWolfram()}))"
+    }
+
     override fun toSage() = when(type) {
         Type.SQRT -> "sqrt(${input.toSage()})"
         Type.ORDER -> "(${input.toSage()})^(1/(${order.toSage()}))"

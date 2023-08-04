@@ -47,8 +47,6 @@ class Utils {
             PointF(rect.left, rect.bottom)
         )
 
-        operator fun PointF.times(scale: Float) = PointF(x*scale,y*scale)
-        operator fun PointF.div(scale: Float) = PointF(x/scale,y/scale)
         operator fun SizeF.times(scale: Float) = SizeF(width*scale,height*scale)
         operator fun SizeF.div(scale: Float) = SizeF(width/scale,height/scale)
 

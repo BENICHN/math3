@@ -49,6 +49,14 @@ class TextFormulaBox(text: String = "", big: Boolean = false, widthFactor: Float
             bounds = bounds)
     }
 
+    override fun toWolfram() = when(text) {
+        "×" -> "*"
+        "ⅈ" -> "I"
+        "ℼ" -> "Pi"
+        "ⅇ" -> "E"
+        else -> text
+    }
+
     override fun toSage() = when(text) {
         "×" -> "*"
         "ⅈ" -> "I"
@@ -58,4 +66,17 @@ class TextFormulaBox(text: String = "", big: Boolean = false, widthFactor: Float
     }
 }
 
-fun FormulaBox.isDigit() = this is TextFormulaBox && text.all { c -> c.isDigit() || c == '.' }
+fun FormulaBox.isDigit() = this is TextFormulaBox
+        && text.isNotEmpty()
+        && (text[0].isDigit() && run {
+            var isDec = false
+            text.substring(1).all { c ->
+                if (c == '.') !isDec.also { isDec = true }
+                else c.isDigit()
+            }
+        }
+         || text[0] == '.' && text.length >= 2 && text[1].isDigit() && text.substring(2).all { c -> c.isDigit() })
+fun FormulaBox.isVariable() = this is TextFormulaBox
+        && text.isNotEmpty()
+        && text[0].isLetter()
+        && text.substring(1).all { c -> c.isLetterOrDigit() }

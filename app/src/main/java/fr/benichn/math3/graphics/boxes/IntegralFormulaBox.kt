@@ -77,6 +77,12 @@ class IntegralFormulaBox(type: TopDownFormulaBox.Type = TopDownFormulaBox.Type.B
         Padding(0f, 0f, DEFAULT_TEXT_WIDTH * 0.25f, 0f).applyOnRect(r)
     }
 
+    override fun toWolfram() = when (operator.type) {
+        TopDownFormulaBox.Type.NONE -> "Integrate[${integrand.toWolfram()}, ${variable.toSage()}]"
+        TopDownFormulaBox.Type.BOTH -> "Integrate[${integrand.toWolfram()}, {${variable.toSage()}, ${operator.bottom.toSage()}, ${operator.top.toSage()}}]"
+        else -> throw UnsupportedOperationException()
+    }
+
     override fun toSage() = when (operator.type) {
         TopDownFormulaBox.Type.NONE -> "integrate(${integrand.toSage()}, ${variable.toSage()})"
         TopDownFormulaBox.Type.BOTH -> "integrate(${integrand.toSage()}, ${variable.toSage()}, ${operator.bottom.toSage()}, ${operator.top.toSage()})"

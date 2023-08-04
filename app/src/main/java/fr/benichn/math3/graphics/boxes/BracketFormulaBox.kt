@@ -104,6 +104,8 @@ class BracketFormulaBox(range: RangeF = RangeF(-DEFAULT_TEXT_RADIUS,DEFAULT_TEXT
         )
     }
 
+    override fun toWolfram() = toSage()
+
     override fun toSage() = when (type) {
         Type.BRACE -> if (side == Side.L) "(" else ")"
         Type.BAR -> if (side == Side.L) "|" else "|"

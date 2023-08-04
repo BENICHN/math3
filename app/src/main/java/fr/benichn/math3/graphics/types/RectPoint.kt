@@ -1,6 +1,7 @@
 package fr.benichn.math3.graphics.types
 
 import android.graphics.PointF
+import android.graphics.Rect
 import android.graphics.RectF
 
 data class RectPoint(val tx: Float, val ty: Float) {
@@ -9,6 +10,11 @@ data class RectPoint(val tx: Float, val ty: Float) {
     }
 
     fun get(r: RectF): PointF = PointF(
+        if (tx.isNaN()) 0f else r.left + tx * (r.right - r.left),
+        if (ty.isNaN()) 0f else r.top + ty * (r.bottom - r.top)
+    )
+
+    fun get(r: Rect): PointF = PointF(
         if (tx.isNaN()) 0f else r.left + tx * (r.right - r.left),
         if (ty.isNaN()) 0f else r.top + ty * (r.bottom - r.top)
     )

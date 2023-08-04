@@ -1,37 +1,26 @@
 package fr.benichn.math3.graphics.caret
 
-import android.graphics.Color
 import android.graphics.PointF
-import fr.benichn.math3.graphics.Utils.Companion.with
 import fr.benichn.math3.graphics.boxes.ContextMenuFormulaBox
 import fr.benichn.math3.graphics.boxes.FormulaBox
-import fr.benichn.math3.graphics.boxes.SequenceFormulaBox
 import fr.benichn.math3.graphics.boxes.TransformerFormulaBox
 import fr.benichn.math3.graphics.boxes.types.BoundsTransformer
 import fr.benichn.math3.graphics.boxes.types.BoxTransform
-import fr.benichn.math3.graphics.boxes.types.Padding
-import fr.benichn.math3.graphics.types.RectPoint
 import fr.benichn.math3.types.ImmutableList
-import fr.benichn.math3.types.callback.ObservableProperty
 
 class ContextMenu(entries: Iterable<ContextMenuEntry>, val trigger: (PointF) -> Boolean, val uniformWidths: Boolean = true) {
     constructor(vararg entries: ContextMenuEntry, trigger: (PointF) -> Boolean, uniformWidths: Boolean = true) : this(entries.asIterable(), trigger, uniformWidths)
     constructor(vararg entries: ContextMenuEntry) : this(entries.asIterable(), { false }, false)
 
     private val entries = mutableListOf<ContextMenuEntry>()
-    val ent = ImmutableList(this.entries)
+    val ents = ImmutableList(this.entries)
 
     val fb = ContextMenuFormulaBox()
-    val box = TransformerFormulaBox(fb, BoundsTransformer.Constant(BoxTransform.scale(0.5f)) * BoundsTransformer.Align(RectPoint.BOTTOM_CENTER))
+    val box = TransformerFormulaBox(fb, BoundsTransformer.Constant(BoxTransform.scale(0.5f)))
 
-    var origin by ObservableProperty(this, PointF()) { _, e ->
-        box.modifyTransformers { it.with(1, BoundsTransformer.Constant(BoxTransform(e.new))) }
-    }
     var source: FormulaBox? = null
-    var index: Int = -1
-
-    val onPictureChanged
-        get() = box.onPictureChanged
+    var index = -1
+    var destroyPopup = { }
 
     init {
         for (e in entries) {
@@ -46,14 +35,14 @@ class ContextMenu(entries: Iterable<ContextMenuEntry>, val trigger: (PointF) -> 
         fb.addEntryBox(i, entry.box)
     }
 
-    fun findElement(p: PointF) =
-        if (box.bounds.contains(p.x, p.y)) Element.INTERIOR
-        else Element.NONE
+    // fun findElement(p: PointF) =
+    //     if (box.bounds.contains(p.x, p.y)) Element.INTERIOR
+    //     else Element.NONE
 
-    enum class Element {
-        INTERIOR,
-        NONE
-    }
+    // enum class Element {
+    //     INTERIOR,
+    //     NONE
+    // }
 
     fun findEntry(pos: PointF): ContextMenuEntry? =
         if (box.bounds.contains(pos.x, pos.y)) {

@@ -38,8 +38,11 @@ class FormulaCellsContainer(context: Context, attrs: AttributeSet? = null) : Scr
     val realCurrentFV
         get() = fvs.firstOrNull { fv -> fv.caret.positions.isNotEmpty() }
 
+    // val realCurrentCell
+    //     get() = ll.children.firstOrNull { v -> (v as FormulaCell).fvs.any { fv -> fv.caret.positions.isNotEmpty() } }
+
     val fvs
-        get() = ll.children.flatMap { v -> (v as FormulaCell).children }.filterIsInstance<FormulaView>()
+        get() = ll.children.flatMap { v -> (v as FormulaCell).fvs }
 
     override fun onInterceptTouchEvent(e: MotionEvent): Boolean {
         when (e.actionMasked) {

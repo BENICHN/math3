@@ -105,6 +105,9 @@ class ScriptFormulaBox(type: Type = Type.TOP, range: RangeF = RangeF(-DEFAULT_TE
         phantom.customBounds = RectF(0f, range.start, 0f, range.end)
     }
 
+    override fun toWolfram() =
+        (if (type.hasBottom) "_(${bottom.toWolfram()})" else "") + (if (type.hasTop) "^(${top.toWolfram()})" else "")
+
     override fun toSage() =
         (if (type.hasBottom) "_(${bottom.toSage()})" else "") + (if (type.hasTop) "^(${top.toSage()})" else "")
 }

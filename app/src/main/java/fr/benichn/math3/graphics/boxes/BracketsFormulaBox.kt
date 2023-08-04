@@ -59,6 +59,13 @@ open class BracketsSequenceFormulaBox(vararg boxes: FormulaBox, type: BracketFor
         updateGraphics()
     }
 
+    override fun toWolfram() = when (type) {
+        BracketFormulaBox.Type.BAR -> "Abs[${sequence.toWolfram()}]"
+        BracketFormulaBox.Type.FLOOR -> "Floor[${sequence.toWolfram()}]"
+        BracketFormulaBox.Type.CEIL -> "Ceiling[${sequence.toWolfram()}]"
+        else -> "${leftBracket.toWolfram()}${sequence.toWolfram()}${rightBracket.toWolfram()}"
+    }
+
     override fun toSage() = when (type) {
         BracketFormulaBox.Type.BAR -> "abs(${sequence.toSage()})"
         BracketFormulaBox.Type.FLOOR -> "floor(${sequence.toSage()})"

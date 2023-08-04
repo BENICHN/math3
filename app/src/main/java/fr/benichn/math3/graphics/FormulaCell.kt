@@ -11,9 +11,14 @@ import android.util.Log
 import android.view.MotionEvent
 import android.view.View
 import android.widget.LinearLayout
-import fr.benichn.math3.Utils.Companion.dp
+import fr.benichn.math3.CommandResult
+import fr.benichn.math3.Engine
+import fr.benichn.math3.formulas.FormulaGroupedToken.Companion.readGroupedToken
 import fr.benichn.math3.graphics.boxes.IntegralFormulaBox
 import fr.benichn.math3.graphics.boxes.TextFormulaBox
+import kotlinx.coroutines.MainScope
+import kotlinx.coroutines.launch
+import java.io.StringReader
 
 class FormulaCell(context: Context, attrs: AttributeSet? = null) : LinearLayout(context, attrs) {
     val inputFV = FormulaView(context)
@@ -63,8 +68,8 @@ class FormulaCell(context: Context, attrs: AttributeSet? = null) : LinearLayout(
         when (e.actionMasked) {
             MotionEvent.ACTION_DOWN -> {
                 currentFV = getFV(e.x, e.y)
-                if (currentFV == inputFV) Log.d("fv", "inp")
-                if (currentFV == outputFV) Log.d("fv", "otp")
+                // if (currentFV == inputFV) Log.d("fv", "inp")
+                // if (currentFV == outputFV) Log.d("fv", "otp")
             }
             MotionEvent.ACTION_POINTER_DOWN,
             MotionEvent.ACTION_POINTER_UP -> {
@@ -83,20 +88,50 @@ class FormulaCell(context: Context, attrs: AttributeSet? = null) : LinearLayout(
         } ?: super.dispatchTouchEvent(e)
     }
 
+    fun computeInput(engine: Engine) {
+        if (!engine.contains(this)) {
+            MainScope().launch {
+                outputFV.input.removeAllBoxes()
+                outputFV.input.addBoxes(TextFormulaBox("..."))
+                val command = inputFV.input.toWolfram()
+                Log.d("math", "-> input : $command")
+                val res = engine.enqueue(this, command)
+                when (res) {
+                    is CommandResult.Failure ->
+                        Log.d("errr", res.message)
+                    is CommandResult.Success -> {
+                        Log.d("math", res.result)
+                        outputFV.input.removeAllBoxes()
+                        outputFV.input.addBoxes(res.result.map { c -> TextFormulaBox(c.toString()) })
+                        val sr = StringReader(res.result)
+                        val gtk = sr.readGroupedToken()
+                        Log.d("gtk", gtk.toString())
+                    }
+                }
+            }
+        }
+    }
+
+    fun abortComputation(engine: Engine) {
+        MainScope().launch {
+            engine.abort(this)
+        }
+    }
+
     init {
         orientation = VERTICAL
-        inputFV.onScaleChanged += { s, e ->
-            if (syncScales && currentFV == s) {
-                val ratio = e.new / e.old
-                outputFV.scale *= ratio
-            }
-        }
-        outputFV.onScaleChanged += { s, e ->
-            if (syncScales && currentFV == s) {
-                val ratio = e.new / e.old
-                inputFV.scale *= ratio
-            }
-        }
+        // inputFV.onScaleChanged += { s, e ->
+        //     if (syncScales && currentFV == s) {
+        //         val ratio = e.new / e.old
+        //         outputFV.scale *= ratio
+        //     }
+        // }
+        // outputFV.onScaleChanged += { s, e ->
+        //     if (syncScales && currentFV == s) {
+        //         val ratio = e.new / e.old
+        //         inputFV.scale *= ratio
+        //     }
+        // }
         addView(inputFV)
         addView(hline(2, Color.GRAY))
         addView(outputFV)

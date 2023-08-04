@@ -94,6 +94,11 @@ class InputFormulaBox(vararg boxes: FormulaBox, isVisible: Boolean = true) : Seq
         )
     } else super.generateGraphics()
 
+    override fun toWolfram() = ch.joinToString("") {
+        if (it.isVariable()) " ${it.toWolfram()} "
+        else it.toWolfram()
+    }
+
     override fun toSage(): String {
         var result = ""
         var check: ((FormulaBox) -> Boolean)? = null

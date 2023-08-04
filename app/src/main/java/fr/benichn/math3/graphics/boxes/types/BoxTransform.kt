@@ -3,11 +3,10 @@ package fr.benichn.math3.graphics.boxes.types
 import android.graphics.Canvas
 import android.graphics.PointF
 import android.graphics.RectF
+import androidx.core.graphics.div
 import androidx.core.graphics.plus
 import androidx.core.graphics.times
 import androidx.core.graphics.unaryMinus
-import fr.benichn.math3.graphics.Utils.Companion.div
-import fr.benichn.math3.graphics.Utils.Companion.times
 
 data class BoxTransform(val origin: PointF = PointF(), val scale: Float = 1f) {
     operator fun times(bt: BoxTransform) =

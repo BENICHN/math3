@@ -1,19 +1,24 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<fr.benichn.math3.graphics.PopupView
+    xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
-    android:layout_height="match_parent"
-    android:orientation="vertical">
-    <fr.benichn.math3.graphics.FormulaCellsContainer
-        android:id="@+id/cellsContainer"
-        android:layout_weight="1"
-        android:layout_width="match_parent"
-        android:layout_height="match_parent"/>
-    <fr.benichn.math3.numpad.NumpadView
+    android:layout_height="match_parent">
+    <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:layout_weight="1.33"
-        android:id="@+id/numpad">
-    </fr.benichn.math3.numpad.NumpadView>
-</LinearLayout>
+        android:orientation="vertical">
+        <fr.benichn.math3.graphics.FormulaCellsContainer
+            android:id="@+id/cellsContainer"
+            android:layout_weight="1"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"/>
+        <fr.benichn.math3.numpad.NumpadView
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:layout_weight="1.33"
+            android:id="@+id/numpad">
+        </fr.benichn.math3.numpad.NumpadView>
+    </LinearLayout>
+</fr.benichn.math3.graphics.PopupView>

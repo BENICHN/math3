@@ -1,12 +1,17 @@
 package fr.benichn.math3
 
+import android.util.Log
 import fr.benichn.math3.types.callback.Callback
 import fr.benichn.math3.types.callback.ObservableProperty
 import fr.benichn.math3.types.callback.VCC
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.MainScope
+import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import net.schmizz.sshj.SSHClient
 import net.schmizz.sshj.connection.channel.direct.Session
 import net.schmizz.sshj.connection.channel.direct.Session.Command
@@ -14,11 +19,60 @@ import net.schmizz.sshj.connection.channel.direct.Signal
 import net.schmizz.sshj.transport.verification.PromiscuousVerifier
 import org.bouncycastle.jce.provider.BouncyCastleProvider
 import java.security.Security
+import java.util.LinkedList
+import java.util.Queue
 import kotlin.coroutines.resume
 import kotlin.coroutines.suspendCoroutine
 
+class JobQueue {
+    data class Item(val source: Any, val block: suspend CoroutineScope.() -> Unit)
+    private val queue: Queue<Item> = LinkedList()
+    private var currentJob: Pair<Any, Job>? = null
+    val isComputing
+        get() = currentJob != null
+    fun contains(source: Any) = currentJob?.first == source || queue.any { it.source == source }
+    private fun startJobs() {
+        if (!isComputing) {
+            queue.poll()?.apply {
+                currentJob = source to MainScope().launch {
+                    try {
+                        block()
+                    } finally {
+                        Log.d("job", queue.size.toString())
+                        currentJob = null
+                        startJobs()
+                    }
+                }
+            }
+        }
+    }
+    fun enqueue(source: Any, block: suspend CoroutineScope.() -> Unit) =
+        if (!contains(source)) {
+            queue.offer(Item(source, block))
+            startJobs()
+            true
+        } else false
+    suspend fun abort(source: Any) =
+        if (currentJob?.first == source) {
+            currentJob!!.second.cancelAndJoin()
+            currentJob = null
+            true
+        } else {
+            queue.removeIf { it.source == source }
+            false
+        }
+    suspend fun abortAll() {
+        queue.clear()
+        currentJob?.run {
+            second.cancelAndJoin()
+            currentJob = null
+        }
+    }
+}
 
 abstract class Engine {
+    private val jobQueue = JobQueue()
+
     private val notifyStatusChanged = VCC<Engine, Status>(this)
     val onStatusChanged = notifyStatusChanged.Listener()
     var status by
@@ -29,32 +83,68 @@ abstract class Engine {
         }
         protected set
 
-    suspend fun waitForStatus(st: Status) = suspendCoroutine { cont ->
-        if (status == st) {
-            cont.resume(Unit)
-        } else {
-            onStatusChanged.add { _, e ->
-                if (e.new == st) {
-                    cont.resume(Unit)
-                    true
-                } else false
-            }
+    // suspend fun waitForStatus(st: Status) = suspendCoroutine { cont ->
+    //     if (status == st) {
+    //         cont.resume(Unit)
+    //     } else {
+    //         onStatusChanged.add { _, e ->
+    //             if (e.new == st) {
+    //                 cont.resume(Unit)
+    //                 true
+    //             } else false
+    //         }
+    //     }
+    // }
+
+    suspend fun abortAll() {
+        status = Status.ABORTING
+        jobQueue.abortAll()
+        status = Status.READY
+    }
+
+    suspend fun abort(source: Any) {
+        status = Status.ABORTING
+        jobQueue.abort(source)
+        status = Status.READY
+    }
+
+    fun contains(source: Any) = jobQueue.contains(source)
+
+    suspend fun enqueue(source: Any, command: String): CommandResult = suspendCoroutine { cont -> // !
+        jobQueue.enqueue(source) {
+            status = Status.COMPUTING
+            val r = runCommand(command)
+            status = Status.READY
+            cont.resume(r)
         }
     }
 
-    abstract suspend fun run(command: String): CommandResult
-    open suspend fun abort() {
-        reset()
+    suspend fun start() {
+        if (status == Status.STOPPED) {
+            status = Status.STARTING
+            startEngine()
+            status = Status.READY
+        }
     }
-    abstract suspend fun start()
-    abstract suspend fun reset()
-    abstract suspend fun stop()
+
+    suspend fun stop() {
+        if (status != Status.STOPPED) {
+            jobQueue.abortAll()
+            status = Status.STOPPING
+            stopEngine()
+            status = Status.STOPPED
+        }
+    }
+
+    protected abstract suspend fun runCommand(command: String): CommandResult
+    protected abstract suspend fun startEngine()
+    protected abstract suspend fun stopEngine()
 
     enum class Status {
         STOPPED,
         STARTING,
-        RESTARTING,
         READY,
+        ABORTING,
         COMPUTING,
         STOPPING
     }
@@ -93,164 +183,156 @@ abstract class SSHEngine : Engine() {
 
         init {
             CoroutineScope(Dispatchers.IO).launch {
-                checkInput()
+                while (command.isOpen) {
+                    var a = inputStream.available()
+                    if (a > 0) {
+                        var s = ""
+                        while (a > 0) {
+                            val i: Int = inputStream.read(tmpBytes, 0, BUFFER_SIZE)
+                            if (i < 0) break
+                            s += String(tmpBytes, 0, i)
+                            a = inputStream.available()
+                        }
+                        val str = s.trimEnd()
+                        if (str.isNotEmpty()) {
+                            val j = str.indexOfLast { it == '\n' }
+                                .let { if (it == -1) str.lastIndex else it }
+                            val lastLine = str.substring(j).trimStart()
+                            val res = str.substring(0, j).trim()
+                            tmpString += res
+                            isReady = promptRegex.matches(lastLine)
+                        } else {
+                            isReady = false
+                        }
+                    }
+                    a = errStream.available()
+                    if (a > 0) {
+                        var s = ""
+                        while (a > 0) {
+                            val i: Int = errStream.read(tmpBytes, 0, BUFFER_SIZE)
+                            if (i < 0) break
+                            s = String(tmpBytes, 0, i)
+                            a = errStream.available()
+                        }
+                        notifyError(s)
+                    }
+                    delay(INTERVAL)
+                }
             }
         }
 
-        private suspend fun checkInput() {
-            while (command.isOpen) {
-                // Log.d("fr", "ah")
-                var a = inputStream.available()
-                if (a > 0) {
-                    var s = ""
-                    while (a > 0) {
-                        val i: Int = inputStream.read(tmpBytes, 0, BUFFER_SIZE)
-                        if (i < 0) break
-                        s += String(tmpBytes, 0, i)
-                        a = inputStream.available()
-                    }
-                    // Log.d("in", s)
-                    // Log.d("in", "debu")
-                    val str = s.trimEnd()
-                    if (str.isNotEmpty()) {
-                        val j = str.indexOfLast { it == '\n' }.let { if (it == -1) str.lastIndex else it }
-                        val lastLine = str.substring(j).trimStart()
-                        val res = str.substring(0, j).trim()
-                        tmpString += res
-                        isReady = promptRegex.matches(lastLine)
-                    } else {
-                        isReady = false
-                    }
-                    // Log.d("in", "f1")
+        suspend fun waitForReadyOrError() =
+            suspendCoroutine { cont ->
+                val handleReady = { _: Any, s: String ->
+                    cont.resume(interpretSuccess(s))
+                    true
                 }
-                a = errStream.available()
-                if (a > 0) {
-                    var s = ""
-                    while (a > 0) {
-                        val i: Int = errStream.read(tmpBytes, 0, BUFFER_SIZE)
-                        if (i < 0) break
-                        s = String(tmpBytes, 0, i)
-                        // Log.d("er", s)
-                        a = errStream.available()
-                    }
-                    notifyError(s)
+                val handleError = { _: Any, s: String ->
+                    cont.resume(CommandResult.Failure(s))
+                    true
                 }
-                delay(INTERVAL)
+                onReady.add(handleReady)
+                onReady += { _, _ -> onError.remove(handleError) }
+                onError.add(handleError)
+                onError += { _, _ -> onReady.remove(handleReady) }
             }
-        }
 
         suspend fun close() {
             interruptComputation(this)
             command.close()
         }
 
-        fun runCom(com: String) {
+        suspend fun sendCommand(com: String) = withContext(Dispatchers.IO) {
             writer.write(com)
             writer.newLine()
             writer.flush()
         }
 
-        fun sendInterrupt() {
+        suspend fun sendInterrupt() = withContext(Dispatchers.IO) {
             command.signal(Signal.KILL)
         }
     }
 
     abstract val program: String
     abstract val promptRegex: Regex
-    open suspend fun interruptComputation(channelInfo: ChannelInfo) = reset()
+    open suspend fun interruptComputation(channelInfo: ChannelInfo) { }
+    open fun transformInput(s: String) = s
+    open fun interpretSuccess(s: String): CommandResult = CommandResult.Success(s)
 
     private val client = SSHClient().apply {
         addHostKeyVerifier(PromiscuousVerifier())
     }
     private var session: Session? = null
-    val isSessionOpen
-        get() = session != null
     private var channelInfo: ChannelInfo? = null
     val isChannelOpen
         get() = channelInfo != null
 
-    protected suspend fun closeChannel() {
+    private suspend fun closeChannel() {
         channelInfo?.close()
         channelInfo = null
     }
 
-    protected suspend fun openSession(): Session {
-        if (isSessionOpen) {
-            closeSession()
-        }
-        status = Status.STARTING
-        // Log.d("jsch", "op")
-        client.connect("192.168.1.60")
-        client.authPassword("benichn", "jtk;swlm*")
-        return client.startSession().also {
+    private suspend fun openSession() =
+        session ?: withContext(Dispatchers.IO) {
+            client.connect("")
+            client.authPassword("", "")
+            client.startSession()
+        }.also {
             session = it
         }
-    }
 
-    protected suspend fun closeSession() {
-        status = Status.STOPPING
-        closeChannel()
+    private fun closeSession() {
         session?.close()
         session = null
-        status = Status.STOPPED
     }
 
-    protected suspend fun openChanel(): ChannelInfo {
-        // Log.d("jsch", "ch")
-        if (isChannelOpen) {
-            closeChannel()
-        }
-        return ChannelInfo(session!!.exec(program)).also {
+    private fun openChanel() =
+        channelInfo ?: ChannelInfo(session!!.exec(program)).also {
             channelInfo = it
         }
+
+    override suspend fun stopEngine() {
+        closeChannel()
+        closeSession()
     }
 
-    protected suspend fun waitForReadyOrError(): CommandResult = channelInfo!!.run {
-        suspendCoroutine { cont ->
-            val handleReady = { _: Any, s: String ->
-                status = Status.READY
-                cont.resume(CommandResult.Success(s))
-                true
-            }
-            val handleError = { _: Any, s: String ->
-                status = Status.READY
-                cont.resume(CommandResult.Failure(s))
-                true
-            }
-            onReady.add(handleReady)
-            onReady += { _, _ -> onError.remove(handleError) }
-            onError.add(handleError)
-            onError += { _, _ -> onReady.remove(handleReady) }
-        }
-    }
-
-    override suspend fun run(command: String): CommandResult = channelInfo!!.run {
-        status = Status.COMPUTING
-        runCom(command)
-        waitForReadyOrError()
-    }
-
-    override suspend fun abort() {
-        channelInfo?.let { ci ->
-            interruptComputation(ci)
+    override suspend fun startEngine() {
+        openSession()
+        openChanel().apply {
             waitForReadyOrError()
         }
     }
 
-    override suspend fun start() {
-        openSession()
-        reset()
-    }
-
-    override suspend fun reset() {
-        if (status != Status.STARTING) status = Status.RESTARTING
-        openChanel()
+    override suspend fun runCommand(command: String) = channelInfo!!.run {
+        sendCommand(transformInput(command))
         waitForReadyOrError()
     }
 
-    override suspend fun stop() {
-        closeSession()
-    }
+    // override suspend fun run(command: String): CommandResult = channelInfo!!.run {
+    //     sendCommand(command)
+    //     waitForReadyOrError()
+    // }
+//
+    // override suspend fun abort() {
+    //     channelInfo?.let { ci ->
+    //         interruptComputation(ci)
+    //         waitForReadyOrError()
+    //     }
+    // }
+//
+    // override suspend fun start() {
+    //     openSession()
+    //     reset()
+    // }
+//
+    // override suspend fun reset() {
+    //     openChanel()
+    //     waitForReadyOrError()
+    // }
+//
+    // override suspend fun stop() {
+    //     closeSession()
+    // }
 
     companion object {
         private fun setupBouncyCastle() {
@@ -277,15 +359,49 @@ abstract class SSHEngine : Engine() {
 }
 
 class WolframEngine : SSHEngine() {
-    override val program = "math"
+    override val program = "wolframscript"
     override val promptRegex = Regex("""^In\[\d+]:=$""")
+    val outRegex = Regex("""^Out\[\d+]//InputForm= """)
     override suspend fun interruptComputation(channelInfo: ChannelInfo) {
         channelInfo.sendInterrupt()
-        channelInfo.runCom("a")
+        channelInfo.sendCommand("a")
     }
+
+    override fun interpretSuccess(s: String): CommandResult {
+        val r = outRegex.replace(s, "")
+        return if (r.length < s.length) CommandResult.Success(r) else CommandResult.Failure(s)
+    }
+
+    override fun transformInput(s: String) = "InputForm[$s]"
 }
 
 class SageEngine : SSHEngine() {
     override val program = "sage"
     override val promptRegex = Regex("""^sage:$""")
 }
+
+// class SymjaEngine : Engine() {
+//     private var ev: ExprEvaluator? = null
+//     val isStarted
+//         get() = ev != null
+//     override suspend fun run(command: String) = ev!!.run {
+//         val expr = eval(command)
+//     }
+//
+//     override suspend fun start() {
+//         status = Status.STARTING
+//         ev = ExprEvaluator()
+//         status = Status.READY
+//     }
+//
+//     override suspend fun reset() {
+//         status = Status.RESTARTING
+//         ev = ExprEvaluator()
+//         status = Status.READY
+//     }
+//
+//     override suspend fun stop() {
+//         TODO("Not yet implemented")
+//     }
+//
+// }

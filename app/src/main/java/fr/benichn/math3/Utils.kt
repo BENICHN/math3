@@ -23,5 +23,25 @@ class Utils {
 
         private val dpScale: Float = App.instance.applicationContext.resources.displayMetrics.density
         fun Int.dp() = (this * dpScale + 0.5f).toInt()
+
+        fun <T> List<T>.intercalateIndexed(f: (Int) -> T) = flatMapIndexed { i, e ->
+            if (i == size-1) listOf(e)
+            else listOf(e, f(i))
+        }
+
+        fun <T> List<T>.intercalateIndexed(f: (Int, T) -> T) = flatMapIndexed { i, e ->
+            if (i == size-1) listOf(e)
+            else listOf(e, f(i, e))
+        }
+
+        fun <T> List<T>.intercalate(f: (T) -> T) = flatMapIndexed { i, e ->
+            if (i == size-1) listOf(e)
+            else listOf(e, f(e))
+        }
+
+        fun <T> List<T>.intercalate(element: T) = flatMapIndexed { i, e ->
+            if (i == size-1) listOf(e)
+            else listOf(e, element)
+        }
     }
 }

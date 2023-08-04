@@ -114,6 +114,22 @@ class DiscreteOperationFormulaBox(operator: String, operatorType: DiscreteOperat
         Padding(0f, 0f, DEFAULT_TEXT_WIDTH * 0.25f, 0f).applyOnRect(r)
     }
 
+    override fun toWolfram(): String {
+        val name = when (operator.operator) {
+            "∑" -> "Sum"
+            "∏" -> "Product"
+            else -> throw UnsupportedOperationException()
+        }
+        return when (operator.operatorType) {
+            DiscreteOperatorFormulaBox.Type.LIST ->
+                "$name[${operand.toWolfram()}, {${operator.bottom.ch[0].toWolfram()}, ${operator.bottom.ch[2].toWolfram()}}]"
+            DiscreteOperatorFormulaBox.Type.BOUNDS ->
+                "$name[${operand.toWolfram()}, {${operator.bottom.ch[0].toWolfram()}, ${operator.bottom.ch[2].toWolfram()}, ${operator.top.toWolfram()}}]"
+            DiscreteOperatorFormulaBox.Type.INDEFINITE ->
+                "$name[${operand.toWolfram()}, ${operator.bottom.toWolfram()}]"
+        }
+    }
+
     override fun toSage(): String {
         val name = when (operator.operator) {
             "∑" -> "sum"

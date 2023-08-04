@@ -2,8 +2,10 @@ package fr.benichn.math3.graphics.types
 
 import android.graphics.PointF
 import android.view.MotionEvent
+import androidx.core.graphics.div
 import androidx.core.graphics.minus
 import androidx.core.graphics.plus
+import androidx.core.graphics.times
 import fr.benichn.math3.graphics.Utils
 import fr.benichn.math3.graphics.Utils.Companion.div
 import fr.benichn.math3.graphics.Utils.Companion.times

@@ -6,6 +6,8 @@ data class ContextMenuEntry(
     val box: FormulaBox,
     val action: (Any) -> Unit
 ) {
+    lateinit var finalAction: () -> Unit
+
     companion object {
         inline fun <reified T> create(box: FormulaBox, crossinline action: (T) -> Unit) =
             ContextMenuEntry(box) {

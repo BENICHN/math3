@@ -89,5 +89,6 @@ class FractionFormulaBox : TopDownFormulaBox(
         return RangeF(-r, r)
     }
 
+    override fun toWolfram() = "(${numerator.toWolfram()})/(${denominator.toWolfram()})"
     override fun toSage() = "(${numerator.toSage()})/(${denominator.toSage()})"
 }

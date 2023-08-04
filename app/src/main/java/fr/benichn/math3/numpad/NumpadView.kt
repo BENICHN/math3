@@ -7,32 +7,39 @@ import android.util.Log
 import android.util.SizeF
 import android.view.MotionEvent
 import android.view.View
+import fr.benichn.math3.graphics.FormulaViewer
+import fr.benichn.math3.graphics.boxes.types.BoundsTransformer
+import fr.benichn.math3.graphics.types.RectPoint
 import fr.benichn.math3.graphics.types.TouchAction
 import fr.benichn.math3.numpad.types.Direction
 import fr.benichn.math3.types.callback.Callback
 import fr.benichn.math3.types.callback.ObservableProperty
 import org.json.JSONObject
 
-class NumpadView(context: Context, attrs: AttributeSet? = null) : View(context, attrs) {
-    private var box = NumpadFormulaBox(
-        JSONObject(context.assets.open("numpad_pages.json").reader().use { it.readText() }),
-        SizeF(width.toFloat(), height.toFloat())
-    ).apply {
-        onPictureChanged += { _, _ ->
-            invalidate()
-        }
+class NumpadView(context: Context, attrs: AttributeSet? = null) : FormulaViewer(context, attrs) {
+    init {
+        child = NumpadFormulaBox(
+            JSONObject(context.assets.open("numpad_pages.json").reader().use { it.readText() }),
+            SizeF(width.toFloat(), height.toFloat())
+        )
     }
+
+    override val initialBoxTransformers: Array<BoundsTransformer>
+        get() = arrayOf(BoundsTransformer.Align(RectPoint.TOP_LEFT))
+
+    private val numpadBox = child as NumpadFormulaBox
     private val pageBox
-        get() = box.currentPageBox
+        get() = numpadBox.currentPageBox
 
     val notifyButtonClicked = Callback<NumpadView, String>(this)
     val onButtonClicked = notifyButtonClicked.Listener()
 
-    var touchAction: TouchAction? by ObservableProperty<NumpadView, TouchAction?>(this, null) { _, e ->
-        e.new?.apply {
-            onFinished += { _, _ -> touchAction = null }
-            onReplaced += { _, ev -> touchAction = ev.new }
-        }
+    override fun createTouchAction(e: MotionEvent) {
+        touchAction = NumpadTouchAction()
+    }
+
+    override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
+        numpadBox.size = SizeF(w.toFloat(), h.toFloat())
     }
 
     private inner class NumpadTouchAction : TouchAction(longPressTimeout = 200L) {
@@ -54,22 +61,22 @@ class NumpadView(context: Context, attrs: AttributeSet? = null) : View(context, 
                 when {
                     d.x > SWIPE_DISTANCE -> {
                         pageBox.buttonPressed = null
-                        box.swipe(Direction.Right)
+                        numpadBox.swipe(Direction.Right)
                         finish()
                     }
                     d.y > SWIPE_DISTANCE -> {
                         pageBox.buttonPressed = null
-                        box.swipe(Direction.Down)
+                        numpadBox.swipe(Direction.Down)
                         finish()
                     }
                     d.x < -SWIPE_DISTANCE -> {
                         pageBox.buttonPressed = null
-                        box.swipe(Direction.Left)
+                        numpadBox.swipe(Direction.Left)
                         finish()
                     }
                     d.y < -SWIPE_DISTANCE -> {
                         pageBox.buttonPressed = null
-                        box.swipe(Direction.Up)
+                        numpadBox.swipe(Direction.Up)
                         finish()
                     }
                 }
@@ -99,35 +106,6 @@ class NumpadView(context: Context, attrs: AttributeSet? = null) : View(context, 
         override fun beforeFinish(replacement: TouchAction?) {
             pageBox.buttonExpanded = null
             pageBox.buttonPressed = null
-        }
-
-    }
-
-    override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
-        box.size = SizeF(w.toFloat(), h.toFloat())
-    }
-
-    override fun onDraw(canvas: Canvas) {
-        box.drawOnCanvas(canvas)
-    }
-
-    override fun onTouchEvent(e: MotionEvent): Boolean {
-        Log.d("nump", e.toString())
-        when (e.actionMasked) {
-            MotionEvent.ACTION_DOWN -> {
-                touchAction = NumpadTouchAction()
-            }
-        }
-        runTouchAction(e)
-        return true
-    }
-
-    private fun runTouchAction(e: MotionEvent) {
-        touchAction?.also {
-            it.onTouchEvent(e)
-            if (touchAction != it) { // en cas de remplacement
-                runTouchAction(e)
-            }
         }
     }
 

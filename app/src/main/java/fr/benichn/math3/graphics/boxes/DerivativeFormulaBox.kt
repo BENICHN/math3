@@ -63,10 +63,17 @@ class DerivativeFormulaBox(type: TopDownFormulaBox.Type = TopDownFormulaBox.Type
         return FinalBoxes()
     }
 
+    override fun toWolfram() = "D[${brackets.input.toWolfram()}, " +
+            when (operator.type) {
+                TopDownFormulaBox.Type.BOTTOM -> operator.variable.toWolfram()
+                TopDownFormulaBox.Type.BOTH -> "{${operator.variable.toWolfram()}, ${operator.order.toWolfram()}}"
+                else -> throw UnsupportedOperationException()
+            } + "]"
+
     override fun toSage() = "diff(${brackets.input.toSage()}, " +
             when (operator.type) {
                 TopDownFormulaBox.Type.BOTTOM -> operator.variable.toSage()
-                TopDownFormulaBox.Type.BOTH -> "[${operator.variable.toSage()}] * ${operator.order.toSage()}"
+                TopDownFormulaBox.Type.BOTH -> "var(${operator.variable.toSage()}), ${operator.order.toSage()}"
                 else -> throw UnsupportedOperationException()
             } + ")"
 }

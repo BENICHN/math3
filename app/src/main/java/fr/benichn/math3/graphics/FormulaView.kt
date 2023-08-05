@@ -15,6 +15,7 @@ import fr.benichn.math3.ContextMenuView
 import fr.benichn.math3.Utils.Companion.neg
 import fr.benichn.math3.Utils.Companion.pos
 import fr.benichn.math3.graphics.PopupView.Companion.destroyPopup
+import fr.benichn.math3.graphics.PopupView.Companion.getCoordsInPopupView
 import fr.benichn.math3.graphics.PopupView.Companion.requirePopup
 import fr.benichn.math3.graphics.Utils.Companion.l2
 import fr.benichn.math3.graphics.Utils.Companion.with
@@ -276,6 +277,21 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : FormulaViewer
         }, sourceBounds + origin + offset, sourceRP, sourcePadding) { this.contextMenu = null }
     }
 
+    private var magnifier: FormulaMagnifier? = null
+
+    private fun requireMagnifier(
+        absPos: PointF
+    ) {
+        getCoordsInPopupView()?.let { o ->
+            val mg = FormulaMagnifier(context)
+            mg.box = box
+            mg.absPos = absPos
+            mg.origin = offset + origin + o
+            magnifier = mg
+            requirePopup(mg, 0, 0) { magnifier = null }
+        }
+    }
+
     private inner class PlaceCaretAction : FormulaViewAction() {
         override fun onDown() {
         }
@@ -381,6 +397,7 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : FormulaViewer
         }
 
         override fun beforeFinish(replacement: TouchAction?) {
+            destroyPopup()
             if (!hasMoved && isAdding) {
                 caret.positions = basePositions
             } else {
@@ -389,6 +406,7 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : FormulaViewer
         }
 
         override fun onMove() {
+            magnifier?.also { mg -> mg.absPos = prim.lastPosition } ?: run { requireMagnifier(prim.lastPosition) }
             caret.positions = getFiltered(basePositions + findSingle(prim.lastPosition).withModif(prim.lastPosition))
         }
 

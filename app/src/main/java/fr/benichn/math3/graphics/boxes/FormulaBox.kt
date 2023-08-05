@@ -369,39 +369,26 @@ open class FormulaBox {
     fun drawOnCanvas(canvas: Canvas) {
         transform.applyOnCanvas(canvas)
 
-        fun draw() {
-            if (isRoot) {
-                caret?.preDrawOnCanvas(canvas)
-            }
-
-            canvas.drawRect(bounds, backgroundPaint)
-            for (p in paintedPaths) {
-                canvas.drawPath(p.path, p.realPaint)
-            }
-            // canvas.drawRect(bounds, FormulaView.red)
-            for (b in children) {
-                b.drawOnCanvas(canvas)
-            }
-
-            if (isRoot) {
-                caret?.postDrawOnCanvas(canvas)
-            }
+        if (isRoot) {
+            caret?.preDrawOnCanvas(canvas)
         }
-        draw()
-
-        for (p in caret?.positions.orEmpty()) {
-            if (isRoot && p is CaretPosition.Single) p.absPos?.also { ap ->
-                canvas.translate(ap.x, ap.y-DEFAULT_TEXT_RADIUS*4)
-                canvas.drawPath(magnifierPath, FormulaView.backgroundPaint)
-                canvas.drawPath(magnifierPath, FormulaView.magnifierBorder)
-                canvas.withClip(magnifierPath) {
-                    canvas.translate(-ap.x, -ap.y)
-                    canvas.scale(MAGNIFIER_FACTOR, MAGNIFIER_FACTOR, ap.x, ap.y)
-                    draw()
-                }
-                canvas.translate(0f, DEFAULT_TEXT_RADIUS*4)
-            }
+        canvas.drawRect(bounds, backgroundPaint)
+        for (p in paintedPaths) {
+            canvas.drawPath(p.path, p.realPaint)
         }
+        // canvas.drawRect(bounds, FormulaView.red)
+        for (b in children) {
+            b.drawOnCanvas(canvas)
+        }
+        if (isRoot) {
+            caret?.postDrawOnCanvas(canvas)
+        }
+
+        // for (p in caret?.positions.orEmpty()) {
+        //     if (isRoot && p is CaretPosition.Single) p.absPos?.also { ap ->
+        //
+        //     }
+        // }
 
         transform.invert.applyOnCanvas(canvas)
     }
@@ -445,12 +432,6 @@ open class FormulaBox {
         // const val SELECTION_CARET_RADIUS = 14f
         // const val CARET_OVERFLOW_RADIUS = 18f
         const val MAGNIFIER_RADIUS = DEFAULT_TEXT_SIZE
-        val magnifierPath = Path().apply {
-            val rx = DEFAULT_TEXT_WIDTH * 3
-            val ry = DEFAULT_TEXT_SIZE * 0.75f
-            val r = RectF(-rx, -ry, rx, ry)
-            addRoundRect(r, MAGNIFIER_RADIUS, MAGNIFIER_RADIUS, Path.Direction.CCW)
-        }
 
         fun commonParent(vararg boxes: FormulaBox) = commonParent(boxes.asIterable())
         fun commonParent(boxes: Iterable<FormulaBox>): CommonParentWithIndices? {

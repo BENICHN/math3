@@ -110,7 +110,7 @@ abstract class Engine {
 
     fun contains(source: Any) = jobQueue.contains(source)
 
-    suspend fun enqueue(source: Any, command: String): CommandResult = suspendCoroutine { cont -> // !
+    suspend fun enqueue(source: Any, command: String): CommandResult = suspendCoroutine { cont -> // ! (if deja enqued)
         jobQueue.enqueue(source) {
             status = Status.COMPUTING
             val r = runCommand(command)

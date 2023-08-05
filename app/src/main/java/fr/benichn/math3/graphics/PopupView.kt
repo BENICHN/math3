@@ -13,6 +13,7 @@ import androidx.core.graphics.minus
 import androidx.core.graphics.plus
 import androidx.core.graphics.toPoint
 import androidx.core.graphics.toRect
+import fr.benichn.math3.graphics.PopupView.Companion.requirePopup
 import fr.benichn.math3.graphics.boxes.types.Padding
 import fr.benichn.math3.graphics.types.RectPoint
 import fr.benichn.math3.types.callback.Callback
@@ -106,6 +107,17 @@ class PopupView(context: Context, attrs: AttributeSet? = null) : FrameLayout(con
                 p.setPopup(this, popup, v.x, v.y, onDestroyed)
             }
         }
+        fun View.requirePopup(popup: View, x: Int, y: Int, onDestroyed: (() -> Unit)? = null) {
+            findPopupParent(this)?.let { p ->
+                p.setPopup(this, popup, x, y, onDestroyed)
+            }
+        }
+        fun View.getCoordsInPopupView() =
+            findPopupParent(this)?.let { p ->
+                val r = Rect(0,0,1,1)
+                p.offsetDescendantRectToMyCoords(this, r)
+                RectPoint.TOP_LEFT.get(r)
+            }
         fun View.destroyPopup() {
             findPopupParent(this)?.let { p ->
                 if (p.popupSource == this) p.removePopup()

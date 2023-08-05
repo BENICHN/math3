@@ -397,7 +397,7 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : FormulaViewer
         }
 
         override fun beforeFinish(replacement: TouchAction?) {
-            destroyPopup()
+            if (magnifier != null) destroyPopup()
             if (!hasMoved && isAdding) {
                 caret.positions = basePositions
             } else {

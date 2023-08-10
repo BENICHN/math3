@@ -2,7 +2,7 @@ package fr.benichn.math3.graphics.boxes
 
 import android.graphics.PointF
 import fr.benichn.math3.graphics.Utils.Companion.scale
-import fr.benichn.math3.graphics.boxes.SequenceChild.Companion.ign
+import fr.benichn.math3.graphics.boxes.SequenceFormulaBox.Child.Companion.ign
 import fr.benichn.math3.graphics.boxes.types.FinalBoxes
 import fr.benichn.math3.graphics.boxes.types.FormulaGraphics
 import fr.benichn.math3.graphics.boxes.types.InitialBoxes
@@ -47,7 +47,7 @@ class IntegralOperatorFormulaBox(type: Type = Type.BOTH) : TopDownFormulaBox(
         })
 
     override fun getInitialSingle() = when (type) {
-        Type.BOTH -> if (upper.ch.isEmpty()) upper.lastSingle else lower.lastSingle
+        Type.BOTH -> if (upper.ch.size == 1) upper.lastSingle else lower.lastSingle
         else -> null
     }
 }
@@ -58,15 +58,15 @@ class IntegralFormulaBox(type: TopDownFormulaBox.Type = TopDownFormulaBox.Type.B
     TextFormulaBox("ⅆ") ign true,
     InputFormulaBox() ign false
 ) {
-    val operator = ch[0] as IntegralOperatorFormulaBox
-    val integrand = ch[1] as InputFormulaBox
-    val variable = ch[3] as InputFormulaBox
+    val operator = ch[1] as IntegralOperatorFormulaBox
+    val integrand = ch[2] as InputFormulaBox
+    val variable = ch[4] as InputFormulaBox
 
     init {
         updateGraphics()
     }
 
-    override fun getInitialSingle() = if (integrand.ch.isEmpty()) integrand.lastSingle else operator.getInitialSingle()
+    override fun getInitialSingle() = if (integrand.ch.size == 1) integrand.lastSingle else operator.getInitialSingle()
 
     override fun addInitialBoxes(ib: InitialBoxes): FinalBoxes {
         integrand.addBoxes(ib.selectedBoxes)

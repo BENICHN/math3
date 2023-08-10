@@ -8,7 +8,7 @@ import fr.benichn.math3.graphics.boxes.types.BoundsTransformer
 import fr.benichn.math3.graphics.boxes.types.BoxTransform
 import fr.benichn.math3.types.ImmutableList
 
-class ContextMenu(entries: Iterable<ContextMenuEntry>, val trigger: (PointF) -> Boolean, val uniformWidths: Boolean = true) {
+class ContextMenu(entries: Iterable<ContextMenuEntry>, val trigger: (PointF) -> Boolean, uniformWidths: Boolean = true) {
     constructor(vararg entries: ContextMenuEntry, trigger: (PointF) -> Boolean, uniformWidths: Boolean = true) : this(entries.asIterable(), trigger, uniformWidths)
     constructor(vararg entries: ContextMenuEntry) : this(entries.asIterable(), { false }, false)
 
@@ -34,15 +34,6 @@ class ContextMenu(entries: Iterable<ContextMenuEntry>, val trigger: (PointF) -> 
         entries.add(i, entry)
         fb.addEntryBox(i, entry.box)
     }
-
-    // fun findElement(p: PointF) =
-    //     if (box.bounds.contains(p.x, p.y)) Element.INTERIOR
-    //     else Element.NONE
-
-    // enum class Element {
-    //     INTERIOR,
-    //     NONE
-    // }
 
     fun findEntry(pos: PointF): ContextMenuEntry? =
         if (box.bounds.contains(pos.x, pos.y)) {

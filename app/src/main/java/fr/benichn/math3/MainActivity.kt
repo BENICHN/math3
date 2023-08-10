@@ -3,10 +3,7 @@ package fr.benichn.math3
 import android.app.Application
 import android.os.Bundle
 import android.util.Log
-import android.view.ViewGroup
-import android.widget.LinearLayout
 import androidx.appcompat.app.AppCompatActivity
-import fr.benichn.math3.Utils.Companion.dp
 import fr.benichn.math3.formulas.FormulaGroupedToken.Companion.readGroupedToken
 import fr.benichn.math3.graphics.FormulaCell
 import fr.benichn.math3.graphics.FormulaCellsContainer
@@ -20,13 +17,13 @@ import fr.benichn.math3.graphics.boxes.IntegralFormulaBox
 import fr.benichn.math3.graphics.boxes.MatrixFormulaBox
 import fr.benichn.math3.graphics.boxes.RootFormulaBox
 import fr.benichn.math3.graphics.boxes.ScriptFormulaBox
+import fr.benichn.math3.graphics.boxes.SequenceFormulaBox
 import fr.benichn.math3.graphics.boxes.TextFormulaBox
 import fr.benichn.math3.graphics.boxes.TopDownFormulaBox
 import fr.benichn.math3.numpad.NumpadView
 import fr.benichn.math3.numpad.types.Pt
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.launch
 import org.matheclipse.core.basic.AndroidLoggerFix
 import org.matheclipse.core.eval.ExprEvaluator
@@ -58,6 +55,12 @@ class MainActivity : AppCompatActivity() {
         setContentView(R.layout.activity_main)
         cc = findViewById(R.id.cellsContainer)
         repeat(3) { cc.addCell() }
+        cc.fvs.forEachIndexed { i, fv ->
+            when (i) {
+                0 -> fv.input.addBoxes(TextFormulaBox("FactorInteger[191808877330090598356947683236541006028951992209]"))
+                2 -> fv.input.addBoxes(TextFormulaBox("For[i = 0, i < 10, i++, Print[45+i]; Pause[1];]"))
+            }
+        }
         nv = findViewById(R.id.numpad)
         nv.onButtonClicked += { _, id ->
             cc.realCurrentFV?.let { fv ->
@@ -66,7 +69,7 @@ class MainActivity : AppCompatActivity() {
                         fv.sendDelete()
                     }
 
-                    "↵" -> {
+                    "eval" -> {
                         val cell = fv.parent as FormulaCell
                         cell.computeInput(engine)
                     }
@@ -74,6 +77,7 @@ class MainActivity : AppCompatActivity() {
                     else -> {
                         val newBox = {
                             when (id) {
+                                "↵" -> SequenceFormulaBox.LineStart()
                                 "over" -> FractionFormulaBox()
                                 "sqrt" -> RootFormulaBox(RootFormulaBox.Type.SQRT)
                                 "sqrt_n" -> RootFormulaBox(RootFormulaBox.Type.ORDER)

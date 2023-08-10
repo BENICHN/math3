@@ -2,12 +2,9 @@ package fr.benichn.math3.graphics.boxes
 
 import android.graphics.Canvas
 import android.graphics.Color
-import android.graphics.Paint
-import android.graphics.Path
 import android.graphics.PointF
 import android.graphics.RectF
-import androidx.core.graphics.withClip
-import fr.benichn.math3.graphics.FormulaView
+import android.util.Log
 import fr.benichn.math3.graphics.caret.BoxCaret
 import fr.benichn.math3.graphics.boxes.types.BoxTransform
 import fr.benichn.math3.graphics.boxes.types.DeletionResult
@@ -27,15 +24,18 @@ import fr.benichn.math3.graphics.caret.CaretPosition
 import fr.benichn.math3.graphics.caret.ContextMenu
 import fr.benichn.math3.types.Chain
 import fr.benichn.math3.types.callback.*
+import kotlin.math.max
 
 open class FormulaBox {
     var parent: FormulaBox? = null
         private set(value) {
             if (value != null) {
+                if (caret != null) {
+                    Log.d("caret", caret.toString())
+                }
                 assert(caret == null)
             }
             field = value
-            notifyBrothersBoundsChanged()
         }
     val root: FormulaBox
         get() = parent?.root ?: this
@@ -52,7 +52,7 @@ open class FormulaBox {
         get() = buildParents(Chain.singleton(ParentWithIndex(this, -1)))
 
     private var caret: BoxCaret? = null
-        get() = if (isRoot) field else parent!!.caret
+        get() = parent?.caret ?: field
 
     fun createCaret(): BoxCaret {
         assert(isRoot)
@@ -77,46 +77,43 @@ open class FormulaBox {
 
     private val children = mutableListOf<FormulaBox>()
     val ch = ImmutableList(children)
-    fun addBoxes(vararg boxes: FormulaBox) = addBoxes(boxes.asIterable())
-    fun addBoxes(boxes: Iterable<FormulaBox>) =
+    fun addBoxes(vararg boxes: FormulaBox) = addBoxes(children.size, *boxes)
+    fun addBoxes(i: Int, vararg boxes: FormulaBox) = addBoxes(i, boxes.asList())
+    fun addBoxes(boxes: List<FormulaBox>) =
         addBoxes(children.size, boxes)
-    fun addBoxes(i: Int, boxes: Iterable<FormulaBox>) {
+    open fun addBoxes(i: Int, boxes: List<FormulaBox>) {
         boxes.forEachIndexed { j, b ->
-            addBox(i+j, b)
+            b.delete()
+            b.parent = this
+            children.add(i+j, b)
+            connect(b.onBoundsChanged) { s, e -> onChildBoundsChanged(s, e) }
+        }
+        for (c in children) {
+            c.notifyBrothersBoundsChanged()
         }
     }
-    fun addBox(b: FormulaBox) = addBox(children.size, b)
-    open fun addBox(i: Int, b: FormulaBox) {
-        if (!b.isRoot) b.delete()
-        children.add(i, b)
-        b.parent = this
-        connect(b.onBoundsChanged) { s, e -> onChildBoundsChanged(s, e) }
-        for (j in children.indices) {
-            if (j != i) {
-                children[j].notifyBrothersBoundsChanged()
-            }
+    fun addBoxesAfter(c: FormulaBox, boxes: List<FormulaBox>) = addBoxes(children.indexOf(c)+1, boxes)
+    fun addBoxesAfter(c: FormulaBox, vararg boxes: FormulaBox) = addBoxesAfter(c, boxes.asList())
+    fun addBoxesBefore(c: FormulaBox, boxes: List<FormulaBox>) = addBoxes(max(1, children.indexOf(c)), boxes)
+    fun addBoxesBefore(c: FormulaBox, vararg boxes: FormulaBox) = addBoxesAfter(c, boxes.asList())
+    fun removeAllBoxes() = removeBoxes(children.toList())
+    fun removeLastBox() { if (children.isNotEmpty()) removeBoxes(children.last()) }
+    fun removeBoxes(vararg boxes: FormulaBox) =
+        removeBoxes(boxes.asList())
+    open fun removeBoxes(boxes: List<FormulaBox>) {
+        boxes.forEach { b ->
+            assert(b.parent == this)
+            disconnectFrom(b)
+            setChildTransform(b, BoxTransform())
+            children.remove(b)
+            b.parent = null
         }
-    }
-    fun removeAllBoxes() {
-        while (children.isNotEmpty()) {
-            removeLastBox()
+        for (c in boxes) {
+            c.notifyBrothersBoundsChanged()
         }
-    }
-    fun removeLastBox() { if (children.isNotEmpty()) removeBoxAt(children.size - 1) }
-    fun removeBox(b: FormulaBox) = removeBoxAt(children.indexOf(b))
-    open fun removeBoxAt(i: Int) {
-        val b = children[i]
-        assert(b.parent == this)
-        disconnectFrom(b)
-        setChildTransform(i, BoxTransform())
-        children.removeAt(i)
-        b.parent = null
-        children.forEach { it.notifyBrothersBoundsChanged() }
-    }
-
-    fun replaceBox(i: Int, b: FormulaBox) {
-        removeBoxAt(i)
-        addBox(i, b)
+        for (c in children) {
+            c.notifyBrothersBoundsChanged()
+        }
     }
 
     open fun addInitialBoxes(ib: InitialBoxes) = FinalBoxes()
@@ -171,16 +168,6 @@ open class FormulaBox {
         } else {
             delete()
         }
-    // protected inline fun selectChIfThisFilledOrDelete(vararg boxes: FormulaBox, deletion: () -> DeletionResult = { delete() }) =
-    //     if (parent !is InputFormulaBox) {
-    //         delete()
-    //     } else {
-    //         if (isFilled) {
-    //             if (boxes.isEmpty()) DeletionResult.fromSelection(this) else DeletionResult(CaretPosition.DiscreteSelection(this, boxes.map { ch.indexOf(it) }))
-    //         } else {
-    //             deletion()
-    //         }
-    //     }
 
     protected open fun onChildRequiresDelete(b: FormulaBox, vararg anticipation: FormulaBox): DeletionResult =
         if (anticipation.isNotEmpty() || isFilled) {
@@ -189,14 +176,6 @@ open class FormulaBox {
             delete()
         }
     fun delete(vararg anticipation: FormulaBox) = parent?.onChildRequiresDelete(this, *anticipation) ?: DeletionResult()
-
-    fun forceDelete(): CaretPosition.Single? = parentWithIndex?.let { (p, i) ->
-        if (p is InputFormulaBox) {
-            p.removeBoxAt(i)
-            CaretPosition.Single(p, i)
-        }
-        else p.forceDelete()
-    }
 
     open fun deleteMultiple(boxes: List<FormulaBox>) = when (boxes.size) {
         0 -> DeletionResult()
@@ -221,13 +200,13 @@ open class FormulaBox {
     fun findSingle(pos: PointF) : CaretPosition.Single? {
         val c = findChildBox(pos)
         return if (c == this || !shouldEnterInChild(c, pos)) {
-            if (c is InputFormulaBox) {
-                assert(c.ch.isEmpty())
-                CaretPosition.Single(c, 0)
-            }
-            else {
-                CaretPosition.Single.fromBox(c, accTransform.applyOnPoint(pos))
-            }
+            // if (c is InputFormulaBox) {
+            //     assert(c.ch.isEmpty())
+            //     CaretPosition.Single(c, 0)
+            // }
+            // else {
+            CaretPosition.Single.fromBox(c, accTransform.applyOnPoint(pos))
+            // }
         } else {
             c.findSingle(c.transform.invert.applyOnPoint(pos))
         }
@@ -268,12 +247,11 @@ open class FormulaBox {
             }
         }
 
-    protected fun setChildTransform(i: Int, bt: BoxTransform) {
-        children[i].transform = bt
+    protected fun setChildTransform(b: FormulaBox, bt: BoxTransform) {
+        assert(b.parent == this)
+        b.transform = bt
     }
-    protected fun setChildTransform(b: FormulaBox, bt: BoxTransform) = setChildTransform(children.indexOf(b), bt)
-    protected fun modifyChildTransform(i: Int, t: (BoxTransform) -> BoxTransform) = setChildTransform(i, t(children[i].transform))
-    protected fun setChildTransform(b: FormulaBox, t: (BoxTransform) -> BoxTransform) = setChildTransform(b, t(b.transform))
+    protected fun modifyChildTransform(b: FormulaBox, t: (BoxTransform) -> BoxTransform) = setChildTransform(b, t(b.transform))
 
     private val notifyGraphicsChanged = VCC<FormulaBox, FormulaGraphics>(this)
     val onGraphicsChanged = notifyGraphicsChanged.Listener()
@@ -377,7 +355,7 @@ open class FormulaBox {
             canvas.drawPath(p.path, p.realPaint)
         }
         // canvas.drawRect(bounds, FormulaView.red)
-        for (b in children) {
+        for (b in children.toList()) { // !
             b.drawOnCanvas(canvas)
         }
         if (isRoot) {

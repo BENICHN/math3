@@ -12,7 +12,8 @@ class TransformerFormulaBox(child: FormulaBox = FormulaBox(), transformers: List
 
     val dlgChild = BoxProperty(this, child).apply {
         onChanged += { _, e ->
-            replaceBox(0, e.new)
+            removeAllBoxes()
+            addBoxes(e.new)
         }
     }
     var child by dlgChild
@@ -35,7 +36,7 @@ class TransformerFormulaBox(child: FormulaBox = FormulaBox(), transformers: List
     }
 
     init {
-        addBox(child)
+        addBoxes(child)
     }
 
     override fun findChildBox(pos: PointF): FormulaBox = child
@@ -46,15 +47,16 @@ class TransformerFormulaBox(child: FormulaBox = FormulaBox(), transformers: List
         updateGraphics()
     }
 
-    override fun addBox(i: Int, b: FormulaBox) {
-        super.addBox(i, b)
+    override fun addBoxes(i: Int, boxes: List<FormulaBox>) {
+        assert(boxes.size == 1)
+        super.addBoxes(i, boxes)
         transformChild()
         updateGraphics()
     }
 
     private fun transformChild() {
         setChildTransform(
-            0,
+            child,
             transformer(child.bounds)
         )
     }

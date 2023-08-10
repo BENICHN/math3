@@ -4,25 +4,32 @@ import android.util.Log
 import fr.benichn.math3.types.callback.Callback
 import fr.benichn.math3.types.callback.ObservableProperty
 import fr.benichn.math3.types.callback.VCC
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.MainScope
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.channels.ProducerScope
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.FlowCollector
+import kotlinx.coroutines.flow.channelFlow
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
-import net.schmizz.sshj.SSHClient
-import net.schmizz.sshj.connection.channel.direct.Session
-import net.schmizz.sshj.connection.channel.direct.Session.Command
-import net.schmizz.sshj.connection.channel.direct.Signal
-import net.schmizz.sshj.transport.verification.PromiscuousVerifier
-import org.bouncycastle.jce.provider.BouncyCastleProvider
+import org.json.JSONException
+import org.json.JSONObject
 import java.security.Security
 import java.util.LinkedList
 import java.util.Queue
+import org.zeromq.ZMQ
+import org.zeromq.ZContext
+import org.zeromq.SocketType
 import kotlin.coroutines.resume
-import kotlin.coroutines.suspendCoroutine
 
 class JobQueue {
     data class Item(val source: Any, val block: suspend CoroutineScope.() -> Unit)
@@ -38,7 +45,6 @@ class JobQueue {
                     try {
                         block()
                     } finally {
-                        Log.d("job", queue.size.toString())
                         currentJob = null
                         startJobs()
                     }
@@ -52,19 +58,19 @@ class JobQueue {
             startJobs()
             true
         } else false
-    suspend fun abort(source: Any) =
+    suspend fun abort(source: Any, abortAction: suspend (Job) -> Unit = { job -> job.cancelAndJoin() }) =
         if (currentJob?.first == source) {
-            currentJob!!.second.cancelAndJoin()
+            abortAction(currentJob!!.second)
             currentJob = null
             true
         } else {
             queue.removeIf { it.source == source }
             false
         }
-    suspend fun abortAll() {
+    suspend fun abortAll(abortAction: suspend (Any, Job) -> Unit = { _, job -> job.cancelAndJoin() }) {
         queue.clear()
         currentJob?.run {
-            second.cancelAndJoin()
+            abortAction(first, second)
             currentJob = null
         }
     }
@@ -98,26 +104,35 @@ abstract class Engine {
 
     suspend fun abortAll() {
         status = Status.ABORTING
-        jobQueue.abortAll()
+        jobQueue.abortAll { _, job ->
+            abortComputation(job)
+        }
         status = Status.READY
     }
 
     suspend fun abort(source: Any) {
         status = Status.ABORTING
-        jobQueue.abort(source)
+        jobQueue.abort(source) { job ->
+            abortComputation(job)
+        }
         status = Status.READY
     }
 
     fun contains(source: Any) = jobQueue.contains(source)
 
-    suspend fun enqueue(source: Any, command: String): CommandResult = suspendCoroutine { cont -> // ! (if deja enqued)
-        jobQueue.enqueue(source) {
-            status = Status.COMPUTING
-            val r = runCommand(command)
-            status = Status.READY
-            cont.resume(r)
-        }
-    }
+    fun enqueue(source: Any, command: String): Flow<String>? =
+        if (!jobQueue.contains(source)) channelFlow {
+            suspendCancellableCoroutine { cont ->
+                jobQueue.enqueue(source) {
+                    status = Status.COMPUTING
+                    runCommand(command).collect { s ->
+                        send(s)
+                    }
+                    cont.resume(Unit)
+                    status = Status.READY
+                }
+            }
+        } else null
 
     suspend fun start() {
         if (status == Status.STOPPED) {
@@ -129,14 +144,15 @@ abstract class Engine {
 
     suspend fun stop() {
         if (status != Status.STOPPED) {
-            jobQueue.abortAll()
+            abortAll()
             status = Status.STOPPING
             stopEngine()
             status = Status.STOPPED
         }
     }
 
-    protected abstract suspend fun runCommand(command: String): CommandResult
+    protected open suspend fun abortComputation(computationJob: Job) = computationJob.cancelAndJoin()
+    protected abstract fun runCommand(command: String): Flow<String>
     protected abstract suspend fun startEngine()
     protected abstract suspend fun stopEngine()
 
@@ -148,236 +164,134 @@ abstract class Engine {
         COMPUTING,
         STOPPING
     }
-}
-
-sealed class CommandResult {
-    data class Success(val result: String): CommandResult()
-    data class Failure(val message: String): CommandResult()
-}
-
-abstract class SSHEngine : Engine() {
-    inner class ChannelInfo(
-        val command: Command,
-    ) {
-        private val outputStream = command.outputStream
-        private val inputStream = command.inputStream
-        private val errStream = command.errorStream
-        private val writer = outputStream.bufferedWriter()
-
-        var isReady by ObservableProperty(this, false).apply {
-            onChanged += { _, e ->
-                if (e.new) {
-                    notifyReady(tmpString)
-                    tmpString = ""
-                }
-            }
-        }
-
-        private val notifyReady = Callback<ChannelInfo, String>(this)
-        val onReady = notifyReady.Listener()
-        private val notifyError = Callback<ChannelInfo, String>(this)
-        val onError = notifyError.Listener()
-
-        private var tmpString = ""
-        private val tmpBytes = ByteArray(BUFFER_SIZE)
-
-        init {
-            CoroutineScope(Dispatchers.IO).launch {
-                while (command.isOpen) {
-                    var a = inputStream.available()
-                    if (a > 0) {
-                        var s = ""
-                        while (a > 0) {
-                            val i: Int = inputStream.read(tmpBytes, 0, BUFFER_SIZE)
-                            if (i < 0) break
-                            s += String(tmpBytes, 0, i)
-                            a = inputStream.available()
-                        }
-                        val str = s.trimEnd()
-                        if (str.isNotEmpty()) {
-                            val j = str.indexOfLast { it == '\n' }
-                                .let { if (it == -1) str.lastIndex else it }
-                            val lastLine = str.substring(j).trimStart()
-                            val res = str.substring(0, j).trim()
-                            tmpString += res
-                            isReady = promptRegex.matches(lastLine)
-                        } else {
-                            isReady = false
-                        }
-                    }
-                    a = errStream.available()
-                    if (a > 0) {
-                        var s = ""
-                        while (a > 0) {
-                            val i: Int = errStream.read(tmpBytes, 0, BUFFER_SIZE)
-                            if (i < 0) break
-                            s = String(tmpBytes, 0, i)
-                            a = errStream.available()
-                        }
-                        notifyError(s)
-                    }
-                    delay(INTERVAL)
-                }
-            }
-        }
-
-        suspend fun waitForReadyOrError() =
-            suspendCoroutine { cont ->
-                val handleReady = { _: Any, s: String ->
-                    cont.resume(interpretSuccess(s))
-                    true
-                }
-                val handleError = { _: Any, s: String ->
-                    cont.resume(CommandResult.Failure(s))
-                    true
-                }
-                onReady.add(handleReady)
-                onReady += { _, _ -> onError.remove(handleError) }
-                onError.add(handleError)
-                onError += { _, _ -> onReady.remove(handleReady) }
-            }
-
-        suspend fun close() {
-            interruptComputation(this)
-            command.close()
-        }
-
-        suspend fun sendCommand(com: String) = withContext(Dispatchers.IO) {
-            writer.write(com)
-            writer.newLine()
-            writer.flush()
-        }
-
-        suspend fun sendInterrupt() = withContext(Dispatchers.IO) {
-            command.signal(Signal.KILL)
-        }
-    }
-
-    abstract val program: String
-    abstract val promptRegex: Regex
-    open suspend fun interruptComputation(channelInfo: ChannelInfo) { }
-    open fun transformInput(s: String) = s
-    open fun interpretSuccess(s: String): CommandResult = CommandResult.Success(s)
-
-    private val client = SSHClient().apply {
-        addHostKeyVerifier(PromiscuousVerifier())
-    }
-    private var session: Session? = null
-    private var channelInfo: ChannelInfo? = null
-    val isChannelOpen
-        get() = channelInfo != null
-
-    private suspend fun closeChannel() {
-        channelInfo?.close()
-        channelInfo = null
-    }
-
-    private suspend fun openSession() =
-        session ?: withContext(Dispatchers.IO) {
-            client.connect("")
-            client.authPassword("", "")
-            client.startSession()
-        }.also {
-            session = it
-        }
-
-    private fun closeSession() {
-        session?.close()
-        session = null
-    }
-
-    private fun openChanel() =
-        channelInfo ?: ChannelInfo(session!!.exec(program)).also {
-            channelInfo = it
-        }
-
-    override suspend fun stopEngine() {
-        closeChannel()
-        closeSession()
-    }
-
-    override suspend fun startEngine() {
-        openSession()
-        openChanel().apply {
-            waitForReadyOrError()
-        }
-    }
-
-    override suspend fun runCommand(command: String) = channelInfo!!.run {
-        sendCommand(transformInput(command))
-        waitForReadyOrError()
-    }
-
-    // override suspend fun run(command: String): CommandResult = channelInfo!!.run {
-    //     sendCommand(command)
-    //     waitForReadyOrError()
-    // }
-//
-    // override suspend fun abort() {
-    //     channelInfo?.let { ci ->
-    //         interruptComputation(ci)
-    //         waitForReadyOrError()
-    //     }
-    // }
-//
-    // override suspend fun start() {
-    //     openSession()
-    //     reset()
-    // }
-//
-    // override suspend fun reset() {
-    //     openChanel()
-    //     waitForReadyOrError()
-    // }
-//
-    // override suspend fun stop() {
-    //     closeSession()
-    // }
 
     companion object {
-        private fun setupBouncyCastle() {
-            val provider = Security.getProvider(BouncyCastleProvider.PROVIDER_NAME)
-                ?: // Web3j will set up the provider lazily when it's first used.
-                return
-            if (provider.javaClass == BouncyCastleProvider::class.java) {
-                // BC with same package name, shouldn't happen in real life.
-                return
+        const val MAX_RESULT_LENGTH = 1000
+    }
+}
+
+// sealed class CommandResult {
+//     data class Success(val result: String): CommandResult()
+//     data object Failure: CommandResult()
+//     data object Canceled: CommandResult()
+// }
+
+class WolframEngine : Engine() {
+    private var socket: ZMQ.Socket? = null
+
+    private fun sendJson(vararg entries: Pair<String, String>): JSONObject {
+        val j = JSONObject(mapOf(*entries))
+        socket?.send(j.toString())
+        return j
+    }
+
+    private suspend fun receiveResponses() {
+        while (socket != null) {
+            val resp = withContext(Dispatchers.IO) { socket!!.recvStr() }
+            try {
+                val rpj = JSONObject(resp)
+                val handled = notifyReceivedResponse(rpj)
+                if (!handled) {
+                    Log.d("WolframEngine", "Response not handled: $rpj")
+                }
+                handleIgnored?.let { l ->
+                    handleIgnored = null
+                    l()
+                }
+            } catch (e: JSONException) {
+                Log.d("WolframEngine", "Ignored response: $resp due to $e")
             }
-            // Android registers its own BC provider. As it might be outdated and might not include
-            // all needed ciphers, we substitute it with a known BC bundled in the app.
-            // Android's BC has its package rewritten to "com.android.org.bouncycastle" and because
-            // of that it's possible to have another BC implementation loaded in VM.
-            Security.removeProvider(BouncyCastleProvider.PROVIDER_NAME)
-            Security.insertProviderAt(BouncyCastleProvider(), 1)
         }
-        init {
-            setupBouncyCastle()
+    }
+
+    private val notifyReceivedResponse = Callback<WolframEngine, JSONObject>(this)
+    private val onReceivedResponse = notifyReceivedResponse.Listener()
+
+    private var handleIgnored: (() -> Unit)? = null
+
+    private suspend fun JSONObject.waitForResponse(type: String): JSONObject {
+        var handleResponse: ((Any, JSONObject) -> Boolean)? = null
+        try {
+            return suspendCancellableCoroutine { cont ->
+                handleResponse = { _: Any, rpj: JSONObject ->
+                    when (rpj.getString("type")) {
+                        "ignored" -> {
+                            val rqi = rpj.getJSONObject("request")
+                            if (rqi == this) {
+                                handleIgnored = {
+                                    cont.cancel()
+                                }
+                                true
+                            } else false
+                        }
+                        type -> {
+                            cont.resume(rpj)
+                            true
+                        }
+                        else -> false
+                    }
+                }
+                onReceivedResponse.add(handleResponse!!)
+            }
+        } finally {
+            handleResponse?.let { l -> onReceivedResponse.remove(l) }
         }
-        const val BUFFER_SIZE = 1048576
-        const val INTERVAL = 100L
-    }
-}
-
-class WolframEngine : SSHEngine() {
-    override val program = "wolframscript"
-    override val promptRegex = Regex("""^In\[\d+]:=$""")
-    val outRegex = Regex("""^Out\[\d+]//InputForm= """)
-    override suspend fun interruptComputation(channelInfo: ChannelInfo) {
-        channelInfo.sendInterrupt()
-        channelInfo.sendCommand("a")
     }
 
-    override fun interpretSuccess(s: String): CommandResult {
-        val r = outRegex.replace(s, "")
-        return if (r.length < s.length) CommandResult.Success(r) else CommandResult.Failure(s)
+    private var producerScope: ProducerScope<String>? = null
+
+    override fun runCommand(command: String): Flow<String> {
+        return channelFlow {
+            producerScope = this
+            val res = sendJson(
+                "type" to "eval",
+                "input" to command
+            ).waitForResponse("result")
+            send(res.getString("output"))
+            producerScope = null
+        }
     }
 
-    override fun transformInput(s: String) = "InputForm[$s]"
-}
+    override suspend fun abortComputation(computationJob: Job) {
+        sendJson(
+            "type" to "abort"
+        )
+    }
 
-class SageEngine : SSHEngine() {
-    override val program = "sage"
-    override val promptRegex = Regex("""^sage:$""")
+    override suspend fun startEngine() = coroutineScope {
+        if (socket != null) return@coroutineScope
+        socket = ZContext().createSocket(SocketType.DEALER).apply {
+            connect("tcp://")
+        }
+        launch { receiveResponses() }
+        sendJson(
+            "type" to "ping"
+        ).waitForResponse("pong")
+        onReceivedResponse += { _, rpj ->
+            when (rpj.getString("type")) {
+                "ping" -> sendJson(
+                    "type" to "pong"
+                )
+                "session_expired" -> {
+                    socket = null
+                }
+                "message" -> {
+                    producerScope?.trySend(
+                        rpj.getString("output")
+                    )
+                }
+            }
+        }
+    }
+
+    override suspend fun stopEngine() {
+        if (socket == null) return
+        sendJson(
+            "type" to "quit"
+        ).waitForResponse("stopped")
+        socket?.close()
+        socket = null
+    }
 }
 
 // class SymjaEngine : Engine() {

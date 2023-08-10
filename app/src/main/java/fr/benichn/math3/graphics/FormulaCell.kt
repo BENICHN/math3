@@ -3,30 +3,106 @@ package fr.benichn.math3.graphics
 import android.content.Context
 import android.graphics.Canvas
 import android.graphics.Color
-import android.graphics.Paint
 import android.graphics.Rect
 import android.graphics.drawable.ColorDrawable
 import android.util.AttributeSet
 import android.util.Log
 import android.view.MotionEvent
 import android.view.View
+import android.widget.FrameLayout
 import android.widget.LinearLayout
-import fr.benichn.math3.CommandResult
+import android.widget.TextView
 import fr.benichn.math3.Engine
 import fr.benichn.math3.formulas.FormulaGroupedToken.Companion.readGroupedToken
 import fr.benichn.math3.graphics.boxes.IntegralFormulaBox
+import fr.benichn.math3.graphics.boxes.SequenceFormulaBox
 import fr.benichn.math3.graphics.boxes.TextFormulaBox
+import fr.benichn.math3.graphics.boxes.types.BoundsTransformer
+import fr.benichn.math3.graphics.boxes.types.Paints
+import fr.benichn.math3.graphics.types.RectPoint
+import fr.benichn.math3.graphics.types.TouchAction
+import fr.benichn.math3.types.callback.Callback
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.launch
 import java.io.StringReader
+import fr.benichn.math3.types.callback.invoke
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 class FormulaCell(context: Context, attrs: AttributeSet? = null) : LinearLayout(context, attrs) {
+    class StopButton(context: Context, attrs: AttributeSet? = null) : FormulaViewer(context, attrs) {
+        override val initialBoxTransformers: Array<BoundsTransformer>
+            get() = arrayOf(BoundsTransformer.Align(RectPoint.CENTER))
+
+        init {
+            originRP = RectPoint.CENTER
+            child = TextFormulaBox("▩", big = true)
+        }
+
+        private val notifyClicked = Callback<StopButton, Unit>(this)
+        val onClicked = notifyClicked.Listener()
+
+        private inner class StopButtonTouchAction : FormulaViewerAction() {
+            override fun onDown() {
+                if (child.accRealBounds.contains(prim.lastPosition.x, prim.lastPosition.y)) {
+                    child.background = Color.LTGRAY
+                } else finish()
+            }
+
+            override fun onLongDown() {
+            }
+
+            override fun onMove() {
+                child.background = if (child.accRealBounds.contains(prim.lastPosition.x, prim.lastPosition.y)) {
+                    Color.LTGRAY
+                } else Color.TRANSPARENT
+            }
+
+            override fun onUp() {
+                if (child.accRealBounds.contains(prim.lastPosition.x, prim.lastPosition.y)) {
+                    notifyClicked()
+                }
+            }
+
+            override fun onPinchDown() {
+            }
+
+            override fun onPinchMove() {
+            }
+
+            override fun onPinchUp() {
+            }
+
+            override fun beforeFinish(replacement: TouchAction?) {
+                child.background = Color.TRANSPARENT
+            }
+        }
+
+        override fun createTouchAction(e: MotionEvent) {
+            touchAction = StopButtonTouchAction()
+        }
+    }
+
     val inputFV = FormulaView(context)
     val outputFV = FormulaView(context).apply {
         isReadOnly = true
         scale = 0.8f
         magneticScale = 0.8f
         input.addBoxes(IntegralFormulaBox().apply { integrand.addBoxes(TextFormulaBox("output")) })
+    }
+    private val textView = TextView(context).apply {
+        visibility = GONE
+        setTextIsSelectable(true)
+        setBackgroundColor(FormulaView.defaultBackgroundColor)
+    }
+    private val stopButton = StopButton(context).apply {
+        visibility = GONE
+        setBackgroundColor(FormulaView.defaultBackgroundColor)
+    }
+    private val fl = FrameLayout(context).also {
+        it.addView(outputFV)
+        it.addView(textView)
+        it.addView(stopButton)
     }
 
     fun hline(height: Int, color: Int) = View(context).apply {
@@ -80,41 +156,54 @@ class FormulaCell(context: Context, attrs: AttributeSet? = null) : LinearLayout(
             }
         }
         return currentFV?.let { fv ->
+            val v = if (fv == outputFV) fl else fv
             val r = Rect()
-            fv.getDrawingRect(r)
-            offsetDescendantRectToMyCoords(fv, r)
+            v.getDrawingRect(r)
+            offsetDescendantRectToMyCoords(v, r)
             e.offsetLocation(-r.left.toFloat(), -r.top.toFloat())
-            fv.dispatchTouchEvent(MotionEvent.obtain(e))
+            v.dispatchTouchEvent(MotionEvent.obtain(e))
         } ?: super.dispatchTouchEvent(e)
     }
 
+    private var currentEngine: Engine? = null
+
     fun computeInput(engine: Engine) {
-        if (!engine.contains(this)) {
+        if (currentEngine != null) return
+        currentEngine = engine
+        val command = inputFV.input.toWolfram()
+        engine.enqueue(this@FormulaCell, command)?.also { f ->
+            textView.text = ""
+            outputFV.input.clear()
             MainScope().launch {
-                outputFV.input.removeAllBoxes()
-                outputFV.input.addBoxes(TextFormulaBox("..."))
-                val command = inputFV.input.toWolfram()
-                Log.d("math", "-> input : $command")
-                val res = engine.enqueue(this, command)
-                when (res) {
-                    is CommandResult.Failure ->
-                        Log.d("errr", res.message)
-                    is CommandResult.Success -> {
-                        Log.d("math", res.result)
-                        outputFV.input.removeAllBoxes()
-                        outputFV.input.addBoxes(res.result.map { c -> TextFormulaBox(c.toString()) })
-                        val sr = StringReader(res.result)
-                        val gtk = sr.readGroupedToken()
-                        Log.d("gtk", gtk.toString())
+                f.collect { s ->
+                    textView.visibility = GONE
+                    withContext(Dispatchers.Default) {
+                        outputFV.input.addBoxes(s.map { c ->
+                            when (c) {
+                                '\n' -> SequenceFormulaBox.LineStart()
+                                else -> TextFormulaBox(
+                                    c.toString()
+                                )
+                            }
+                        })
                     }
+                    val sr = StringReader(s)
+                    val gtk = sr.readGroupedToken()
+                    Log.d("gtk", gtk.toString())
                 }
+                currentEngine = null
             }
+        } ?: run {
+            currentEngine = null
         }
     }
 
-    fun abortComputation(engine: Engine) {
-        MainScope().launch {
-            engine.abort(this)
+    fun abortComputation() {
+        currentEngine?.let { engine ->
+            currentEngine = null
+            MainScope().launch {
+                engine.abort(this@FormulaCell)
+            }
         }
     }
 
@@ -132,16 +221,15 @@ class FormulaCell(context: Context, attrs: AttributeSet? = null) : LinearLayout(
         //         inputFV.scale *= ratio
         //     }
         // }
+        stopButton.onClicked += { _, _ ->
+            abortComputation()
+        }
         addView(inputFV)
         addView(hline(2, Color.GRAY))
-        addView(outputFV)
+        addView(fl)
     }
 
     companion object {
-        val borderPaint = Paint().apply {
-            color = Color.GRAY
-            style = Paint.Style.STROKE
-            strokeWidth = 2f
-        }
+        val borderPaint = Paints.stroke(2f, Color.GRAY)
     }
 }

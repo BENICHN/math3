@@ -80,7 +80,7 @@ class NumpadFormulaBox(pages: List<NumpadPageInfo> = listOf(), size: SizeF = Siz
         for (p in pages) {
             val b = NumpadPageFormulaBox(p, size)
             b.dlgSize.connectTo(dlgSize)
-            addBox(b)
+            addBoxes(b)
         }
     }
 
@@ -89,7 +89,7 @@ class NumpadFormulaBox(pages: List<NumpadPageInfo> = listOf(), size: SizeF = Siz
         val h = size.height
         for (i in ch.indices) {
             val p = pages[i]
-            setChildTransform(i, if (p.coords == currentPageCoords) BoxTransform() else BoxTransform(PointF(-w, -h)))
+            setChildTransform(ch[i], if (p.coords == currentPageCoords) BoxTransform() else BoxTransform(PointF(-w, -h)))
         }
     }
 
@@ -130,7 +130,7 @@ class NumpadFormulaBox(pages: List<NumpadPageInfo> = listOf(), size: SizeF = Siz
                 val xs = x0s.map { x0 -> x0 + dx }
                 val ys = y0s.map { y0 -> y0 + dy }
                 for (j in indices.indices) {
-                    setChildTransform(indices[j], BoxTransform(PointF(xs[j], ys[j])))
+                    setChildTransform(ch[indices[j]], BoxTransform(PointF(xs[j], ys[j])))
                 }
             }
             va.doOnEnd {
@@ -152,27 +152,27 @@ class NumpadFormulaBox(pages: List<NumpadPageInfo> = listOf(), size: SizeF = Siz
         currentPageCoords = pos
         when (d) {
             Direction.Up -> {
-                setChildTransform(ni, BoxTransform.yOffset(h))
+                setChildTransform(ch[ni], BoxTransform.yOffset(h))
                 currentAnimation = animateSwiping(0f, -h, SWIPE_DURATION, oi, ni) {
-                    setChildTransform(oi, BoxTransform(PointF(-w, -h)))
+                    setChildTransform(ch[oi], BoxTransform(PointF(-w, -h)))
                 }
             }
             Direction.Left -> {
-                setChildTransform(ni, BoxTransform.xOffset(w))
+                setChildTransform(ch[ni], BoxTransform.xOffset(w))
                 currentAnimation = animateSwiping(-w, 0f, SWIPE_DURATION, oi, ni) {
-                    setChildTransform(oi, BoxTransform(PointF(-w, -h)))
+                    setChildTransform(ch[oi], BoxTransform(PointF(-w, -h)))
                 }
             }
             Direction.Down -> {
-                setChildTransform(ni, BoxTransform.yOffset(-h))
+                setChildTransform(ch[ni], BoxTransform.yOffset(-h))
                 currentAnimation = animateSwiping(0f, h, SWIPE_DURATION, oi, ni) {
-                    setChildTransform(oi, BoxTransform(PointF(-w, -h)))
+                    setChildTransform(ch[oi], BoxTransform(PointF(-w, -h)))
                 }
             }
             Direction.Right -> {
-                setChildTransform(ni, BoxTransform.xOffset(-w))
+                setChildTransform(ch[ni], BoxTransform.xOffset(-w))
                 currentAnimation = animateSwiping(w, 0f, SWIPE_DURATION, oi, ni) {
-                    setChildTransform(oi, BoxTransform(PointF(-w, -h)))
+                    setChildTransform(ch[oi], BoxTransform(PointF(-w, -h)))
                 }
             }
         }
@@ -337,7 +337,7 @@ class NumpadPageFormulaBox(page: NumpadPageInfo, size: SizeF, buttonPressed: Pt?
 
     private fun addButton(btn: NumpadButtonInfo) {
         val b = getIconFromId(btn.id)
-        addBox(TransformerFormulaBox(b))
+        addBoxes(TransformerFormulaBox(b))
     }
 
     private fun addChildren() {
@@ -360,7 +360,7 @@ class NumpadPageFormulaBox(page: NumpadPageInfo, size: SizeF, buttonPressed: Pt?
         val rx = buttonSize.width * 0.5f
         val ry = buttonSize.height * 0.5f
         realButtons.forEachIndexed { i, btn ->
-            setChildTransform(i, BoxTransform(PointF(
+            setChildTransform(ch[i], BoxTransform(PointF(
                 btn.pt.x * buttonSize.width + rx,
                 btn.pt.y * buttonSize.height + ry,
             )))

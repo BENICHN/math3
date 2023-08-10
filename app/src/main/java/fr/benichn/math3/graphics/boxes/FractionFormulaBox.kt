@@ -33,7 +33,7 @@ class FractionFormulaBox : TopDownFormulaBox(
         updateGraphics()
     }
 
-    override fun getFinalBoxes() = FinalBoxes(numerator.ch.toList(), denominator.ch.toList(), !denominator.ch.isEmpty())
+    override fun getFinalBoxes() = FinalBoxes(numerator.chr, denominator.chr, denominator.ch.size > 1)
 
     override fun onChildRequiresDelete(b: FormulaBox, vararg anticipation: FormulaBox): DeletionResult = when (b) {
         topContainer -> {
@@ -53,7 +53,7 @@ class FractionFormulaBox : TopDownFormulaBox(
             }
         if (boxes.size == 1 && boxes[0] is BracketsInputFormulaBox) {
             (boxes[0] as BracketsInputFormulaBox).input.also {
-                numerator.addBoxes(it.ch.toList())
+                numerator.addBoxes(it.chr)
                 it.delete()
             }
         } else {
@@ -62,7 +62,7 @@ class FractionFormulaBox : TopDownFormulaBox(
         return FinalBoxes()
     }
 
-    override fun getInitialSingle() = if (numerator.ch.isEmpty()) {
+    override fun getInitialSingle() = if (numerator.ch.size == 1) {
         numerator.lastSingle
     } else {
         denominator.lastSingle

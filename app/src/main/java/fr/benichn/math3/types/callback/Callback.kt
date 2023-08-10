@@ -18,11 +18,15 @@ class Callback<S, T>(val source: S) {
         }
     }
     private val action: MutableList<(S, T) -> Any> = mutableListOf()
-    operator fun invoke(e: T) {
+    operator fun invoke(e: T): Boolean {
         for (l in action.toList()) {
             val r = l(source, e)
-            if (r == true) action.remove(l)
+            if (r == true) {
+                action.remove(l)
+                return true
+            }
         }
+        return false
     }
 }
 

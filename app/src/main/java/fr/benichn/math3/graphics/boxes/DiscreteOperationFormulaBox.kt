@@ -1,7 +1,7 @@
 package fr.benichn.math3.graphics.boxes
 
 import fr.benichn.math3.graphics.Utils.Companion.scale
-import fr.benichn.math3.graphics.boxes.SequenceChild.Companion.ign
+import fr.benichn.math3.graphics.boxes.SequenceFormulaBox.Child.Companion.ign
 import fr.benichn.math3.graphics.boxes.types.BoxProperty
 import fr.benichn.math3.graphics.boxes.types.FinalBoxes
 import fr.benichn.math3.graphics.boxes.types.InitialBoxes
@@ -21,7 +21,7 @@ class DiscreteOperatorFormulaBox(operator: String, operatorType: Type = Type.BOU
         onChanged += { _, e ->
             if (e.changed) {
                 type = TopDownFormulaBox.Type.NONE
-                bottom.removeAllBoxes()
+                (bottom as SequenceFormulaBox).clearBoxes()
                 applyType()
             }
         }
@@ -96,14 +96,14 @@ class DiscreteOperationFormulaBox(operator: String, operatorType: DiscreteOperat
     DiscreteOperatorFormulaBox(operator, operatorType),
     InputFormulaBox()
 ) {
-    val operator = ch[0] as DiscreteOperatorFormulaBox
-    val operand = ch[1] as InputFormulaBox
+    val operator = ch[1] as DiscreteOperatorFormulaBox
+    val operand = ch[2] as InputFormulaBox
 
     init {
         updateGraphics()
     }
 
-    override fun getInitialSingle() = if (operand.ch.isEmpty()) operand.lastSingle else operator.getInitialSingle()
+    override fun getInitialSingle() = if (operand.ch.size == 1) operand.lastSingle else operator.getInitialSingle()
 
     override fun addInitialBoxes(ib: InitialBoxes): FinalBoxes {
         operand.addBoxes(ib.selectedBoxes)
@@ -122,9 +122,9 @@ class DiscreteOperationFormulaBox(operator: String, operatorType: DiscreteOperat
         }
         return when (operator.operatorType) {
             DiscreteOperatorFormulaBox.Type.LIST ->
-                "$name[${operand.toWolfram()}, {${operator.bottom.ch[0].toWolfram()}, ${operator.bottom.ch[2].toWolfram()}}]"
+                "$name[${operand.toWolfram()}, {${operator.bottom.ch[1].toWolfram()}, ${operator.bottom.ch[3].toWolfram()}}]"
             DiscreteOperatorFormulaBox.Type.BOUNDS ->
-                "$name[${operand.toWolfram()}, {${operator.bottom.ch[0].toWolfram()}, ${operator.bottom.ch[2].toWolfram()}, ${operator.top.toWolfram()}}]"
+                "$name[${operand.toWolfram()}, {${operator.bottom.ch[1].toWolfram()}, ${operator.bottom.ch[3].toWolfram()}, ${operator.top.toWolfram()}}]"
             DiscreteOperatorFormulaBox.Type.INDEFINITE ->
                 "$name[${operand.toWolfram()}, ${operator.bottom.toWolfram()}]"
         }

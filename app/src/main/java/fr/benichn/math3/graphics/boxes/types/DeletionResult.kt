@@ -9,7 +9,7 @@ data class DeletionResult(val newPos: CaretPosition? = null, val deleted: Boolea
     fun withFinalBoxes(owner: FormulaBox?) = DeletionResult(newPos, deleted , owner)
 
     companion object {
-        fun fromSingle(b: FormulaBox) = DeletionResult(CaretPosition.Single.fromBox(b, Side.R))
+        fun fromSingle(b: FormulaBox) = DeletionResult(CaretPosition.Single.fromBox(b))
         fun fromDouble(b: FormulaBox) = DeletionResult(CaretPosition.Double.fromBox(b))
         fun fromSelection(b: FormulaBox) = DeletionResult(CaretPosition.DiscreteSelection.fromBox(b))
         fun fromSelection(vararg boxes: FormulaBox) = DeletionResult(CaretPosition.DiscreteSelection.fromBoxes(*boxes))

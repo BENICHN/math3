@@ -50,8 +50,8 @@ class DerivativeFormulaBox(type: TopDownFormulaBox.Type = TopDownFormulaBox.Type
     DerivativeOperatorFormulaBox(type),
     BracketsInputFormulaBox(type = BracketFormulaBox.Type.BRACKET)
 ) {
-    val operator = ch[0] as DerivativeOperatorFormulaBox
-    val brackets = ch[1] as BracketsInputFormulaBox
+    val operator = ch[1] as DerivativeOperatorFormulaBox
+    val brackets = ch[2] as BracketsInputFormulaBox
     override fun getInitialSingle() = operator.variable.lastSingle
 
     init {

@@ -3,7 +3,6 @@ package fr.benichn.math3.graphics
 import android.content.Context
 import android.graphics.Canvas
 import android.graphics.Color
-import android.graphics.Paint
 import android.graphics.PointF
 import android.graphics.RectF
 import android.util.AttributeSet
@@ -27,6 +26,7 @@ import fr.benichn.math3.graphics.boxes.types.BoxTransform
 import fr.benichn.math3.graphics.boxes.types.DeletionResult
 import fr.benichn.math3.graphics.boxes.types.InitialBoxes
 import fr.benichn.math3.graphics.boxes.types.Padding
+import fr.benichn.math3.graphics.boxes.types.Paints
 import fr.benichn.math3.graphics.boxes.types.Range
 import fr.benichn.math3.graphics.caret.BoxCaret
 import fr.benichn.math3.graphics.caret.CaretPosition
@@ -36,25 +36,31 @@ import fr.benichn.math3.graphics.types.RectPoint
 import fr.benichn.math3.graphics.types.Side
 import fr.benichn.math3.graphics.types.TouchAction
 import fr.benichn.math3.types.callback.*
+import kotlinx.coroutines.MainScope
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlin.concurrent.fixedRateTimer
 import kotlin.math.abs
 import kotlin.math.ceil
 import kotlin.math.max
+import kotlin.math.min
 import kotlin.math.sign
 
 class FormulaView(context: Context, attrs: AttributeSet? = null) : FormulaViewer(context, attrs) {
     override val initialBoxTransformers: Array<BoundsTransformer>
-        get() = arrayOf(BoundsTransformer.Align(RectPoint.BOTTOM_CENTER), BoundsTransformer.id)
+        get() = arrayOf(BoundsTransformer.Align(RectPoint.BOTTOM_LEFT), BoundsTransformer.id)
 
     var caret: BoxCaret
         private set
     private val origin
-        get() = PointF(width * 0.5f, height - FormulaBox.DEFAULT_TEXT_RADIUS)
+        get() = PointF(FormulaBox.DEFAULT_TEXT_WIDTH, height - FormulaBox.DEFAULT_TEXT_RADIUS)
     var offset = PointF()
         set(value) {
             field = adjustOffset(value)
             invalidate()
         }
+
+    private var accVelocity = PointF()
 
     private val notifyScaleChanged = VCC<FormulaView, Float>(this)
     val onScaleChanged = notifyScaleChanged.Listener()
@@ -68,6 +74,7 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : FormulaViewer
     var magneticScale = 1f
 
     init {
+        setBackgroundColor(defaultBackgroundColor)
         child = InputFormulaBox()
         box.dlgTransformers.onChanged += { _, e ->
             notifyScaleChanged(
@@ -83,6 +90,27 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : FormulaViewer
         caret.onPositionsChanged += { _, _ ->
             moveToCaret()
         }
+        MainScope().launch {
+            while (true) {
+                val diff = accVelocity * VELOCITY_REDUCTION_MULT * 0.25f
+                val newVel = accVelocity.run {
+                    PointF(
+                        x - VELOCITY_REDUCTION * VELOCITY_REDUCTION_MULT * x.sign,
+                        y - VELOCITY_REDUCTION * VELOCITY_REDUCTION_MULT * y.sign
+                    )
+                }
+                accVelocity = newVel.run {
+                    PointF(
+                        if (x.sign == accVelocity.x.sign) x else 0f,
+                        if (y.sign == accVelocity.y.sign) y else 0f
+                    )
+                }
+                if (diff != PointF(0f, 0f)) {
+                    offset += diff
+                }
+                delay(VELOCITY_REDUCTION_PERIOD)
+            }
+        }
     }
 
     val input = child as InputFormulaBox
@@ -92,55 +120,14 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : FormulaViewer
     private fun findSingle(absPos: PointF) = box.findSingle(absPos)!!
     private fun doubleFromSingles(p1: CaretPosition.Single, p2: CaretPosition.Single) = CaretPosition.Double.fromSingles(p1, p2)!!
 
-    private var accVelocity = PointF()
-    private val velocityTimer = fixedRateTimer(period = VELOCITY_REDUCTION_PERIOD) { // !
-        // Log.d("fix", accVelocity.toString())
-        val diff = accVelocity * VELOCITY_REDUCTION_MULT * 0.25f
-        val newVel = accVelocity.run { PointF(
-            x - VELOCITY_REDUCTION * VELOCITY_REDUCTION_MULT * x.sign,
-            y - VELOCITY_REDUCTION * VELOCITY_REDUCTION_MULT * y.sign
-        ) }
-        accVelocity = newVel.run { PointF(
-            if (x.sign == accVelocity.x.sign) x else 0f,
-            if (y.sign == accVelocity.y.sign) y else 0f
-        ) }
-        if (diff != PointF(0f, 0f)) {
-            offset += diff
-        }
-    }
-
     private fun moveToCaret() {
         val p = caret.positions.lastOrNull()
-        val pos = p?.absPos ?: (p as? CaretPosition.Single)?.getAbsPosition()
-        pos?.let { it + origin + offset }?.run {
-            // val radius = (p as? CaretPosition.Single)?.radius ?: FormulaBox.DEFAULT_TEXT_RADIUS
-            val o = DEFAULT_PADDING // + radius
-            val oxr = pos(x + o - width)
-            val oxl = neg(x - o)
-            val ox =
-                if (oxr > 0f) {
-                    if (oxl > 0f) {
-                        0.5f * (oxl - oxr)
-                    } else {
-                        -oxr
-                    }
-                } else {
-                    oxl
-                }
-            val oyb = pos(y + o - height)
-            val oyt = neg(y - o)
-            val oy =
-                if (oyb > 0f) {
-                    if (oyt > 0f) {
-                        0.5f * (oyt - oyb)
-                    } else {
-                        -oyb
-                    }
-                } else {
-                    oyt
-                }
-            offset += PointF(ox, oy)
-        }
+        val br = p?.absPos?.run { RectF(x, y-FormulaBox.DEFAULT_TEXT_RADIUS, x, y+FormulaBox.DEFAULT_TEXT_RADIUS) } ?: (p as? CaretPosition.Single)?.barRect ?: return
+        val r = defaultPadding.applyOnRect(br) + origin + offset
+        offset += PointF(
+            min(0f, width - r.right) + max(0f, -r.left),
+            min(0f, height - r.bottom) + max(0f, -r.top)
+        )
     }
 
     private fun adjustOffset() {
@@ -197,7 +184,6 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : FormulaViewer
     override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
         destroyPopup()
         adjustOffset()
-        invalidate()
     }
 
     private data class PositionUp(
@@ -322,7 +308,7 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : FormulaViewer
                             ent.finalAction = {
                                 cm.source!!.let {
                                     ent.action(it)
-                                    val newSingle = it.getInitialSingle() ?: CaretPosition.Single.fromBox(it, Side.R)!!
+                                    val newSingle = it.getInitialSingle() ?: CaretPosition.Single.fromBox(it)
                                     caret.positions = getFiltered(caret.positions.with(caret.positions.lastIndex, newSingle))
                                 }
                             }
@@ -419,7 +405,7 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : FormulaViewer
         override fun onDown() {
             downSingle = findSingle(prim.lastPosition)
             basePositions = if (isAdding) caret.positions else listOf()
-            caret.positions = getFiltered(basePositions + doubleFromSingles(downSingle, downSingle).withModif(prim.lastPosition, downSingle.getAbsPosition()))
+            caret.positions = getFiltered(basePositions + doubleFromSingles(downSingle, downSingle).withModif(prim.lastPosition/*, downSingle.getAbsPosition()*/))
         }
 
         override fun onLongDown() {
@@ -428,10 +414,10 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : FormulaViewer
         override fun onUp() {
             val s = findSingle(prim.lastPosition)
             val d = doubleFromSingles(downSingle, s)
-            if (d.indexRange.start == d.indexRange.end) {
+            if (d.startIndex == d.endIndex) {
                 caret.positions = getFiltered(
                     if (isReadOnly) basePositions
-                    else basePositions + CaretPosition.Single(d.box, d.indexRange.start)
+                    else basePositions + d.leftSingle
                 )
             }
         }
@@ -451,8 +437,8 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : FormulaViewer
 
         override fun onMove() {
             val s = findSingle(prim.lastPosition)
-            val p = CaretPosition.GridSelection.fromBoxes(downSingle.box, s.box)?.withModif(prim.lastPosition, downSingle.getAbsPosition()) ?:
-                    doubleFromSingles(downSingle, s).withModif(prim.lastPosition, downSingle.getAbsPosition())
+            val p = CaretPosition.GridSelection.fromBoxes(downSingle.box, s.box)?.withModif(prim.lastPosition/*, downSingle.getAbsPosition()*/) ?:
+                    doubleFromSingles(downSingle, s).withModif(prim.lastPosition/*, downSingle.getAbsPosition()*/)
             caret.positions = getFiltered(basePositions + p)
         }
     }
@@ -489,10 +475,10 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : FormulaViewer
             if (hasMoved) {
                 val s = findSingle(prim.lastPosition)
                 val d = doubleFromSingles(fixedSingle, s)
-                if (d.indexRange.start == d.indexRange.end) {
+                if (d.startIndex == d.endIndex) {
                     caret.positions = getFiltered(
                         if (isReadOnly) basePositions
-                        else basePositions + CaretPosition.Single(d.box, d.indexRange.start)
+                        else basePositions + d.leftSingle
                     )
                 }
             } else {
@@ -518,8 +504,8 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : FormulaViewer
         override fun onMove() {
             val s = findSingle(prim.lastPosition)
             val p =
-                CaretPosition.GridSelection.fromBoxes(fixedSingle.box, s.box)?.withModif(prim.lastPosition, fixedSingle.getAbsPosition()) ?:
-                    doubleFromSingles(fixedSingle, s).withModif(prim.lastPosition, fixedSingle.getAbsPosition())
+                CaretPosition.GridSelection.fromBoxes(fixedSingle.box, s.box)?.withModif(prim.lastPosition/*, fixedSingle.getAbsPosition()*/) ?:
+                    doubleFromSingles(fixedSingle, s).withModif(prim.lastPosition/*, fixedSingle.getAbsPosition()*/)
             caret.positions = getFiltered(basePositions + p)
         }
 
@@ -530,7 +516,7 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : FormulaViewer
         val r = when (p) {
             is CaretPosition.Double -> p.bounds
             is CaretPosition.GridSelection -> p.bounds
-            is CaretPosition.Single -> p.getAbsPosition().run { RectF(x, y - p.radius, x, y + p.radius) }
+            is CaretPosition.Single -> p.barRect
             else -> throw UnsupportedOperationException()
         }
         val cm = if (p is CaretPosition.Single) getSingleContextMenu() else getSelectionContextMenu()
@@ -621,12 +607,13 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : FormulaViewer
             if (!isLongPressed) {
                 notifyEnter()
                 val s = findSingle(prim.downPosition)
-                val n = s.box.ch.size
+                val pi = s.parentInput
+                val n = pi.input.ch.size
                 caret.positions = getFiltered(caret.positions.filterIndexed { i, _ -> i != index } +
                         when {
-                            n != 0 -> listOf(CaretPosition.Double(s.box, Range(0, n)))
+                            n != 0 -> listOf(CaretPosition.Double(pi.input, 0, n))
                             isReadOnly -> listOf()
-                            else -> listOf(CaretPosition.Single(s.box, 0))
+                            else -> listOf(CaretPosition.Single(pi.input, 0))
                         }
                 )
             }
@@ -654,49 +641,49 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : FormulaViewer
         } else super.onMeasure(widthMeasureSpec, heightMeasureSpec)
     }
 
-    private fun updatePosition(old: CaretPosition, s: CaretPosition.Single, addedAfter: Int): CaretPosition {
-        fun updateIndex(i: Int) =
-            if (i > s.index) i + addedAfter else i
-        return when (old) {
-            is CaretPosition.DiscreteSelection -> old
-            is CaretPosition.Double -> {
-                if (old.box == s.box) {
-                    CaretPosition.Double(
-                        old.box,
-                        Range(updateIndex(old.indexRange.start), updateIndex(old.indexRange.end))
-                    )
-                } else old
-            }
-            is CaretPosition.GridSelection -> old
-            is CaretPosition.Single -> {
-                if (old.box == s.box) {
-                    CaretPosition.Single(
-                        old.box,
-                        updateIndex(old.index)
-                    )
-                } else old
-            }
-        }
-    }
+    // private fun updatePosition(old: CaretPosition, s: CaretPosition.Single, addedAfter: Int): CaretPosition {
+    //     fun updateIndex(i: Int) =
+    //         if (i > s.index) i + addedAfter else i
+    //     return when (old) {
+    //         is CaretPosition.DiscreteSelection -> old
+    //         is CaretPosition.Double -> {
+    //             if (old.box == s.box) {
+    //                 CaretPosition.Double(
+    //                     old.box,
+    //                     Range(updateIndex(old.indexRange.start), updateIndex(old.indexRange.end))
+    //                 )
+    //             } else old
+    //         }
+    //         is CaretPosition.GridSelection -> old
+    //         is CaretPosition.Single -> {
+    //             if (old.box == s.box) {
+    //                 CaretPosition.Single(
+    //                     old.box,
+    //                     updateIndex(old.index)
+    //                 )
+    //             } else old
+    //         }
+    //     }
+    // }
 
-    private fun updatePositions(ps: MutableList<CaretPosition?>, s: CaretPosition.Single, addedAfter: Int) =
-        ps.indices.forEach { i -> ps[i] = ps[i]?.let { p -> updatePosition(p, s, addedAfter) } }
+    // private fun updatePositions(ps: MutableList<CaretPosition?>, s: CaretPosition.Single, addedAfter: Int) =
+    //     ps.indices.forEach { i -> ps[i] = ps[i]?.let { p -> updatePosition(p, s, addedAfter) } }
 
     private fun verifyPositions(ps: MutableList<CaretPosition?>) {
         ps.indices.forEach { i -> ps[i] = ps[i]?.let { p ->
-            if (p.box.root == box && p.selectedBoxes.all { it.root == box }) p else null
+            if (p.isValid(box)) p else null
         } }
-        ps.indices.forEach { i ->
-            ps[i] = ps[i]?.let { p ->
-                val ck = ps.withIndex().any { (j, pos) -> j != i && pos != null && (
-                        pos.contains(p.box) ||
-                        p.selectedBoxes.any { sb -> pos.contains(sb) } ||
-                        p is CaretPosition.Single && p.index.let { k -> k in 1 until p.box.ch.size && pos.contains(p.box.ch[k]) && pos.contains(p.box.ch[k-1]) }
-                        )
-                }
-                if (ck) null else p
-            }
-        }
+        // ps.indices.forEach { i -> // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+        //     ps[i] = ps[i]?.let { p ->
+        //         val ck = ps.withIndex().any { (j, pos) -> j != i && pos != null && (
+        //                 pos.contains(p.box) ||
+        //                 p.selectedBoxes.any { sb -> pos.contains(sb) } ||
+        //                 p is CaretPosition.Single && p.index.let { k -> k in 1 until p.box.ch.size && pos.contains(p.box.ch[k]) && pos.contains(p.box.ch[k-1]) }
+        //                 )
+        //         }
+        //         if (ck) null else p
+        //     }
+        // }
     }
 
     private fun getVerified(ps: List<CaretPosition>): List<CaretPosition?> {
@@ -705,39 +692,38 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : FormulaViewer
         return psm
     }
 
-    private fun getFiltered(ps: List<CaretPosition>) = getVerified(ps).filterNotNull().distinct()
+    private fun getFiltered(ps: List<CaretPosition?>) = getVerified(ps.filterNotNull()).filterNotNull().distinct()
 
     fun sendAdd(newBox: () -> FormulaBox) {
+        if (isReadOnly) return
         touchAction?.finish()
         destroyPopup()
 
         val ps = caret.positions.toMutableList<CaretPosition?>()
 
-        fun addInInput(box: InputFormulaBox, selectionRange: Range): CaretPosition.Single {
+        fun addInInput(box: InputFormulaBox, selectionStart: Int, selectionEnd: Int): CaretPosition.Single {
             val nb = newBox()
-            val i = selectionRange.start
-
-            val noEnv = ps.count { pos -> pos != null && pos.box == box } >= 2
+            // val noEnv = ps.count { pos -> pos != null && pos.box == box } >= 2
             val ib = InitialBoxes(
-                if (noEnv) listOf() else box.ch.subList(0, selectionRange.start).toList(),
-                box.ch.subList(selectionRange.start, selectionRange.end).toList(),
-                if (noEnv) listOf() else box.ch.subList(selectionRange.end, box.ch.size).toList()
+                /*if (noEnv) listOf() else*/ box.ch.subList(1, selectionStart+1).toList(),
+                box.ch.subList(selectionStart+1, selectionEnd+1).toList(),
+                /*if (noEnv) listOf() else*/ box.ch.subList(selectionEnd+1, box.ch.size).toList()
             )
             for (b in ib.selectedBoxes) {
                 b.delete()
             }
-            box.addBox(i, nb)
+            box.addBoxes(selectionStart+1, nb)
             val fb = nb.addInitialBoxes(ib)
-            box.addBoxes(i+1, fb.boxesAfter)
-            box.addBoxes(i, fb.boxesBefore)
-            if (noEnv) {
-                updatePositions(
-                    ps,
-                    CaretPosition.Single(box, i),
-                    fb.run { boxesBefore.size + boxesAfter.size } + 1 - ib.selectedBoxes.size
-                )
-            }
-            return nb.getInitialSingle() ?: CaretPosition.Single(box, i+1+fb.boxesBefore.size)
+            box.addBoxesAfter(nb, fb.boxesAfter)
+            box.addBoxesBefore(nb, fb.boxesBefore)
+            // if (noEnv) {
+            //     updatePositions(
+            //         ps,
+            //         CaretPosition.Single(box, newI),
+            //         fb.run { boxesBefore.size + boxesAfter.size } + 1 - ib.selectedBoxes.size
+            //     )
+            // }
+            return nb.getInitialSingle() ?: CaretPosition.Single.fromBox(nb)!!
         }
 
         for (j in ps.indices) {
@@ -745,14 +731,15 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : FormulaViewer
             ps[j] = when (p) {
                 is CaretPosition.DiscreteSelection -> p
                 is CaretPosition.Single -> {
-                    addInInput(p.box, Range(p.index, p.index))
+                    val pi = p.parentInput
+                    addInInput(pi.input, pi.index, pi.index)
                 }
                 is CaretPosition.Double -> {
-                    addInInput(p.box, p.indexRange)
+                    addInInput(p.input, p.startIndex, p.endIndex)
                 }
                 is CaretPosition.GridSelection -> {
                     ps.addAll(p.selectedInputs.map { box ->
-                        addInInput(box, Range(0, box.ch.size))
+                        addInInput(box, 0, box.ch.size)
                     })
                     null
                 }
@@ -764,6 +751,7 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : FormulaViewer
     }
 
     fun sendDelete() {
+        if (isReadOnly) return
         touchAction?.finish()
         destroyPopup()
 
@@ -772,23 +760,24 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : FormulaViewer
             val p = ps[j] ?: continue
             ps[j] = if (p is CaretPosition.GridSelection) {
                 p.selectedInputs.map {
-                    it.removeAllBoxes() // il ne peut pas y avoir de singles dedans
+                    it.clearBoxes() // il ne peut pas y avoir de singles dedans
                     ps.add(it.lastSingle)
                 }
                 null
             } else {
                 val dr = when (p) {
                     is CaretPosition.Single -> {
-                        if (p.index == 0) {
+                        val b = p.box
+                        val pi = p.parentInput
+                        if (pi.index == 0) {
                             fun isInputRoot(b: FormulaBox): Boolean =
                                 b.parent?.let { if (it is InputFormulaBox) false else isInputRoot(it) } ?: true
-                            if (!isInputRoot(p.box)) {
-                                p.box.delete()
+                            if (!isInputRoot(b)) {
+                                b.delete()
                             } else {
                                 DeletionResult(p)
                             }
                         } else {
-                            val b = p.box.ch[p.index - 1]
                             if (b.isFilled) {
                                 DeletionResult.fromSelection(b)
                             } else {
@@ -811,13 +800,13 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : FormulaViewer
 
                 when(dr.newPos) {
                     is CaretPosition.Single -> {
-                        updatePositions(
-                            ps,
-                            dr.newPos,
-                            dr.finalBoxes.run { boxesBefore.size + boxesAfter.size } - if (dr.deleted) 1 else 0
-                        )
+                        // updatePositions(
+                        //     ps,
+                        //     dr.newPos,
+                        //     dr.finalBoxes.run { boxesBefore.size + boxesAfter.size } - if (dr.deleted) 1 else 0
+                        // )
                         if (!dr.finalBoxes.isEmpty) {
-                            dr.newPos.box.addFinalBoxes(dr.newPos.index, dr.finalBoxes)
+                            (dr.newPos.parentInput.input).addFinalBoxes(dr.newPos.box, dr.finalBoxes)
                         } else {
                             dr.newPos
                         }
@@ -832,7 +821,6 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : FormulaViewer
     }
 
     override fun onDraw(canvas: Canvas) {
-        canvas.drawColor(backgroundPaint.color)
         val o = origin + offset
         val y = box.child.transform.origin.y + o.y
         canvas.drawLine(0f, y, o.x + box.realBounds.left - FormulaBox.DEFAULT_TEXT_WIDTH * 0.5f, y, baselinePaint)
@@ -908,23 +896,9 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : FormulaViewer
     }
 
     companion object {
-        val red = Paint().apply {
-            style = Paint.Style.STROKE
-            strokeWidth = 1f
-            color = Color.RED }
-        val baselinePaint = Paint().apply {
-            style = Paint.Style.STROKE
-            strokeWidth = 1f
-            color = Color.BLACK }
-        val backgroundPaint = Paint().apply {
-            style = Paint.Style.FILL
-            color = Color.DKGRAY
-        }
-        val magnifierBorder = Paint().apply {
-            style = Paint.Style.STROKE
-            strokeWidth = 1f
-            color = Color.LTGRAY
-        }
+        val baselinePaint = Paints.stroke(1f, Color.BLACK)
+        val defaultBackgroundColor = Color.DKGRAY
+        val magnifierBorder = Paints.stroke(1f, Color.LTGRAY)
 
         fun getSingleContextMenu() = ContextMenu(
             ContextMenuEntry.create<CaretPosition>(TextFormulaBox("paste")) {  }

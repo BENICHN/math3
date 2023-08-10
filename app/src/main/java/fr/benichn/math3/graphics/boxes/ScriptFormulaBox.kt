@@ -60,7 +60,7 @@ class ScriptFormulaBox(type: Type = Type.TOP, range: RangeF = RangeF(-DEFAULT_TE
 
     private fun deleteSup() =
         if (type == Type.BOTH) {
-            superscript.removeAllBoxes()
+            superscript.clear()
             type = Type.BOTTOM
             DeletionResult(subscript.lastSingle)
         } else {
@@ -69,7 +69,7 @@ class ScriptFormulaBox(type: Type = Type.TOP, range: RangeF = RangeF(-DEFAULT_TE
 
     private fun deleteSub() =
         if (type == Type.BOTH) {
-            subscript.removeAllBoxes()
+            subscript.clear()
             type = Type.TOP
             DeletionResult(superscript.lastSingle)
         } else {

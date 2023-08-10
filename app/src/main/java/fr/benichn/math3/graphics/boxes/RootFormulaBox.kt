@@ -5,7 +5,6 @@ import android.graphics.PointF
 import android.graphics.RectF
 import androidx.core.graphics.plus
 import fr.benichn.math3.graphics.Utils.Companion.sumOfRects
-import fr.benichn.math3.graphics.Utils.Companion.times
 import fr.benichn.math3.graphics.boxes.types.BoundsTransformer
 import fr.benichn.math3.graphics.boxes.types.BoxProperty
 import fr.benichn.math3.graphics.boxes.types.BoxTransform
@@ -16,7 +15,6 @@ import fr.benichn.math3.graphics.boxes.types.InitialBoxes
 import fr.benichn.math3.graphics.boxes.types.Padding
 import fr.benichn.math3.graphics.boxes.types.PaintedPath
 import fr.benichn.math3.graphics.boxes.types.Paints
-import fr.benichn.math3.graphics.caret.CaretPosition
 import fr.benichn.math3.graphics.caret.ContextMenu
 import fr.benichn.math3.graphics.caret.ContextMenuEntry
 import fr.benichn.math3.graphics.types.RectPoint
@@ -61,11 +59,11 @@ class RootFormulaBox(type: Type = Type.SQRT) : FormulaBox() {
     private fun applyType() {
         when (type) {
             Type.SQRT -> {
-                addBox(input)
+                addBoxes(input)
             }
             Type.ORDER -> {
-                addBox(input)
-                addBox(ord)
+                addBoxes(input)
+                addBoxes(ord)
                 alignOrder()
             }
         }
@@ -92,7 +90,7 @@ class RootFormulaBox(type: Type = Type.SQRT) : FormulaBox() {
         }
     }
 
-    override fun getInitialSingle() = if (input.ch.isNotEmpty() && type == Type.ORDER) order.lastSingle else input.lastSingle
+    override fun getInitialSingle() = if (input.ch.size > 1 && type == Type.ORDER) order.lastSingle else input.lastSingle
 
     override fun addInitialBoxes(ib: InitialBoxes): FinalBoxes {
         input.addBoxes(ib.selectedBoxes)
@@ -102,7 +100,7 @@ class RootFormulaBox(type: Type = Type.SQRT) : FormulaBox() {
     override val isFilled: Boolean
         get() = false
 
-    override fun getFinalBoxes() = FinalBoxes(input.ch.toList())
+    override fun getFinalBoxes() = FinalBoxes(input.chr)
 
     override fun onChildRequiresDelete(
         b: FormulaBox,

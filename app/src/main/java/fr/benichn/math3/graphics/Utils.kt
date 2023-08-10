@@ -30,6 +30,9 @@ class Utils {
             return res
         }
 
+        fun RectF.leftBar() = RectF(left, top, left, bottom)
+        fun RectF.rightBar() = RectF(right, top, right, bottom)
+
         fun sumOfRects(vararg rects: RectF): RectF = sumOfRects(rects.asIterable())
 
         fun sumOfRects(rects: Iterable<RectF>): RectF = rects.fold(RectF(Float.NaN, Float.NaN, Float.NaN, Float.NaN)) { acc, r ->

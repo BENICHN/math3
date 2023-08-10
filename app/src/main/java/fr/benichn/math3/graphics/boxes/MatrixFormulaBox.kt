@@ -43,6 +43,7 @@ class GridFormulaBox(shape: Pt = Pt(1, 1)) : FormulaBox() {
 
     operator fun get(pt: Pt) = ch[pt.y * shape.x + pt.x]
     fun getInput(pt: Pt) = inputs[pt.y * shape.x + pt.x]
+    fun getInputOrNull(pt: Pt) = (pt.y * shape.x + pt.x).let { i -> if (i < inputs.size) inputs[i] else null }
 
     fun getIndex(i: Int) = if (i < 0) Pt(-1, -1) else Pt(i % shape.x, i / shape.x)
 
@@ -96,7 +97,7 @@ class GridFormulaBox(shape: Pt = Pt(1, 1)) : FormulaBox() {
     init {
         assert(shape.x >= 1 && shape.y >= 1)
         repeat(shape.x * shape.y) {
-            addBox(TransformerFormulaBox(InputFormulaBox(), BoundsTransformer.Align(RectPoint.NAN_CENTER)))
+            addBoxes(TransformerFormulaBox(InputFormulaBox(), BoundsTransformer.Align(RectPoint.NAN_CENTER)))
         }
         alignChildren()
         updateGraphics()
@@ -104,7 +105,7 @@ class GridFormulaBox(shape: Pt = Pt(1, 1)) : FormulaBox() {
 
     fun addRow(i: Int) {
         repeat(shape.x) {
-            addBox(i * shape.x, TransformerFormulaBox(InputFormulaBox(), BoundsTransformer.Align(RectPoint.NAN_CENTER)))
+            addBoxes(i * shape.x, TransformerFormulaBox(InputFormulaBox(), BoundsTransformer.Align(RectPoint.NAN_CENTER)))
         }
         shape = Pt(shape.x, shape.y+1)
         alignChildren()
@@ -112,7 +113,7 @@ class GridFormulaBox(shape: Pt = Pt(1, 1)) : FormulaBox() {
 
     fun addColumn(i: Int) {
         for (j in shape.y downTo 1) {
-            addBox(j * shape.x, TransformerFormulaBox(InputFormulaBox(), BoundsTransformer.Align(RectPoint.NAN_CENTER)))
+            addBoxes(j * shape.x, TransformerFormulaBox(InputFormulaBox(), BoundsTransformer.Align(RectPoint.NAN_CENTER)))
         }
         shape = Pt(shape.x+1, shape.y)
         alignChildren()
@@ -136,7 +137,7 @@ class GridFormulaBox(shape: Pt = Pt(1, 1)) : FormulaBox() {
                 PointF(ox, oy)
             }
         }
-        os.forEachIndexed { i, p -> setChildTransform(i, BoxTransform(p)) }
+        os.forEachIndexed { i, p -> setChildTransform(ch[i], BoxTransform(p)) }
     }
 
     companion object {
@@ -148,7 +149,7 @@ class MatrixFormulaBox(shape: Pt = Pt(1, 1)) : FormulaBox() {
     val grid = GridFormulaBox(shape)
 
     init {
-        addBox(BracketsSequenceFormulaBox(TransformerFormulaBox(grid, BoundsTransformer.Align(RectPoint.CENTER))))
+        addBoxes(BracketsSequenceFormulaBox(TransformerFormulaBox(grid, BoundsTransformer.Align(RectPoint.CENTER))))
         updateGraphics()
     }
 

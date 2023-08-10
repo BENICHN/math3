@@ -1,19 +1,15 @@
 package fr.benichn.math3.numpad
 
 import android.content.Context
-import android.graphics.Canvas
 import android.util.AttributeSet
-import android.util.Log
 import android.util.SizeF
 import android.view.MotionEvent
-import android.view.View
 import fr.benichn.math3.graphics.FormulaViewer
 import fr.benichn.math3.graphics.boxes.types.BoundsTransformer
 import fr.benichn.math3.graphics.types.RectPoint
 import fr.benichn.math3.graphics.types.TouchAction
 import fr.benichn.math3.numpad.types.Direction
 import fr.benichn.math3.types.callback.Callback
-import fr.benichn.math3.types.callback.ObservableProperty
 import org.json.JSONObject
 
 class NumpadView(context: Context, attrs: AttributeSet? = null) : FormulaViewer(context, attrs) {

@@ -1,6 +1,5 @@
 package fr.benichn.math3.graphics.boxes
 
-import android.graphics.Color
 import android.graphics.Path
 import android.graphics.PointF
 import android.graphics.RectF
@@ -12,7 +11,6 @@ import fr.benichn.math3.graphics.boxes.types.Padding
 import fr.benichn.math3.graphics.boxes.types.PaintedPath
 import fr.benichn.math3.graphics.boxes.types.Paints
 import fr.benichn.math3.graphics.boxes.types.Range
-import fr.benichn.math3.graphics.boxes.types.RangeF
 import fr.benichn.math3.graphics.caret.CaretPosition
 import kotlin.math.abs
 
@@ -20,31 +18,34 @@ class InputFormulaBox(vararg boxes: FormulaBox, isVisible: Boolean = true) : Seq
     val firstSingle
         get() = CaretPosition.Single(this, 0)
     val lastSingle
-        get() = CaretPosition.Single(this, ch.size)
+        get() = CaretPosition.Single(this, ch.lastIndex)
 
     private val dlgIsVisible = BoxProperty(this, isVisible)
     var isVisible by dlgIsVisible
 
     init {
         addBoxes(*boxes)
-        if (ch.isEmpty()) updateGraphics()
+        if (ch.size == 1) updateGraphics()
     }
 
     override fun onChildRequiresDelete(b: FormulaBox, vararg anticipation: FormulaBox) =
         if (anticipation.isEmpty()) {
             val i = ch.indexOf(b)
-            removeBoxAt(i)
-            val s = CaretPosition.Single(this, i)
-            DeletionResult(s, true)
+            if (i == 0) delete()
+            else {
+                removeBoxes(b)
+                val s = CaretPosition.Single(this, i-1)
+                DeletionResult(s, true)
+            }
         } else {
             DeletionResult.fromSelection(*anticipation)
         }
 
     override val isFilled: Boolean
-        get() = ch.isNotEmpty()
+        get() = ch.size > 1
 
     override fun clear() {
-        removeAllBoxes()
+        clearBoxes()
         super.clear()
     }
 
@@ -54,20 +55,22 @@ class InputFormulaBox(vararg boxes: FormulaBox, isVisible: Boolean = true) : Seq
             !(pos.y in -DEFAULT_TEXT_RADIUS .. DEFAULT_TEXT_RADIUS && (abs(left - pos.x) < SEP_RADIUS || abs(right - pos.x) < SEP_RADIUS))
         }
 
-    fun addFinalBoxes(i: Int, fb: FinalBoxes) : CaretPosition {
-        for ((j, b) in fb.boxesBefore.union(fb.boxesAfter).withIndex()) {
-            addBox(i+j, b)
-        }
-        return if (!fb.selectBoxesAfter && !fb.selectBoxesBefore) {
-            CaretPosition.Single(this, i + fb.boxesBefore.size)
-        } else {
-            CaretPosition.Double(this, Range(
-                if (fb.selectBoxesBefore) i else i + fb.boxesBefore.size,
-                if (fb.selectBoxesAfter) i + fb.boxesBefore.size + fb.boxesAfter.size else i + fb.boxesBefore.size))
+    fun addFinalBoxes(b: FormulaBox, fb: FinalBoxes) : CaretPosition {
+        addBoxesBefore(b, fb.boxesBefore)
+        addBoxesAfter(b, fb.boxesAfter)
+        val i = ch.indexOf(b)
+        return when {
+            fb.selectBoxesAfter || fb.selectBoxesBefore ->
+                CaretPosition.Double(
+                    this,
+                    if (fb.selectBoxesBefore) i-fb.boxesBefore.size else i,
+                    if (fb.selectBoxesAfter) i+fb.boxesBefore.size else i
+                )
+            else -> CaretPosition.Single(this, i)
         }
     }
 
-    override fun generateGraphics() = if (ch.isEmpty()) {
+    override fun generateGraphics() = if (ch.size == 1) {
         val rx = DEFAULT_TEXT_WIDTH * 0.25f
         val ry = DEFAULT_TEXT_RADIUS * 0.5f
         val bds = RectF(0f, -DEFAULT_TEXT_RADIUS, DEFAULT_TEXT_WIDTH, DEFAULT_TEXT_RADIUS)

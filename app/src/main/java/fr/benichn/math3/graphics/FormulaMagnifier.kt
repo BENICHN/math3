@@ -19,6 +19,7 @@ import androidx.core.graphics.withClip
 import fr.benichn.math3.graphics.boxes.FormulaBox
 import fr.benichn.math3.graphics.boxes.TransformerFormulaBox
 import fr.benichn.math3.graphics.boxes.types.BoundsTransformer
+import fr.benichn.math3.graphics.boxes.types.Paints
 import fr.benichn.math3.graphics.types.RectPoint
 import fr.benichn.math3.types.callback.ObservableProperty
 
@@ -62,7 +63,7 @@ class FormulaMagnifier(context: Context, attrs: AttributeSet? = null) : View(con
 
     override fun onDraw(canvas: Canvas) {
         canvas.translate(realOrigin.x, realOrigin.y)
-        canvas.drawPath(magnifierPath, FormulaView.backgroundPaint)
+        canvas.drawPath(magnifierPath, backgroundPaint)
         canvas.drawPath(magnifierPath, FormulaView.magnifierBorder)
         canvas.withClip(magnifierPath) {
             val ro = realOrigin + PointF(MAGNIFIER_W, MAGNIFIER_H) * 0.5f - absPos
@@ -81,5 +82,6 @@ class FormulaMagnifier(context: Context, attrs: AttributeSet? = null) : View(con
             val r = RectF(0f, 0f, MAGNIFIER_W, MAGNIFIER_H)
             addRoundRect(r, FormulaBox.MAGNIFIER_RADIUS, FormulaBox.MAGNIFIER_RADIUS, Path.Direction.CCW)
         }
+        val backgroundPaint = Paints.fill(FormulaView.defaultBackgroundColor)
     }
 }

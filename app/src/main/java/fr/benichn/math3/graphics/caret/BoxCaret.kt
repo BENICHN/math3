@@ -2,23 +2,22 @@ package fr.benichn.math3.graphics.caret
 
 import android.graphics.Canvas
 import android.graphics.Color
-import android.graphics.Paint
 import android.graphics.PointF
+import android.graphics.RectF
 import androidx.core.graphics.minus
 import fr.benichn.math3.graphics.Utils.Companion.corners
 import fr.benichn.math3.graphics.Utils.Companion.l2
+import fr.benichn.math3.graphics.Utils.Companion.leftBar
+import fr.benichn.math3.graphics.Utils.Companion.rightBar
 import fr.benichn.math3.types.callback.*
 import fr.benichn.math3.graphics.boxes.FormulaBox
-import kotlin.math.pow
+import fr.benichn.math3.graphics.boxes.types.Padding
+import fr.benichn.math3.graphics.boxes.types.Paints
 
-class BoxCaret(/* val root: FormulaBox */) {
+class BoxCaret {
     private val dlgPositions = ObservableProperty<BoxCaret, List<CaretPosition>>(this, listOf()) { _, _, -> notifyPictureChanged() }
     var positions by dlgPositions
     val onPositionsChanged = dlgPositions.onChanged
-
-    val uniquePosition
-        get() = if (positions.size == 1) positions[0] else null
-    // var movingPosition: Int? = null
 
     private val notifyPictureChanged = Callback<BoxCaret, Unit>(this)
     val onPictureChanged = notifyPictureChanged.Listener()
@@ -27,13 +26,13 @@ class BoxCaret(/* val root: FormulaBox */) {
         for (p in positions) {
             when (p) {
                 is CaretPosition.Double -> {
-                    canvas.drawRect(p.bounds, selectionPaint)
+                    p.rects.forEach { r -> canvas.drawRect(r, selectionPaint) }
                 }
                 is CaretPosition.GridSelection -> {
                     canvas.drawRect(p.bounds, selectionPaint)
                 }
                 is CaretPosition.DiscreteSelection -> {
-                    p.bounds.forEach { r -> canvas.drawRect(r, selectionPaint) }
+                    p.rects.forEach { r -> canvas.drawRect(r, selectionPaint) }
                 }
                 else -> {}
             }
@@ -50,32 +49,41 @@ class BoxCaret(/* val root: FormulaBox */) {
                 if (transparent) caretPaintTrans else caretPaint
             )
         }
-
+        fun drawBar(bar: RectF, transparent: Boolean) {
+            canvas.drawLine(
+                bar.left,
+                bar.top,
+                bar.left,
+                bar.bottom,
+                if (transparent) caretPaintTrans else caretPaint
+            )
+        }
         fun drawBall(pos: PointF) {
             canvas.drawCircle(pos.x, pos.y, BALL_RADIUS, ballPaint)
         }
 
-        for ((i, p) in positions.withIndex()) {
+        for (p in positions) {
             when (p) {
                 is CaretPosition.Single -> {
-                    val pos = p.getAbsPosition()
-                    drawBar(
-                        pos,
-                        p.radius,
-                        p.absPos != null
-                    )
+                    drawBar(p.barRect, p.absPos != null)
                 }
                 is CaretPosition.Double -> {
-                    val r = p.bounds
-                    fun drawSelectionEnding(x: Float) {
-                        canvas.drawLine(x, r.top, x, r.bottom, caretPaint)
-                    }
-                    p.absPos?.let { ap -> p.fixedAbsPos?.also { fp ->
-                        val x = if (ap.x > fp.x) r.left else r.right
-                        drawSelectionEnding(x)
-                    } } ?: run {
-                        drawSelectionEnding(r.left)
-                        drawSelectionEnding(r.right)
+                    p.rects.let { rs ->
+                        if (rs.isNotEmpty()) {
+                            val leftBar = rs.first().leftBar()
+                            val rightBar = rs.last().rightBar()
+                            drawBar(leftBar, p.absPos != null) // !
+                            drawBar(rightBar, p.absPos != null) // !
+                            // p.absPos?.let { ap -> p.fixedAbsPos?.also { fp ->
+                            //     val ld = Utils.squareDistFromLineToPoint(leftBar.left, leftBar.top, leftBar.bottom, fp.x, fp.y)
+                            //     val rd = Utils.squareDistFromLineToPoint(rightBar.left, rightBar.top, rightBar.bottom, fp.x, fp.y)
+                            //     val x = if (ap.x > fp.x) r.left else r.right
+                            //     drawSelectionEnding(x)
+                            // } } ?: run {
+                            //     drawSelectionEnding(r.left)
+                            //     drawSelectionEnding(r.right)
+                            // }
+                        }
                     }
                 }
                 is CaretPosition.GridSelection -> {
@@ -97,7 +105,7 @@ class BoxCaret(/* val root: FormulaBox */) {
                     is CaretPosition.Single -> {
                         drawBar(
                             ap,
-                            p.radius,
+                            p.barRect.height() * 0.5f,
                             false
                         )
                     }
@@ -121,27 +129,17 @@ class BoxCaret(/* val root: FormulaBox */) {
     }
 
     companion object {
-        val ballPaint = Paint().apply {
-            style = Paint.Style.FILL
-            color = Color.rgb(255, 255, 0)
-        }
-        val caretPaint = Paint().apply {
-            style = Paint.Style.STROKE
-            strokeWidth = FormulaBox.DEFAULT_LINE_WIDTH + 2f
-            color = Color.rgb(255, 255, 0)
-        }
-        val caretPaintTrans = Paint().apply {
-            style = Paint.Style.STROKE
-            strokeWidth = FormulaBox.DEFAULT_LINE_WIDTH + 2f
-            color = Color.argb(127, 255, 255, 0)
-        }
-        val selectionPaint = Paint().apply {
-            style = Paint.Style.FILL
-            color = Color.rgb(100, 100, 0) }
+        val ballPaint = Paints.fill(Color.rgb(255, 255, 0))
+        val caretPaint = Paints.stroke(FormulaBox.DEFAULT_LINE_WIDTH + 2f, Color.rgb(255, 255, 0))
+        val caretPaintTrans = Paints.stroke(FormulaBox.DEFAULT_LINE_WIDTH + 2f, Color.argb(127, 255, 255, 0))
+        val selectionPaint = Paints.fill(Color.rgb(100, 100, 0))
 
         const val BALL_RADIUS = FormulaBox.DEFAULT_LINE_WIDTH * 3
-        val SINGLE_MAX_TOUCH_DIST_SQ = (FormulaBox.DEFAULT_TEXT_WIDTH * 0.5f).pow(2)
-        val SELECTION_MAX_TOUCH_DIST_SQ = (FormulaBox.DEFAULT_TEXT_WIDTH * 0.25f).pow(2)
-        val BALL_MAX_TOUCH_DIST_SQ = SELECTION_MAX_TOUCH_DIST_SQ * 4
+        const val SINGLE_MAX_TOUCH_DIST = FormulaBox.DEFAULT_TEXT_WIDTH * 0.5f
+        const val SINGLE_MAX_TOUCH_DIST_SQ = SINGLE_MAX_TOUCH_DIST * SINGLE_MAX_TOUCH_DIST
+        val singleBarPadding = Padding(SINGLE_MAX_TOUCH_DIST)
+        const val SELECTION_MAX_TOUCH_DIST = FormulaBox.DEFAULT_TEXT_WIDTH * 0.25f
+        val selectionBarPadding = Padding(SELECTION_MAX_TOUCH_DIST)
+        const val BALL_MAX_TOUCH_DIST_SQ = SELECTION_MAX_TOUCH_DIST * SELECTION_MAX_TOUCH_DIST * 4
     }
 }

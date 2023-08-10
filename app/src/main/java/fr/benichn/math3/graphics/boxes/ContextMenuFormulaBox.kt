@@ -38,13 +38,13 @@ class ContextMenuFormulaBox(childrenPadding: Padding = Padding(DEFAULT_TEXT_RADI
             else -> Color.BLACK
         } }
         connect(b.onBoundsChanged) { _, _ -> adjustPaddings() }
-        addBox(i, TransformerFormulaBox(b))
+        addBoxes(i+1, TransformerFormulaBox(b))
         adjustPaddings()
     }
 
     private fun adjustPaddings() {
         if (uniformWidths) {
-            val cs = ch.map { c -> (c as TransformerFormulaBox) }
+            val cs = chr.map { c -> (c as TransformerFormulaBox) }
             val maxW = cs.maxOf { c -> c.child.bounds.width() }
             val paddings = cs.map { c ->
                 c.child.bounds.let { b ->
@@ -57,16 +57,17 @@ class ContextMenuFormulaBox(childrenPadding: Padding = Padding(DEFAULT_TEXT_RADI
             cs.forEachIndexed { i, c ->
                 c.padding = paddings[i] + childrenPadding
             }
-        } else ch.forEach { c ->
+        } else chr.forEach { c ->
             c.padding = Padding() + childrenPadding
         }
     }
 
     override fun generateGraphics(): FormulaGraphics {
         val bds = super.generateGraphics().bounds
+        val chr = chr
         return FormulaGraphics(
             pressedItem?.let { i ->
-                val r = ch[i].realBounds
+                val r = chr[i].realBounds
                 PaintedPath(
                     Path().apply {
                         addRect(r.left, bds.top, r.right, bds.bottom, Path.Direction.CCW)
@@ -77,8 +78,8 @@ class ContextMenuFormulaBox(childrenPadding: Padding = Padding(DEFAULT_TEXT_RADI
             PaintedPath(
                 Path().apply {
                     val dy = bds.bottom - bds.top
-                    (1 until ch.size).map { i ->
-                        val x = ch[i].realBounds.left
+                    (1 until chr.size).map { i ->
+                        val x = chr[i].realBounds.left
                         moveTo(x, bds.top)
                         rLineTo(0f, dy)
                     }

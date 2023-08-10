@@ -11,8 +11,8 @@ class FunctionFormulaBox(text: String = "", type: BracketFormulaBox.Type = Brack
     TextFormulaBox(),
     BracketsInputFormulaBox()
 ) {
-    val textBox = ch[0] as TextFormulaBox
-    val brackets = ch[1] as BracketsInputFormulaBox
+    val textBox = ch[1] as TextFormulaBox
+    val brackets = ch[2] as BracketsInputFormulaBox
 
     val dlgType = BoxProperty(this, type)
     var type by dlgType
@@ -40,7 +40,7 @@ class FunctionFormulaBox(text: String = "", type: BracketFormulaBox.Type = Brack
         else -> delete()
     }
 
-    override fun getFinalBoxes() = FinalBoxes(boxesAfter = brackets.input.ch.toList())
+    override fun getFinalBoxes() = FinalBoxes(boxesAfter = brackets.input.chr)
 
     override fun deleteMultiple(boxes: List<FormulaBox>) = if (boxes == listOf(textBox)) {
         delete().withFinalBoxes(this)

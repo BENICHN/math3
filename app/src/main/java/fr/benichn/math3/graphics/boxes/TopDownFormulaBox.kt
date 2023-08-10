@@ -2,9 +2,7 @@ package fr.benichn.math3.graphics.boxes
 
 import android.graphics.PointF
 import android.graphics.RectF
-import android.util.Log
 import androidx.core.graphics.plus
-import fr.benichn.math3.graphics.Utils.Companion.scale
 import fr.benichn.math3.graphics.boxes.types.BoundsTransformer
 import fr.benichn.math3.graphics.boxes.types.BoxProperty
 import fr.benichn.math3.graphics.boxes.types.BoxTransform
@@ -180,9 +178,9 @@ open class TopDownFormulaBox(
     }
 
     private fun addChildren() {
-        addBox(middle)
-        if (type.hasBottom) addBox(bottomContainer)
-        if (type.hasTop) addBox(topContainer)
+        addBoxes(middle)
+        if (type.hasBottom) addBoxes(bottomContainer)
+        if (type.hasTop) addBoxes(topContainer)
     }
 
     private fun alignChildren() {

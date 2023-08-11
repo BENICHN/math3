@@ -10,7 +10,6 @@ import fr.benichn.math3.graphics.boxes.types.FormulaGraphics
 import fr.benichn.math3.graphics.boxes.types.Padding
 import fr.benichn.math3.graphics.boxes.types.PaintedPath
 import fr.benichn.math3.graphics.boxes.types.Paints
-import fr.benichn.math3.graphics.boxes.types.Range
 import fr.benichn.math3.graphics.caret.CaretPosition
 import kotlin.math.abs
 
@@ -55,18 +54,19 @@ class InputFormulaBox(vararg boxes: FormulaBox, isVisible: Boolean = true) : Seq
             !(pos.y in -DEFAULT_TEXT_RADIUS .. DEFAULT_TEXT_RADIUS && (abs(left - pos.x) < SEP_RADIUS || abs(right - pos.x) < SEP_RADIUS))
         }
 
-    fun addFinalBoxes(b: FormulaBox, fb: FinalBoxes) : CaretPosition {
+    fun addFinalBoxes(i: Int, fb: FinalBoxes) : CaretPosition {
+        val b = ch[i]
         addBoxesBefore(b, fb.boxesBefore)
         addBoxesAfter(b, fb.boxesAfter)
-        val i = ch.indexOf(b)
+        val j = i + fb.boxesBefore.size
         return when {
             fb.selectBoxesAfter || fb.selectBoxesBefore ->
                 CaretPosition.Double(
                     this,
-                    if (fb.selectBoxesBefore) i-fb.boxesBefore.size else i,
-                    if (fb.selectBoxesAfter) i+fb.boxesBefore.size else i
+                    if (fb.selectBoxesBefore) j-fb.boxesBefore.size else j,
+                    if (fb.selectBoxesAfter) j+fb.boxesBefore.size else j
                 )
-            else -> CaretPosition.Single(this, i)
+            else -> CaretPosition.Single(this, j)
         }
     }
 

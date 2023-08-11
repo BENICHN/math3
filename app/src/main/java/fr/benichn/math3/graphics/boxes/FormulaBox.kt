@@ -92,10 +92,14 @@ open class FormulaBox {
             c.notifyBrothersBoundsChanged()
         }
     }
-    fun addBoxesAfter(c: FormulaBox, boxes: List<FormulaBox>) = addBoxes(children.indexOf(c)+1, boxes)
-    fun addBoxesAfter(c: FormulaBox, vararg boxes: FormulaBox) = addBoxesAfter(c, boxes.asList())
-    fun addBoxesBefore(c: FormulaBox, boxes: List<FormulaBox>) = addBoxes(max(1, children.indexOf(c)), boxes)
-    fun addBoxesBefore(c: FormulaBox, vararg boxes: FormulaBox) = addBoxesAfter(c, boxes.asList())
+    fun addBoxesBefore(i: Int, boxes: List<FormulaBox>) = addBoxes(max(1, i), boxes)
+    fun addBoxesBefore(i: Int, vararg boxes: FormulaBox) = addBoxesBefore(i, boxes.asList())
+    fun addBoxesBefore(c: FormulaBox, boxes: List<FormulaBox>) = addBoxesBefore(children.indexOf(c), boxes)
+    fun addBoxesBefore(c: FormulaBox, vararg boxes: FormulaBox) = addBoxesBefore(children.indexOf(c), *boxes)
+    fun addBoxesAfter(i: Int, boxes: List<FormulaBox>) = addBoxes(i+1, boxes)
+    fun addBoxesAfter(i: Int, vararg boxes: FormulaBox) = addBoxesAfter(i, boxes.asList())
+    fun addBoxesAfter(c: FormulaBox, boxes: List<FormulaBox>) = addBoxesAfter(children.indexOf(c), boxes)
+    fun addBoxesAfter(c: FormulaBox, vararg boxes: FormulaBox) = addBoxesAfter(children.indexOf(c), *boxes)
     fun removeAllBoxes() = removeBoxes(children.toList())
     fun removeLastBox() { if (children.isNotEmpty()) removeBoxes(children.last()) }
     fun removeBoxes(vararg boxes: FormulaBox) =
@@ -200,13 +204,7 @@ open class FormulaBox {
     fun findSingle(pos: PointF) : CaretPosition.Single? {
         val c = findChildBox(pos)
         return if (c == this || !shouldEnterInChild(c, pos)) {
-            // if (c is InputFormulaBox) {
-            //     assert(c.ch.isEmpty())
-            //     CaretPosition.Single(c, 0)
-            // }
-            // else {
             CaretPosition.Single.fromBox(c, accTransform.applyOnPoint(pos))
-            // }
         } else {
             c.findSingle(c.transform.invert.applyOnPoint(pos))
         }

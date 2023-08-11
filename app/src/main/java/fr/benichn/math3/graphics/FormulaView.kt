@@ -806,7 +806,7 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : FormulaViewer
                         //     dr.finalBoxes.run { boxesBefore.size + boxesAfter.size } - if (dr.deleted) 1 else 0
                         // )
                         if (!dr.finalBoxes.isEmpty) {
-                            (dr.newPos.parentInput.input).addFinalBoxes(dr.newPos.box, dr.finalBoxes)
+                            dr.newPos.parentInput.let { (inp, i) -> inp.addFinalBoxes(i, dr.finalBoxes) }
                         } else {
                             dr.newPos
                         }

@@ -10,6 +10,7 @@ import fr.benichn.math3.graphics.Utils.Companion.sumOfRects
 import fr.benichn.math3.graphics.boxes.FormulaBox
 import fr.benichn.math3.graphics.boxes.GridFormulaBox
 import fr.benichn.math3.graphics.boxes.InputFormulaBox
+import fr.benichn.math3.graphics.boxes.SequenceFormulaBox
 import fr.benichn.math3.graphics.boxes.types.ParentInput
 import fr.benichn.math3.graphics.boxes.types.ParentWithIndex
 import fr.benichn.math3.graphics.boxes.types.PtsRange
@@ -76,7 +77,7 @@ sealed class CaretPosition {
                 getParentInput(box)?.let { (inp, i) -> Single(inp, i) }
             fun fromBox(box: FormulaBox, absPos: PointF) =
                 getParentInput(box)?.let { (inp, i) ->
-                    val j = inp.ch[i].let { b -> if (absPos.x < b.accRealBounds.centerX()) max(0, i-1) else i }
+                    val j = inp.ch[i].let { b -> if (b !is SequenceFormulaBox.LineStart && absPos.x < b.accRealBounds.centerX()) max(0, i-1) else i }
                     Single(inp, j)
                 }
         }

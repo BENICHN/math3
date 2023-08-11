@@ -6,10 +6,12 @@ import androidx.core.graphics.div
 import androidx.core.graphics.minus
 import androidx.core.graphics.plus
 import androidx.core.graphics.times
+import fr.benichn.math3.graphics.FormulaViewer
 import fr.benichn.math3.graphics.Utils
 import fr.benichn.math3.graphics.Utils.Companion.div
 import fr.benichn.math3.graphics.Utils.Companion.times
 import fr.benichn.math3.types.callback.Callback
+import fr.benichn.math3.types.callback.ObservableProperty
 import fr.benichn.math3.types.callback.VCC
 import fr.benichn.math3.types.callback.invoke
 import kotlinx.coroutines.CoroutineScope
@@ -40,6 +42,8 @@ data class TouchData(
 }
 
 abstract class TouchAction(val getPos: (PointF) -> PointF = { it }, val longPressTimeout: Long = DEFAULT_LONG_PRESS_TIMEOUT) {
+    data class Replacement(val newAction: TouchAction, val repeatEvent: Boolean = false, val longPress: Boolean = false)
+
     val isLaunched
         get() = primaryData != null
     val isPinched
@@ -83,9 +87,6 @@ abstract class TouchAction(val getPos: (PointF) -> PointF = { it }, val longPres
     private val notifyFinished = Callback<TouchAction, Unit>(this)
     val onFinished = notifyFinished.Listener()
 
-    private val notifyReplaced = VCC<TouchAction, TouchAction>(this)
-    val onReplaced = notifyReplaced.Listener()
-
     private var longPressJob: Job? = null
     private suspend fun waitForLongPress() {
         delay(longPressTimeout)
@@ -100,7 +101,7 @@ abstract class TouchAction(val getPos: (PointF) -> PointF = { it }, val longPres
     protected abstract fun onPinchDown()
     protected abstract fun onPinchMove()
     protected abstract fun onPinchUp()
-    protected abstract fun beforeFinish(replacement: TouchAction?)
+    protected abstract fun beforeFinish()
 
     private fun createData(id: Int, downAbsPos: PointF) {
         val td = TouchData(
@@ -133,93 +134,97 @@ abstract class TouchAction(val getPos: (PointF) -> PointF = { it }, val longPres
         }
     }
 
-    fun onTouchEvent(e: MotionEvent) {
-        if (!isFinished) {
-            if (isLaunched) {
-                when (e.actionMasked) {
-                    MotionEvent.ACTION_CANCEL -> {
-                        finish()
-                        return
-                    }
-                    MotionEvent.ACTION_MOVE -> {
-                        val absPos = prim.getAbsPos(e)
-                        if (absPos == null) {
-                            finish()
-                            return
-                        }
-                        updatePos(absPos, false)
-                        if (!hasMoved && Utils.l2(prim.downAbsPosition - absPos) > MINIMAL_MOVE_DISTANCE_SQ) {
-                            hasMoved = true
-                            longPressJob?.cancel()
-                        }
-                        if (hasMoved) {
-                            if (isPinched) {
-                                val pinchAbsPos = pinch.getAbsPos(e)
-                                if (pinchAbsPos == null) {
-                                    finish()
-                                    return
-                                }
-                                updatePos(pinchAbsPos, true)
-                                onPinchMove()
-                            } else {
-                                moves += Move(prim.lastAbsDiff)
-                                onMove()
-                            }
-                        }
-                    }
-                }
-                if (prim.isTargeted(e)) {
+    fun onTouchEvent(e: MotionEvent): Replacement? {
+        run {
+            if (!isFinished) {
+                if (isLaunched) {
                     when (e.actionMasked) {
-                        MotionEvent.ACTION_POINTER_UP, MotionEvent.ACTION_UP -> {
-                            if (isPinched) {
-                                Pair(prim, pinch).run {
-                                    primaryData = second
-                                    pinchData = first
+                        MotionEvent.ACTION_CANCEL -> {
+                            finish()
+                            return@run
+                        }
+
+                        MotionEvent.ACTION_MOVE -> {
+                            val absPos = prim.getAbsPos(e)
+                            if (absPos == null) {
+                                finish()
+                                return@run
+                            }
+                            updatePos(absPos, false)
+                            if (!hasMoved && Utils.l2(prim.downAbsPosition - absPos) > MINIMAL_MOVE_DISTANCE_SQ) {
+                                hasMoved = true
+                                longPressJob?.cancel()
+                            }
+                            if (hasMoved) {
+                                if (isPinched) {
+                                    val pinchAbsPos = pinch.getAbsPos(e)
+                                    if (pinchAbsPos == null) {
+                                        finish()
+                                        return@run
+                                    }
+                                    updatePos(pinchAbsPos, true)
+                                    onPinchMove()
+                                } else {
+                                    moves += Move(prim.lastAbsDiff)
+                                    onMove()
                                 }
-                                onPinchUp()
-                                pinchData = null
-                            } else {
-                                val absPos = prim.getAbsPos(e)
-                                if (absPos == null) {
-                                    finish()
-                                    return
-                                }
-                                updatePos(absPos, false)
-                                finish(true)
                             }
                         }
                     }
-                } else if (isPinched) {
-                    if (pinch.isTargeted(e)) {
+                    if (prim.isTargeted(e)) {
                         when (e.actionMasked) {
-                            MotionEvent.ACTION_POINTER_UP -> {
-                                val absPos = pinch.getAbsPos(e)
-                                if (absPos == null) {
-                                    finish()
-                                    return
+                            MotionEvent.ACTION_POINTER_UP, MotionEvent.ACTION_UP -> {
+                                if (isPinched) {
+                                    Pair(prim, pinch).run {
+                                        primaryData = second
+                                        pinchData = first
+                                    }
+                                    onPinchUp()
+                                    pinchData = null
+                                } else {
+                                    val absPos = prim.getAbsPos(e)
+                                    if (absPos == null) {
+                                        finish()
+                                        return@run
+                                    }
+                                    updatePos(absPos, false)
+                                    finish(true)
                                 }
-                                updatePos(absPos, true)
-                                onPinchUp()
-                                pinchData = null
                             }
                         }
-                        return
+                    } else if (isPinched) {
+                        if (pinch.isTargeted(e)) {
+                            when (e.actionMasked) {
+                                MotionEvent.ACTION_POINTER_UP -> {
+                                    val absPos = pinch.getAbsPos(e)
+                                    if (absPos == null) {
+                                        finish()
+                                        return@run
+                                    }
+                                    updatePos(absPos, true)
+                                    onPinchUp()
+                                    pinchData = null
+                                }
+                            }
+                            return@run
+                        }
+                    } else {
+                        when (e.actionMasked) {
+                            MotionEvent.ACTION_POINTER_DOWN -> {
+                                createPinch(e)
+                            }
+                        }
                     }
                 } else {
                     when (e.actionMasked) {
-                        MotionEvent.ACTION_POINTER_DOWN -> {
-                            createPinch(e)
+                        MotionEvent.ACTION_DOWN -> {
+                            launch(e)
                         }
-                    }
-                }
-            } else {
-                when (e.actionMasked) {
-                    MotionEvent.ACTION_DOWN -> {
-                        launch(e)
                     }
                 }
             }
         }
+        return replacement
     }
 
     private fun createPinch(e: MotionEvent) =
@@ -274,23 +279,26 @@ abstract class TouchAction(val getPos: (PointF) -> PointF = { it }, val longPres
     //     }
     // }
 
-    fun replace(a: TouchAction, longPress: Boolean = false) {
+    var replacement: Replacement? = null
+        private set
+
+    fun replace(a: TouchAction, repeatEvent: Boolean = false, longPress: Boolean = false) {
         longPressJob?.cancel()
-        beforeFinish(a)
+        replacement = Replacement(a, repeatEvent, longPress)
+        beforeFinish()
         isFinished = true
         if (isPinched) {
             a.launchWithPinch(prim.downAbsPosition, prim.id, pinch.downAbsPosition, pinch.id, longPress)
         } else {
             a.launch(prim.downAbsPosition, prim.id, longPress)
         }
-        notifyReplaced(this, a)
     }
 
     fun finish() = finish(false)
     private fun finish(callOnUp: Boolean) {
         longPressJob?.cancel()
         if (callOnUp) onUp()
-        beforeFinish(null)
+        beforeFinish()
         isFinished = true
         notifyFinished()
     }
@@ -299,5 +307,36 @@ abstract class TouchAction(val getPos: (PointF) -> PointF = { it }, val longPres
         const val DEFAULT_LONG_PRESS_TIMEOUT = 300L
         const val MINIMAL_MOVE_DISTANCE_SQ = 100
         const val MOVE_VELOCITY_DELAY = 100L
+    }
+}
+
+open class TouchActionHandler {
+    var touchAction: TouchAction? = null
+        private set(value) {
+            field = value
+            value?.apply {
+                onFinished += { _, _ -> touchAction = null }
+            }
+        }
+
+    private fun runTouchAction(e: MotionEvent) {
+        touchAction?.let {
+            it.onTouchEvent(e)?.let { repl ->
+                touchAction = repl.newAction
+                if (repl.repeatEvent) runTouchAction(e)
+            }
+        }
+    }
+
+    protected open fun createTouchAction(e: MotionEvent): TouchAction? = null
+
+    fun onTouchEvent(e: MotionEvent): Boolean {
+        when (e.actionMasked) {
+            MotionEvent.ACTION_DOWN -> {
+                touchAction = createTouchAction(e)
+            }
+        }
+        runTouchAction(e)
+        return true
     }
 }

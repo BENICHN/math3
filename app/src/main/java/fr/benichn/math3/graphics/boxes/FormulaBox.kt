@@ -30,9 +30,6 @@ open class FormulaBox {
     var parent: FormulaBox? = null
         private set(value) {
             if (value != null) {
-                if (caret != null) {
-                    Log.d("caret", caret.toString())
-                }
                 assert(caret == null)
             }
             field = value

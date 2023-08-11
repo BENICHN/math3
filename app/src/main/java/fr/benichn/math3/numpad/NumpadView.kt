@@ -30,9 +30,7 @@ class NumpadView(context: Context, attrs: AttributeSet? = null) : FormulaViewer(
     val notifyButtonClicked = Callback<NumpadView, String>(this)
     val onButtonClicked = notifyButtonClicked.Listener()
 
-    override fun createTouchAction(e: MotionEvent) {
-        touchAction = NumpadTouchAction()
-    }
+    override fun createTouchAction(e: MotionEvent): TouchAction = NumpadTouchAction()
 
     override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
         numpadBox.size = SizeF(w.toFloat(), h.toFloat())
@@ -99,7 +97,7 @@ class NumpadView(context: Context, attrs: AttributeSet? = null) : FormulaViewer(
         override fun onPinchUp() {
         }
 
-        override fun beforeFinish(replacement: TouchAction?) {
+        override fun beforeFinish() {
             pageBox.buttonExpanded = null
             pageBox.buttonPressed = null
         }

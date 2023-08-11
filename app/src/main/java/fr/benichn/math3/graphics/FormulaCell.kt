@@ -73,14 +73,12 @@ class FormulaCell(context: Context, attrs: AttributeSet? = null) : LinearLayout(
             override fun onPinchUp() {
             }
 
-            override fun beforeFinish(replacement: TouchAction?) {
+            override fun beforeFinish() {
                 child.background = Color.TRANSPARENT
             }
         }
 
-        override fun createTouchAction(e: MotionEvent) {
-            touchAction = StopButtonTouchAction()
-        }
+        override fun createTouchAction(e: MotionEvent): TouchAction = StopButtonTouchAction()
     }
 
     val inputFV = FormulaView(context)

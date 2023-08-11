@@ -71,12 +71,10 @@ class ContextMenuView(context: Context, attrs: AttributeSet? = null) : FormulaVi
         override fun onPinchUp() {
         }
 
-        override fun beforeFinish(replacement: TouchAction?) {
+        override fun beforeFinish() {
         }
 
     }
 
-    override fun createTouchAction(e: MotionEvent) {
-        touchAction = ContextMenuAction()
-    }
+    override fun createTouchAction(e: MotionEvent): TouchAction = ContextMenuAction()
 }

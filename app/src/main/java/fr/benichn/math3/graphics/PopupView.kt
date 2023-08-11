@@ -73,11 +73,8 @@ class PopupView(context: Context, attrs: AttributeSet? = null) : FrameLayout(con
                 val w = popup.measuredWidth
                 val h = popup.measuredHeight
                 val r = sourcePadding.applyOnRect(sourceBounds).toRect()
-                Log.d("r", r.toString())
                 p.offsetDescendantRectToMyCoords(this, r)
-                Log.d("rp", r.toString())
                 val v = getPopupPosition(Size(p.width, p.height), Size(w, h), r, sourceRP)
-                Log.d("v", v.toString())
                 p.setPopup(this, popup, v.x, v.y, onDestroyed)
             }
         }

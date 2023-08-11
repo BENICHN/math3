@@ -13,6 +13,7 @@ import fr.benichn.math3.graphics.boxes.types.BoundsTransformer
 import fr.benichn.math3.graphics.boxes.types.Paints
 import fr.benichn.math3.graphics.types.RectPoint
 import fr.benichn.math3.graphics.types.TouchAction
+import fr.benichn.math3.graphics.types.TouchActionHandler
 import fr.benichn.math3.types.callback.ObservableProperty
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.launch
@@ -46,7 +47,7 @@ open class FormulaViewer(context: Context, attrs: AttributeSet? = null) : View(c
         }
     }
 
-    protected abstract inner class FormulaViewerAction : TouchAction({ it - origin })
+    abstract inner class FormulaViewerAction : TouchAction({ it - origin })
 
     protected open val initialBoxTransformers: Array<BoundsTransformer>
         get() = arrayOf()
@@ -56,35 +57,17 @@ open class FormulaViewer(context: Context, attrs: AttributeSet? = null) : View(c
         get() = box.child
         set(value) { box.child = value }
 
-    protected var touchAction: TouchAction? by ObservableProperty<FormulaViewer, TouchAction?>(this, null) { _, e ->
-        e.new?.apply {
-            onFinished += { _, _ -> touchAction = null }
-            onReplaced += { _, ev -> touchAction = ev.new }
-        }
+    protected val touchActionHandler = object : TouchActionHandler() {
+        override fun createTouchAction(e: MotionEvent) =
+            this@FormulaViewer.createTouchAction(e)
     }
 
-    private fun runTouchAction(e: MotionEvent) {
-        touchAction?.also {
-            it.onTouchEvent(e)
-            if (touchAction != it) { // en cas de remplacement
-                runTouchAction(e)
-            }
-        }
-    }
+    protected open fun createTouchAction(e: MotionEvent): TouchAction? = null
+    protected val touchAction
+        get() = touchActionHandler.touchAction
 
-    protected open fun createTouchAction(e: MotionEvent) {
-    }
-
-    override fun onTouchEvent(e: MotionEvent): Boolean {
-        // Log.d("nump", e.toString())
-        when (e.actionMasked) {
-            MotionEvent.ACTION_DOWN -> {
-                createTouchAction(e)
-            }
-        }
-        runTouchAction(e)
-        return true
-    }
+    override fun onTouchEvent(e: MotionEvent) =
+        touchActionHandler.onTouchEvent(e)
 
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
         if (fitToBox) {

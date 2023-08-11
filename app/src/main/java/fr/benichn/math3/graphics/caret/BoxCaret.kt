@@ -58,78 +58,64 @@ class BoxCaret {
                 if (transparent) caretPaintTrans else caretPaint
             )
         }
-        fun drawBall(pos: PointF) {
-            canvas.drawCircle(pos.x, pos.y, BALL_RADIUS, ballPaint)
+        fun drawBall(pos: PointF, transparent: Boolean) {
+            canvas.drawCircle(pos.x, pos.y, BALL_RADIUS, if (transparent) ballPaintTrans else ballPaint)
         }
 
         for (p in positions) {
             when (p) {
                 is CaretPosition.Single -> {
                     drawBar(p.barRect, p.absPos != null)
-                }
-                is CaretPosition.Double -> {
-                    p.rects.let { rs ->
-                        if (rs.isNotEmpty()) {
-                            val leftBar = rs.first().leftBar()
-                            val rightBar = rs.last().rightBar()
-                            drawBar(leftBar, p.absPos != null) // !
-                            drawBar(rightBar, p.absPos != null) // !
-                            // p.absPos?.let { ap -> p.fixedAbsPos?.also { fp ->
-                            //     val ld = Utils.squareDistFromLineToPoint(leftBar.left, leftBar.top, leftBar.bottom, fp.x, fp.y)
-                            //     val rd = Utils.squareDistFromLineToPoint(rightBar.left, rightBar.top, rightBar.bottom, fp.x, fp.y)
-                            //     val x = if (ap.x > fp.x) r.left else r.right
-                            //     drawSelectionEnding(x)
-                            // } } ?: run {
-                            //     drawSelectionEnding(r.left)
-                            //     drawSelectionEnding(r.right)
-                            // }
-                        }
-                    }
-                }
-                is CaretPosition.GridSelection -> {
-                    val r = p.bounds
-                    if (p.fixedAbsPos != null) {
-                        val cs = corners(r)
-                        val mc = cs.maxBy { c -> l2(c - p.fixedAbsPos) }
-                        cs.filter { c -> c != mc }.forEach { c -> drawBall(c) }
-                    } else {
-                        for (c in corners(r)) {
-                            drawBall(c)
-                        }
-                    }
-                }
-                else -> { }
-            }
-            p.absPos?.let { ap ->
-                when (p) {
-                    is CaretPosition.Single -> {
+                    p.absPos?.let { ap ->
                         drawBar(
                             ap,
                             p.barRect.height() * 0.5f,
                             false
                         )
                     }
-
-                    is CaretPosition.Double -> {
-                        drawBar(
-                            ap,
-                            p.bounds.height() * 0.5f,
-                            false
-                        )
-                    }
-
-                    is CaretPosition.GridSelection -> {
-                        drawBall(ap)
-                    }
-
-                    else -> {}
                 }
+                is CaretPosition.Double -> {
+                    p.rects.let { rs ->
+                        if (rs.isNotEmpty()) {
+                            val leftBar = rs.first().leftBar()
+                            val rightBar = rs.last().rightBar()
+                            drawBar(leftBar, p.absPos != null)
+                            drawBar(rightBar, p.absPos != null)
+                            p.absPos?.let { ap ->
+                                drawBar(
+                                    ap,
+                                    rightBar.height() * 0.5f,
+                                    false
+                                )
+                            }
+                        } else {
+                            p.absPos?.let { ap ->
+                                drawBar(
+                                    ap,
+                                    FormulaBox.DEFAULT_TEXT_RADIUS,
+                                    false
+                                )
+                            }
+                        }
+                    }
+                }
+                is CaretPosition.GridSelection -> {
+                    val r = p.bounds
+                    for (c in corners(r)) {
+                        drawBall(c, p.absPos != null)
+                    }
+                    p.absPos?.let { ap ->
+                        drawBall(ap, false)
+                    }
+                }
+                else -> { }
             }
         }
     }
 
     companion object {
         val ballPaint = Paints.fill(Color.rgb(255, 255, 0))
+        val ballPaintTrans = Paints.fill(Color.argb(127, 255, 255, 0))
         val caretPaint = Paints.stroke(FormulaBox.DEFAULT_LINE_WIDTH + 2f, Color.rgb(255, 255, 0))
         val caretPaintTrans = Paints.stroke(FormulaBox.DEFAULT_LINE_WIDTH + 2f, Color.argb(127, 255, 255, 0))
         val selectionPaint = Paints.fill(Color.rgb(100, 100, 0))

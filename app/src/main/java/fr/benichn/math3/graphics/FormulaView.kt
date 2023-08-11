@@ -6,6 +6,7 @@ import android.graphics.Color
 import android.graphics.PointF
 import android.graphics.RectF
 import android.util.AttributeSet
+import android.util.Log
 import android.view.MotionEvent
 import androidx.core.graphics.minus
 import androidx.core.graphics.plus
@@ -195,9 +196,13 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : FormulaViewer
     private var lastPlaceUp: PositionUp? = null
     private var isAdding = false
 
-    val canMove
-        get() = isMoving || touchAction == null
-    private var isMoving = false
+    var movingState = MovingState.NONE
+        private set
+    enum class MovingState {
+        NONE,
+        MOVING,
+        PINCHING
+    }
 
     private abstract inner class FormulaViewAction : TouchAction({ it - (origin + offset) })
 
@@ -207,6 +212,7 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : FormulaViewer
         var baseOffset = PointF()
 
         override fun onDown() {
+            movingState = MovingState.MOVING
         }
 
         override fun onLongDown() {
@@ -223,7 +229,7 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : FormulaViewer
         }
 
         override fun onPinchMove() {
-            isMoving = true
+            movingState = MovingState.PINCHING
             val newGap = (prim.lastAbsPosition - pinch.lastAbsPosition).length()
             val ratio = (newGap / baseGap).let { if (abs(baseScale * it - magneticScale) < ZOOM_TOLERENCE) magneticScale/baseScale else it }
             val totalDiff = (prim.totalAbsDiff + pinch.totalAbsDiff) * 0.5f
@@ -236,12 +242,11 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : FormulaViewer
         override fun onPinchUp() {
         }
 
-        override fun beforeFinish(replacement: TouchAction?) {
-            isMoving = false
+        override fun beforeFinish() {
+            movingState = MovingState.NONE
         }
 
         override fun onMove() {
-            isMoving = true
             offset += prim.lastAbsDiff
         }
 
@@ -342,7 +347,7 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : FormulaViewer
         override fun onPinchUp() {
         }
 
-        override fun beforeFinish(replacement: TouchAction?) {
+        override fun beforeFinish() {
         }
 
         override fun onMove() {
@@ -382,7 +387,7 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : FormulaViewer
         override fun onPinchUp() {
         }
 
-        override fun beforeFinish(replacement: TouchAction?) {
+        override fun beforeFinish() {
             if (magnifier != null) destroyPopup()
             if (!hasMoved && isAdding) {
                 caret.positions = basePositions
@@ -431,7 +436,7 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : FormulaViewer
         override fun onPinchUp() {
         }
 
-        override fun beforeFinish(replacement: TouchAction?) {
+        override fun beforeFinish() {
             caret.positions = caret.positions.map { it.withoutModif() }
         }
 
@@ -495,7 +500,7 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : FormulaViewer
         override fun onPinchUp() {
         }
 
-        override fun beforeFinish(replacement: TouchAction?) {
+        override fun beforeFinish() {
             if (hasMoved) {
                 caret.positions = caret.positions.map { it.withoutModif() }
             }
@@ -556,7 +561,7 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : FormulaViewer
          override fun onPinchUp() {
          }
 
-         override fun beforeFinish(replacement: TouchAction?) {
+         override fun beforeFinish() {
          }
 
      }
@@ -589,7 +594,7 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : FormulaViewer
         override fun onPinchUp() {
         }
 
-        override fun beforeFinish(replacement: TouchAction?) {
+        override fun beforeFinish() {
         }
 
     }
@@ -624,7 +629,7 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : FormulaViewer
         }
         override fun onPinchUp() {
         }
-        override fun beforeFinish(replacement: TouchAction?) {
+        override fun beforeFinish() {
         }
     }
 
@@ -829,70 +834,92 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : FormulaViewer
         super.onDraw(canvas)
     }
 
-    override fun createTouchAction(e: MotionEvent) {
+    override fun createTouchAction(e: MotionEvent): TouchAction {
         accVelocity = PointF()
-        if (touchAction == null) {
-            val ap = PointF(e.x, e.y)
-            val pos = ap - (offset + origin)
-            // Log.d("pos", "${e.x},${e.y} ~ $pos ~ $offset ~ $origin ~ $width ~ $height")
-            contextMenu?.also { cm ->
-                val p = caret.positions[cm.index]
-                if (p is CaretPosition.Double && p.getElement(pos) == CaretPosition.Double.Element.INTERIOR
-                    || p is CaretPosition.GridSelection && p.getElement(pos) == CaretPosition.GridSelection.Element.INTERIOR
-                    || p is CaretPosition.DiscreteSelection && p.getElement(pos) == CaretPosition.DiscreteSelection.Element.INTERIOR) {
-                    touchAction = PlaceCaretAction()
-                }
+        val ap = PointF(e.x, e.y)
+        val pos = ap - (offset + origin)
+        return contextMenu?.let { cm ->
+            val p = caret.positions[cm.index]
+            if (p is CaretPosition.Double && p.getElement(pos) == CaretPosition.Double.Element.INTERIOR
+                || p is CaretPosition.GridSelection && p.getElement(pos) == CaretPosition.GridSelection.Element.INTERIOR
+                || p is CaretPosition.DiscreteSelection && p.getElement(pos) == CaretPosition.DiscreteSelection.Element.INTERIOR
+            ) {
+                PlaceCaretAction()
+            } else null
+        } ?: lastPlaceUp?.let { (absPos, t, i) ->
+            if ((System.currentTimeMillis() - t < DOUBLE_TAP_DELAY) && l2(absPos - ap) <= BoxCaret.SINGLE_MAX_TOUCH_DIST_SQ) {
+                SelectWordAction(i)
+            } else {
+                lastPlaceUp = null
+                null
             }
-            lastPlaceUp?.also { (absPos, t, i) ->
-                if ((System.currentTimeMillis() - t < DOUBLE_TAP_DELAY) && l2(absPos - ap) <= BoxCaret.SINGLE_MAX_TOUCH_DIST_SQ) {
-                    touchAction = SelectWordAction(i)
-                } else {
-                    lastPlaceUp = null
-                }
-            }
-            if (touchAction == null) {
-                touchAction = caret.positions.withIndex().firstNotNullOfOrNull { (j, p) ->
-                    when (p) {
-                        is CaretPosition.Single -> {
-                            when (p.getElement(pos)) {
-                                CaretPosition.Single.Element.BAR ->
-                                    MoveCaretAction(j)
+        } ?: caret.positions.withIndex().firstNotNullOfOrNull { (j, p) ->
+            when (p) {
+                is CaretPosition.Single -> {
+                    when (p.getElement(pos)) {
+                        CaretPosition.Single.Element.BAR ->
+                            MoveCaretAction(j)
 
-                                CaretPosition.Single.Element.NONE ->
-                                    null
-                            }
-                        }
-
-                        is CaretPosition.Double -> {
-                            when (p.getElement(pos)) {
-                                CaretPosition.Double.Element.LEFT_BAR -> ModifySelectionAction(j, RectPoint.CENTER_LEFT)
-                                CaretPosition.Double.Element.RIGHT_BAR -> ModifySelectionAction(j, RectPoint.CENTER_RIGHT)
-                                CaretPosition.Double.Element.INTERIOR -> DisplayContextMenuAction(j)
-                                CaretPosition.Double.Element.NONE -> null
-                            }
-                        }
-
-                        is CaretPosition.DiscreteSelection -> {
-                            when (p.getElement(pos)) {
-                                CaretPosition.DiscreteSelection.Element.INTERIOR -> PlaceCaretAction() // SelectionToDoubleAction(j)
-                                CaretPosition.DiscreteSelection.Element.NONE -> null
-                            }
-                        }
-
-                        is CaretPosition.GridSelection -> {
-                            when (p.getElement(pos)) {
-                                CaretPosition.GridSelection.Element.CORNER_TL -> ModifySelectionAction(j, RectPoint.TOP_LEFT)
-                                CaretPosition.GridSelection.Element.CORNER_TR -> ModifySelectionAction(j, RectPoint.TOP_RIGHT)
-                                CaretPosition.GridSelection.Element.CORNER_BR -> ModifySelectionAction(j, RectPoint.BOTTOM_RIGHT)
-                                CaretPosition.GridSelection.Element.CORNER_BL -> ModifySelectionAction(j, RectPoint.BOTTOM_LEFT)
-                                CaretPosition.GridSelection.Element.INTERIOR -> DisplayContextMenuAction(j)
-                                CaretPosition.GridSelection.Element.NONE -> null
-                            }
-                        }
+                        CaretPosition.Single.Element.NONE ->
+                            null
                     }
-                } ?: PlaceCaretAction()
+                }
+
+                is CaretPosition.Double -> {
+                    when (p.getElement(pos)) {
+                        CaretPosition.Double.Element.LEFT_BAR -> ModifySelectionAction(
+                            j,
+                            RectPoint.CENTER_LEFT
+                        )
+
+                        CaretPosition.Double.Element.RIGHT_BAR -> ModifySelectionAction(
+                            j,
+                            RectPoint.CENTER_RIGHT
+                        )
+
+                        CaretPosition.Double.Element.INTERIOR -> DisplayContextMenuAction(j)
+                        CaretPosition.Double.Element.NONE -> null
+                    }
+                }
+
+                is CaretPosition.DiscreteSelection -> {
+                    when (p.getElement(pos)) {
+                        CaretPosition.DiscreteSelection.Element.INTERIOR -> PlaceCaretAction() // SelectionToDoubleAction(j)
+                        CaretPosition.DiscreteSelection.Element.NONE -> null
+                    }
+                }
+
+                is CaretPosition.GridSelection -> {
+                    when (p.getElement(pos)) {
+                        CaretPosition.GridSelection.Element.CORNER_TL -> ModifySelectionAction(
+                            j,
+                            RectPoint.TOP_LEFT
+                        )
+
+                        CaretPosition.GridSelection.Element.CORNER_TR -> ModifySelectionAction(
+                            j,
+                            RectPoint.TOP_RIGHT
+                        )
+
+                        CaretPosition.GridSelection.Element.CORNER_BR -> ModifySelectionAction(
+                            j,
+                            RectPoint.BOTTOM_RIGHT
+                        )
+
+                        CaretPosition.GridSelection.Element.CORNER_BL -> ModifySelectionAction(
+                            j,
+                            RectPoint.BOTTOM_LEFT
+                        )
+
+                        CaretPosition.GridSelection.Element.INTERIOR -> DisplayContextMenuAction(
+                            j
+                        )
+
+                        CaretPosition.GridSelection.Element.NONE -> null
+                    }
+                }
             }
-        }
+        } ?: PlaceCaretAction()
     }
 
     companion object {

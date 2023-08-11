@@ -70,8 +70,7 @@ class MainActivity : AppCompatActivity() {
                     }
 
                     "eval" -> {
-                        val cell = fv.parent as FormulaCell
-                        cell.computeInput(engine)
+                        (fv.parent as? FormulaCell)?.computeInput(engine)
                     }
 
                     else -> {

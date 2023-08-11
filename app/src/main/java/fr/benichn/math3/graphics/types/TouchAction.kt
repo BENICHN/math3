@@ -14,6 +14,8 @@ import fr.benichn.math3.types.callback.VCC
 import fr.benichn.math3.types.callback.invoke
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -84,17 +86,11 @@ abstract class TouchAction(val getPos: (PointF) -> PointF = { it }, val longPres
     private val notifyReplaced = VCC<TouchAction, TouchAction>(this)
     val onReplaced = notifyReplaced.Listener()
 
-    private var canLongPress = true
-    private fun cancelLongPress() {
-        canLongPress = false
-    }
-
+    private var longPressJob: Job? = null
     private suspend fun waitForLongPress() {
         delay(longPressTimeout)
-        if (canLongPress) {
-            isLongPressed = true
-            onLongDown()
-        }
+        isLongPressed = true
+        onLongDown()
     }
 
     protected abstract fun onDown()
@@ -154,7 +150,7 @@ abstract class TouchAction(val getPos: (PointF) -> PointF = { it }, val longPres
                         updatePos(absPos, false)
                         if (!hasMoved && Utils.l2(prim.downAbsPosition - absPos) > MINIMAL_MOVE_DISTANCE_SQ) {
                             hasMoved = true
-                            cancelLongPress()
+                            longPressJob?.cancel()
                         }
                         if (hasMoved) {
                             if (isPinched) {
@@ -233,7 +229,7 @@ abstract class TouchAction(val getPos: (PointF) -> PointF = { it }, val longPres
         )
 
     private fun createPinch(id: Int, downAbsPos: PointF) {
-        cancelLongPress()
+        longPressJob?.cancel()
         hasMoved = true
         createData(
             id,
@@ -258,7 +254,7 @@ abstract class TouchAction(val getPos: (PointF) -> PointF = { it }, val longPres
             isLongPressed = true
             onLongDown()
         } else {
-            CoroutineScope(Dispatchers.IO).launch {
+            longPressJob = MainScope().launch {
                 waitForLongPress()
             }
             onDown()
@@ -273,13 +269,13 @@ abstract class TouchAction(val getPos: (PointF) -> PointF = { it }, val longPres
 
     // fun forceLongDown() {
     //     if (!isLongPressed) {
-    //         cancelLongPress()
+    //         longPressJob?.cancel()
     //         downTimer.onFinish()
     //     }
     // }
 
     fun replace(a: TouchAction, longPress: Boolean = false) {
-        cancelLongPress()
+        longPressJob?.cancel()
         beforeFinish(a)
         isFinished = true
         if (isPinched) {
@@ -292,7 +288,7 @@ abstract class TouchAction(val getPos: (PointF) -> PointF = { it }, val longPres
 
     fun finish() = finish(false)
     private fun finish(callOnUp: Boolean) {
-        cancelLongPress()
+        longPressJob?.cancel()
         if (callOnUp) onUp()
         beforeFinish(null)
         isFinished = true

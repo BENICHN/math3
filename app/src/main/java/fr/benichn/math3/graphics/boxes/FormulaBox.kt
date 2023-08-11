@@ -355,7 +355,7 @@ open class FormulaBox {
             canvas.drawPath(p.path, p.realPaint)
         }
         // canvas.drawRect(bounds, FormulaView.red)
-        for (b in children.toList()) { // !
+        for (b in children) {
             b.drawOnCanvas(canvas)
         }
         if (isRoot) {

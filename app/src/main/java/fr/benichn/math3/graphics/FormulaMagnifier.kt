@@ -16,6 +16,8 @@ import androidx.core.graphics.plus
 import androidx.core.graphics.times
 import androidx.core.graphics.toRect
 import androidx.core.graphics.withClip
+import fr.benichn.math3.App
+import fr.benichn.math3.R
 import fr.benichn.math3.graphics.boxes.FormulaBox
 import fr.benichn.math3.graphics.boxes.TransformerFormulaBox
 import fr.benichn.math3.graphics.boxes.types.BoundsTransformer
@@ -82,6 +84,6 @@ class FormulaMagnifier(context: Context, attrs: AttributeSet? = null) : View(con
             val r = RectF(0f, 0f, MAGNIFIER_W, MAGNIFIER_H)
             addRoundRect(r, FormulaBox.MAGNIFIER_RADIUS, FormulaBox.MAGNIFIER_RADIUS, Path.Direction.CCW)
         }
-        val backgroundPaint = Paints.fill(FormulaView.defaultBackgroundColor)
+        val backgroundPaint = Paints.fill(App.instance.getColor(R.color.fc_inp_background))
     }
 }

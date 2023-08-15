@@ -16,7 +16,7 @@ class ContextMenu(entries: Iterable<ContextMenuEntry>, val trigger: (PointF) -> 
     val ents = ImmutableList(this.entries)
 
     val fb = ContextMenuFormulaBox()
-    val box = TransformerFormulaBox(fb, BoundsTransformer.Constant(BoxTransform.scale(0.5f)))
+    val box = TransformerFormulaBox(fb, BoundsTransformer.Constant(BoxTransform.scale(0.6f)))
 
     var source: FormulaBox? = null
     var index = -1

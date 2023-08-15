@@ -397,7 +397,7 @@ open class FormulaBox {
     open fun toWolfram(): String = children.joinToString("") { c -> c.toWolfram() }
 
     companion object {
-        const val DEFAULT_TEXT_SIZE = 80f
+        const val DEFAULT_TEXT_SIZE = 70f
         const val DEFAULT_TEXT_RADIUS = DEFAULT_TEXT_SIZE * 0.5f
         const val DEFAULT_TEXT_WIDTH = DEFAULT_TEXT_SIZE * 0.6f
         const val DEFAULT_LINE_WIDTH = 3.4f

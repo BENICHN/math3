@@ -1,106 +1,48 @@
 package fr.benichn.math3.graphics
 
 import android.content.Context
-import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Rect
 import android.graphics.drawable.ColorDrawable
 import android.util.AttributeSet
 import android.util.Log
+import android.view.LayoutInflater
 import android.view.MotionEvent
 import android.view.View
 import android.widget.FrameLayout
+import android.widget.ImageButton
 import android.widget.LinearLayout
-import android.widget.TextView
 import fr.benichn.math3.Engine
+import fr.benichn.math3.R
+import fr.benichn.math3.Utils.Companion.dp
 import fr.benichn.math3.formulas.FormulaGroupedToken.Companion.readGroupedToken
 import fr.benichn.math3.graphics.boxes.IntegralFormulaBox
 import fr.benichn.math3.graphics.boxes.SequenceFormulaBox
 import fr.benichn.math3.graphics.boxes.TextFormulaBox
-import fr.benichn.math3.graphics.boxes.types.BoundsTransformer
 import fr.benichn.math3.graphics.boxes.types.Paints
-import fr.benichn.math3.graphics.types.RectPoint
-import fr.benichn.math3.graphics.types.TouchAction
-import fr.benichn.math3.types.callback.Callback
+import fr.benichn.math3.types.callback.ObservableProperty
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.launch
 import java.io.StringReader
-import fr.benichn.math3.types.callback.invoke
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
 
-class FormulaCell(context: Context, attrs: AttributeSet? = null) : LinearLayout(context, attrs) {
-    class StopButton(context: Context, attrs: AttributeSet? = null) : FormulaViewer(context, attrs) {
-        override val initialBoxTransformers: Array<BoundsTransformer>
-            get() = arrayOf(BoundsTransformer.Align(RectPoint.CENTER))
-
-        init {
-            originRP = RectPoint.CENTER
-            child = TextFormulaBox("▩", big = true)
-        }
-
-        private val notifyClicked = Callback<StopButton, Unit>(this)
-        val onClicked = notifyClicked.Listener()
-
-        private inner class StopButtonTouchAction : FormulaViewerAction() {
-            override fun onDown() {
-                if (child.accRealBounds.contains(prim.lastPosition.x, prim.lastPosition.y)) {
-                    child.background = Color.LTGRAY
-                } else finish()
-            }
-
-            override fun onLongDown() {
-            }
-
-            override fun onMove() {
-                child.background = if (child.accRealBounds.contains(prim.lastPosition.x, prim.lastPosition.y)) {
-                    Color.LTGRAY
-                } else Color.TRANSPARENT
-            }
-
-            override fun onUp() {
-                if (child.accRealBounds.contains(prim.lastPosition.x, prim.lastPosition.y)) {
-                    notifyClicked()
-                }
-            }
-
-            override fun onPinchDown() {
-            }
-
-            override fun onPinchMove() {
-            }
-
-            override fun onPinchUp() {
-            }
-
-            override fun beforeFinish() {
-                child.background = Color.TRANSPARENT
-            }
-        }
-
-        override fun createTouchAction(e: MotionEvent): TouchAction = StopButtonTouchAction()
+class FormulaCell(context: Context, attrs: AttributeSet? = null) : FrameLayout(context, attrs) {
+    init {
+        LayoutInflater.from(context).inflate(R.layout.formula_cell, this, true)
     }
-
-    val inputFV = FormulaView(context)
-    val outputFV = FormulaView(context).apply {
+    val inputFV = findViewById<FormulaView>(R.id.input_fv)
+    val outputFV = findViewById<FormulaView>(R.id.output_fv).apply {
         isReadOnly = true
-        scale = 0.8f
-        magneticScale = 0.8f
-        input.addBoxes(IntegralFormulaBox().apply { integrand.addBoxes(TextFormulaBox("output")) })
     }
-    private val textView = TextView(context).apply {
-        visibility = GONE
-        setTextIsSelectable(true)
-        setBackgroundColor(FormulaView.defaultBackgroundColor)
-    }
-    private val stopButton = StopButton(context).apply {
-        visibility = GONE
-        setBackgroundColor(FormulaView.defaultBackgroundColor)
-    }
-    private val fl = FrameLayout(context).also {
-        it.addView(outputFV)
-        it.addView(textView)
-        it.addView(stopButton)
+    val deleteButton = findViewById<ImageButton>(R.id.delete_btn)
+    val addAboveButton = findViewById<ImageButton>(R.id.add_above_btn)
+    val addBelowButton = findViewById<ImageButton>(R.id.add_below_btn)
+    val evalAboveButton = findViewById<ImageButton>(R.id.eval_above_btn)
+    val evalBelowButton = findViewById<ImageButton>(R.id.eval_below_btn)
+    val evalButton = findViewById<ImageButton>(R.id.eval_btn)
+    val abortButton = findViewById<ImageButton>(R.id.abort_btn).apply {
+        setOnClickListener {
+            abortComputation()
+        }
     }
 
     fun hline(height: Int, color: Int) = View(context).apply {
@@ -118,11 +60,11 @@ class FormulaCell(context: Context, attrs: AttributeSet? = null) : LinearLayout(
         foreground = ColorDrawable(color)
     }
 
-    override fun dispatchDraw(canvas: Canvas) {
-        super.dispatchDraw(canvas)
-        canvas.drawLine(0f, 0f, width.toFloat(), 0f, borderPaint)
-        canvas.drawLine(0f, height.toFloat(), width.toFloat(), height.toFloat(), borderPaint)
-    }
+    // override fun dispatchDraw(canvas: Canvas) {
+    //     super.dispatchDraw(canvas)
+    //     canvas.drawLine(0f, 0f, width.toFloat(), 0f, borderPaint)
+    //     canvas.drawLine(0f, height.toFloat(), width.toFloat(), height.toFloat(), borderPaint)
+    // }
 
     val fvs = listOf(inputFV, outputFV)
     private var currentFV: FormulaView? = null
@@ -154,77 +96,94 @@ class FormulaCell(context: Context, attrs: AttributeSet? = null) : LinearLayout(
             }
         }
         return currentFV?.let { fv ->
-            val v = if (fv == outputFV) fl else fv
+            // val v = if (fv == outputFV) fl else fv
             val r = Rect()
-            v.getDrawingRect(r)
-            offsetDescendantRectToMyCoords(v, r)
+            fv.getDrawingRect(r)
+            offsetDescendantRectToMyCoords(fv, r)
             e.offsetLocation(-r.left.toFloat(), -r.top.toFloat())
-            v.dispatchTouchEvent(MotionEvent.obtain(e))
+            fv.dispatchTouchEvent(MotionEvent.obtain(e))
         } ?: super.dispatchTouchEvent(e)
     }
 
-    private var currentEngine: Engine? = null
+    sealed class EvalState {
+        data object Ready : EvalState()
+        data class Evaluating(val engine: Engine) : EvalState()
+        data class Aborting(val engine: Engine) : EvalState()
+    }
 
-    fun computeInput(engine: Engine) {
-        if (currentEngine != null) return
-        currentEngine = engine
+    var evalState by ObservableProperty<FormulaCell, EvalState>(this, EvalState.Ready).apply {
+        onChanged += { _, e ->
+            when (e.new) {
+                is EvalState.Ready -> {
+                    evalButton.visibility = VISIBLE
+                    evalAboveButton.visibility = VISIBLE
+                    evalBelowButton.visibility = VISIBLE
+                    abortButton.visibility = GONE
+                }
+                is EvalState.Evaluating -> {
+                    evalButton.visibility = GONE
+                    evalAboveButton.visibility = GONE
+                    evalBelowButton.visibility = GONE
+                    abortButton.visibility = VISIBLE
+                    abortButton.isEnabled = true
+                }
+                is EvalState.Aborting -> {
+                    evalButton.visibility = GONE
+                    evalAboveButton.visibility = GONE
+                    evalBelowButton.visibility = GONE
+                    abortButton.visibility = VISIBLE
+                    abortButton.isEnabled = false
+                }
+            }
+        }
+    }
+
+    fun evalInputInContainer() =
+        (parent.parent as? FormulaCellsContainer)?.let { fcc ->
+            evalInput(fcc.engine)
+            true
+        } ?: false
+
+    fun evalInput(engine: Engine) {
+        if (evalState !is EvalState.Ready) return
+        evalState = EvalState.Evaluating(engine)
         val command = inputFV.input.toWolfram()
         engine.enqueue(this@FormulaCell, command)?.also { f ->
-            textView.text = ""
             outputFV.input.clear()
+            outputFV.clearCaretPositions()
+            (inputFV.layoutParams as LinearLayout.LayoutParams).setMargins(
+                12.dp(), 6.dp(), 12.dp(), 0
+            )
+            outputFV.visibility = VISIBLE
             MainScope().launch {
                 f.collect { s ->
-                    textView.visibility = GONE
-                    withContext(Dispatchers.Default) {
-                        outputFV.input.addBoxes(s.map { c ->
-                            when (c) {
-                                '\n' -> SequenceFormulaBox.LineStart()
-                                else -> TextFormulaBox(
-                                    c.toString()
-                                )
-                            }
-                        })
-                    }
+                    outputFV.input.addBoxes(s.map { c ->
+                        when (c) {
+                            '\n' -> SequenceFormulaBox.LineStart()
+                            else -> TextFormulaBox(
+                                c.toString()
+                            )
+                        }
+                    })
                     val sr = StringReader(s)
                     val gtk = sr.readGroupedToken()
                     Log.d("gtk", gtk.toString())
                 }
-                currentEngine = null
+                evalState = EvalState.Ready
             }
         } ?: run {
-            currentEngine = null
+            evalState = EvalState.Ready
         }
     }
 
     fun abortComputation() {
-        currentEngine?.let { engine ->
-            currentEngine = null
+        (evalState as? EvalState.Evaluating)?.apply {
+            evalState = EvalState.Aborting(engine)
             MainScope().launch {
                 engine.abort(this@FormulaCell)
+                evalState = EvalState.Ready
             }
         }
-    }
-
-    init {
-        orientation = VERTICAL
-        // inputFV.onScaleChanged += { s, e ->
-        //     if (syncScales && currentFV == s) {
-        //         val ratio = e.new / e.old
-        //         outputFV.scale *= ratio
-        //     }
-        // }
-        // outputFV.onScaleChanged += { s, e ->
-        //     if (syncScales && currentFV == s) {
-        //         val ratio = e.new / e.old
-        //         inputFV.scale *= ratio
-        //     }
-        // }
-        stopButton.onClicked += { _, _ ->
-            abortComputation()
-        }
-        addView(inputFV)
-        addView(hline(2, Color.GRAY))
-        addView(fl)
     }
 
     companion object {

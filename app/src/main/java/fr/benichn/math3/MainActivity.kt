@@ -44,11 +44,6 @@ class App : Application() {
 class MainActivity : AppCompatActivity() {
     private lateinit var cc: FormulaCellsContainer
     private lateinit var nv: NumpadView
-    private val engine = WolframEngine().apply {
-        CoroutineScope(Dispatchers.IO).launch {
-            start()
-        }
-    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -70,7 +65,9 @@ class MainActivity : AppCompatActivity() {
                     }
 
                     "eval" -> {
-                        (fv.parent as? FormulaCell)?.computeInput(engine)
+                        val fc = fv.parent.parent as FormulaCell
+                        val fcc = fc.parent.parent as FormulaCellsContainer
+                        fcc.evalInputCreateCell(fc)
                     }
 
                     else -> {

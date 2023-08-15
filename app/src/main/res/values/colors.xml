@@ -4,6 +4,9 @@
     <color name="white">#FFFFFFFF</color>
     <color name="red">#FFFF0000</color>
     <color name="green">#FF00FF00</color>
-    <color name="numpad_btn_bkg">#DDDDDD</color>
-    <color name="numpad_btn_bkg_pressed">#CCCCCC</color>
+    <color name="fc_inp_background">#FF181818</color>
+    <color name="fc_background">#FF1F1F1F</color>
+    <color name="fc_border">#FF373737</color>
+    <color name="fc_button_pressed">#FF555555</color>
+    <color name="fc_buttons">#FFAAAAAA</color>
 </resources>

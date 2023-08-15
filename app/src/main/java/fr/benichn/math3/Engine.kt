@@ -261,7 +261,7 @@ class WolframEngine : Engine() {
     override suspend fun startEngine() = coroutineScope {
         if (socket != null) return@coroutineScope
         socket = ZContext().createSocket(SocketType.DEALER).apply {
-            connect("tcp://")
+            withContext(Dispatchers.IO) { connect("tcp://") }
         }
         launch { receiveResponses() }
         sendJson(

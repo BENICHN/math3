@@ -49,12 +49,12 @@ import kotlin.math.sign
 
 class FormulaView(context: Context, attrs: AttributeSet? = null) : FormulaViewer(context, attrs) {
     override val initialBoxTransformers: Array<BoundsTransformer>
-        get() = arrayOf(BoundsTransformer.Align(RectPoint.BOTTOM_LEFT), BoundsTransformer.id)
+        get() = arrayOf(BoundsTransformer.Align(RectPoint.TOP_LEFT), BoundsTransformer.id)
 
     var caret: BoxCaret
         private set
     private val origin
-        get() = PointF(FormulaBox.DEFAULT_TEXT_WIDTH, height - FormulaBox.DEFAULT_TEXT_RADIUS)
+        get() = PointF(FormulaBox.DEFAULT_TEXT_WIDTH, FormulaBox.DEFAULT_TEXT_RADIUS)
     var offset = PointF()
         set(value) {
             field = adjustOffset(value)
@@ -75,7 +75,7 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : FormulaViewer
     var magneticScale = 1f
 
     init {
-        setBackgroundColor(defaultBackgroundColor)
+        // setBackgroundColor(defaultBackgroundColor)
         child = InputFormulaBox()
         box.dlgTransformers.onChanged += { _, e ->
             notifyScaleChanged(
@@ -180,6 +180,11 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : FormulaViewer
     fun clearCaretPositions() {
         destroyPopup()
         caret.positions = listOf()
+    }
+
+    fun setCaretOnEnd() {
+        caret.positions = listOf(input.lastSingle)
+        moveToCaret()
     }
 
     override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
@@ -616,11 +621,12 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : FormulaViewer
                 val n = pi.input.ch.size
                 caret.positions = getFiltered(caret.positions.filterIndexed { i, _ -> i != index } +
                         when {
-                            n != 0 -> listOf(CaretPosition.Double(pi.input, 0, n))
+                            n > 1 -> listOf(CaretPosition.Double(pi.input, 0, n-1))
                             isReadOnly -> listOf()
                             else -> listOf(CaretPosition.Single(pi.input, 0))
                         }
                 )
+                if (!isReadOnly) displayContextMenu(caret.positions.size-1)
             }
         }
         override fun onPinchDown() {
@@ -641,7 +647,7 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : FormulaViewer
         if (syncHeight) {
             setMeasuredDimension(
                 widthMeasureSpec,
-                max(MIN_HEIGHT, ceil(box.realBounds.height() + 2 * DEFAULT_PADDING).toInt())
+                ceil(box.realBounds.height() + 2 * DEFAULT_PADDING).toInt()
             )
         } else super.onMeasure(widthMeasureSpec, heightMeasureSpec)
     }
@@ -827,9 +833,9 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : FormulaViewer
 
     override fun onDraw(canvas: Canvas) {
         val o = origin + offset
-        val y = box.child.transform.origin.y + o.y
-        canvas.drawLine(0f, y, o.x + box.realBounds.left - FormulaBox.DEFAULT_TEXT_WIDTH * 0.5f, y, baselinePaint)
-        canvas.drawLine(width.toFloat(), y, o.x + box.realBounds.right + FormulaBox.DEFAULT_TEXT_WIDTH * 0.5f, y, baselinePaint)
+        // val y = box.child.transform.origin.y + o.y
+        // canvas.drawLine(0f, y, o.x + box.realBounds.left - FormulaBox.DEFAULT_TEXT_WIDTH * 0.5f, y, baselinePaint)
+        // canvas.drawLine(width.toFloat(), y, o.x + box.realBounds.right + FormulaBox.DEFAULT_TEXT_WIDTH * 0.5f, y, baselinePaint)
         (origin + offset).let { canvas.translate(it.x, it.y) }
         super.onDraw(canvas)
     }
@@ -937,7 +943,7 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : FormulaViewer
         )
 
         const val DEFAULT_PADDING = FormulaBox.DEFAULT_TEXT_WIDTH
-        const val MIN_HEIGHT = (FormulaBox.DEFAULT_TEXT_SIZE + 2 * DEFAULT_PADDING).toInt()
+        // const val MIN_HEIGHT = (FormulaBox.DEFAULT_TEXT_SIZE + 2 * DEFAULT_PADDING).toInt()
         val defaultPadding = Padding(DEFAULT_PADDING)
         const val VELOCITY_REDUCTION_PERIOD = 8L
         const val VELOCITY_REDUCTION_MULT = VELOCITY_REDUCTION_PERIOD * 0.001f

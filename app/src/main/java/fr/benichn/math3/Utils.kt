@@ -27,6 +27,7 @@ class Utils {
 
         private val dpScale: Float = App.instance.applicationContext.resources.displayMetrics.density
         fun Int.dp() = (this * dpScale + 0.5f).toInt()
+        fun Float.dp() = (this * dpScale + 0.5f).toInt()
 
         fun <T> List<T>.intercalateIndexed(f: (Int) -> T) = flatMapIndexed { i, e ->
             if (i == size-1) listOf(e)

@@ -47,7 +47,8 @@ object Paints {
 data class PaintedPath(
     val path: Path = Path(),
     val paint: Paint = Paints.transparent,
-    val persistentColor: Boolean = false
+    val persistentColor: Boolean = false,
+    val aboveChildren: Boolean = false
 ) {
     var forcedColor by ObservableProperty<PaintedPath, Int?>(this, null).apply {
         onChanged += { _, _ -> updateRealPaint() }

@@ -40,7 +40,7 @@ class BracketsInputFormulaBox(vararg boxes: FormulaBox, type: BracketFormulaBox.
     }
 }
 
-open class BracketsSequenceFormulaBox(vararg boxes: FormulaBox, type: BracketFormulaBox.Type = BracketFormulaBox.Type.BRACE) : SequenceFormulaBox(
+open class BracketsSequenceFormulaBox(vararg boxes: FormulaBox, type: BracketFormulaBox.Type = BracketFormulaBox.Type.BRACE, updGr: Boolean = true) : SequenceFormulaBox(
     BracketFormulaBox(side = Side.L) ign true,
     SequenceFormulaBox(*boxes) ign false,
     BracketFormulaBox(side = Side.R) ign true
@@ -56,7 +56,7 @@ open class BracketsSequenceFormulaBox(vararg boxes: FormulaBox, type: BracketFor
         rightBracket.dlgRange.connectValue(sequence.onBoundsChanged, sequence.bounds) { r -> RangeF.fromRectV(r) }
         leftBracket.dlgType.connectValue(dlgType.onChanged, type) { t -> t }
         rightBracket.dlgType.connectValue(dlgType.onChanged, type) { t -> t }
-        updateGraphics()
+        if (updGr) updateGraphics()
     }
 
     override fun toWolfram() = when (type) {

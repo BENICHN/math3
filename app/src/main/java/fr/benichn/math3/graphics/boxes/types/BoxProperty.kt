@@ -15,9 +15,11 @@ class BoxProperty<S: FormulaBox, T>(private val source: S, val defaultValue: T, 
         val old = field
         field = value
         isSet = true
-        notifyChanged(old, value)
-        if (updatesGraphics) {
-            source.updateGraphics()
+        if (old != value) {
+            notifyChanged(old, value)
+            if (updatesGraphics) {
+                source.updateGraphics()
+            }
         }
     }
     fun reset() {

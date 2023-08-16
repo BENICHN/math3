@@ -9,7 +9,7 @@ import fr.benichn.math3.graphics.boxes.types.Padding
 import fr.benichn.math3.graphics.boxes.types.PaintedPath
 import fr.benichn.math3.graphics.boxes.types.Paints
 
-class ContextMenuFormulaBox(childrenPadding: Padding = Padding(DEFAULT_TEXT_RADIUS), uniformWidths: Boolean = false, pressedItem: Int? = null) : SequenceFormulaBox() {
+class ContextMenuFormulaBox(childrenPadding: Padding = Padding(DEFAULT_TEXT_RADIUS), uniformWidths: Boolean = false, pressedItem: Int? = null) : SequenceFormulaBox(false) {
     val dlgChildrenPadding = BoxProperty(this, childrenPadding).apply {
         onChanged += { _, _ ->
             adjustPaddings()

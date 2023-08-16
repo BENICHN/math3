@@ -24,6 +24,8 @@ class NumpadView(context: Context, attrs: AttributeSet? = null) : FormulaViewer(
         get() = arrayOf(BoundsTransformer.Align(RectPoint.TOP_LEFT))
 
     private val numpadBox = child as NumpadFormulaBox
+    private val page
+        get() = numpadBox.currentPage
     private val pageBox
         get() = numpadBox.currentPageBox
 
@@ -37,20 +39,35 @@ class NumpadView(context: Context, attrs: AttributeSet? = null) : FormulaViewer(
     }
 
     private inner class NumpadTouchAction : TouchAction(longPressTimeout = 200L) {
-        private lateinit var downButton: NumpadButtonInfo
+        private var downButtonGroup: NumpadButtonGroup? = null
+        private val downButton
+            get() = downButtonGroup?.let { bg -> if (pageBox.isShift) bg.shift else bg.normal }
+
         override fun onDown() {
-            downButton = pageBox.findButton(prim.lastPosition)
-            pageBox.buttonPressed = downButton.pt
+            val pt = pageBox.findCoords(prim.lastPosition)
+            downButtonGroup = page.getButton(pt)
+            pageBox.findId(prim.lastPosition)?.let { id ->
+                when (id) {
+                    "⇧" -> pageBox.isShift = true
+                    "⇩" -> {
+                        pageBox.isShiftLocked = false
+                        pageBox.isShift = false
+                    }
+                }
+            }
+            pageBox.buttonPressed = pt
         }
 
         override fun onLongDown() {
-            if (downButton.hasAux) {
-                pageBox.buttonExpanded = downButton.pt
+            downButton?.let { db ->
+                if (db.hasAux) {
+                    pageBox.buttonExpanded = db
+                }
             }
         }
 
         override fun onMove() {
-            if (!isLongPressed || !downButton.hasAux) {
+            if (pageBox.buttonExpanded == null) {
                 val d = prim.totalDiff
                 when {
                     d.x > SWIPE_DISTANCE -> {
@@ -80,11 +97,19 @@ class NumpadView(context: Context, attrs: AttributeSet? = null) : FormulaViewer(
         }
 
         override fun onUp() {
-            if (pageBox.buttonExpanded == null) {
-                notifyButtonClicked(downButton.id)
-            } else {
-                val btn = pageBox.findAuxButton(prim.lastPosition)
-                btn?.let { notifyButtonClicked(it.id) }
+            pageBox.findId(prim.lastPosition)?.let { id ->
+                when (id) {
+                    "⇪" -> {
+                        pageBox.isShiftLocked = true
+                    }
+                    "⇩" -> { }
+                    else -> {
+                        if (!pageBox.isShiftLocked) {
+                            pageBox.isShift = false
+                        }
+                    }
+                }
+                notifyButtonClicked(id)
             }
         }
 

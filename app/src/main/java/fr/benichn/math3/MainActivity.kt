@@ -70,6 +70,8 @@ class MainActivity : AppCompatActivity() {
                         fcc.evalInputCreateCell(fc)
                     }
 
+                    "⇪", "⇩", "⇧" -> { }
+
                     else -> {
                         val newBox = {
                             when (id) {

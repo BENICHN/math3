@@ -6,14 +6,15 @@ import fr.benichn.math3.graphics.boxes.types.BoundsTransformer
 import fr.benichn.math3.graphics.boxes.types.BoxProperty
 import fr.benichn.math3.types.callback.ValueChangedEvent
 
-class TransformerFormulaBox(child: FormulaBox = FormulaBox(), transformers: List<BoundsTransformer> = listOf()) : FormulaBox() {
-    constructor(child: FormulaBox = FormulaBox(), vararg transformers: BoundsTransformer) : this(child,  transformers.asList())
-    constructor(child: FormulaBox = FormulaBox(), transformer: BoundsTransformer) : this(child,  listOf(transformer))
+open class TransformerFormulaBox(child: FormulaBox = FormulaBox(), transformers: List<BoundsTransformer> = listOf(), updGr: Boolean = true) : FormulaBox() {
+    constructor(child: FormulaBox = FormulaBox(), vararg transformers: BoundsTransformer, updGr: Boolean = true) : this(child,  transformers.asList(), updGr)
+    constructor(child: FormulaBox = FormulaBox(), transformer: BoundsTransformer, updGr: Boolean = true) : this(child,  listOf(transformer), updGr)
 
     val dlgChild = BoxProperty(this, child).apply {
         onChanged += { _, e ->
             removeAllBoxes()
             addBoxes(e.new)
+            updateGraphics()
         }
     }
     var child by dlgChild
@@ -37,6 +38,7 @@ class TransformerFormulaBox(child: FormulaBox = FormulaBox(), transformers: List
 
     init {
         addBoxes(child)
+        if (updGr) updateGraphics()
     }
 
     override fun findChildBox(pos: PointF): FormulaBox = child
@@ -51,7 +53,6 @@ class TransformerFormulaBox(child: FormulaBox = FormulaBox(), transformers: List
         assert(boxes.size == 1)
         super.addBoxes(i, boxes)
         transformChild()
-        updateGraphics()
     }
 
     private fun transformChild() {

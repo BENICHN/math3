@@ -13,7 +13,7 @@ import fr.benichn.math3.graphics.boxes.types.Paints
 import fr.benichn.math3.graphics.caret.CaretPosition
 import kotlin.math.abs
 
-class InputFormulaBox(vararg boxes: FormulaBox, isVisible: Boolean = true) : SequenceFormulaBox() {
+class InputFormulaBox(vararg boxes: FormulaBox, isVisible: Boolean = true) : SequenceFormulaBox(false) {
     val firstSingle
         get() = CaretPosition.Single(this, 0)
     val lastSingle
@@ -96,10 +96,10 @@ class InputFormulaBox(vararg boxes: FormulaBox, isVisible: Boolean = true) : Seq
         )
     } else super.generateGraphics()
 
-    override fun toWolfram() = ch.joinToString("") {
-        if (it.isVariable()) " ${it.toWolfram()} "
-        else it.toWolfram()
-    }
+    // override fun toWolfram() = ch.joinToString("") {
+    //     if (it.isVariable()) " ${it.toWolfram()} "
+    //     else it.toWolfram()
+    // }
 
     override fun toSage(): String {
         var result = ""

@@ -7,7 +7,7 @@ import fr.benichn.math3.types.callback.ValueChangedEvent
 import kotlin.math.max
 import kotlin.math.min
 
-open class SequenceFormulaBox() : FormulaBox() {
+open class SequenceFormulaBox(updGr: Boolean = true) : FormulaBox() {
     class LineStart : PhantomFormulaBox(RectF(0f, -DEFAULT_TEXT_RADIUS, 0f, DEFAULT_TEXT_RADIUS))
 
     class Line(
@@ -23,16 +23,19 @@ open class SequenceFormulaBox() : FormulaBox() {
     }
 
     private val ignMap = mutableMapOf<FormulaBox, Boolean>()
+    private var isInitialized = false
 
     init {
         super.addBoxes(0, listOf(LineStart()))
+        updateLines()
+        if (updGr) updateGraphics()
     }
 
-    constructor(vararg boxes: FormulaBox) : this() {
-        addBoxes(*boxes)
+    constructor(vararg boxes: FormulaBox, updGr: Boolean = true) : this(false) {
+        addBoxes(1, boxes.asList(), updGr=updGr)
     }
-    constructor(vararg children: Child) : this() {
-        addBoxes(*children)
+    constructor(vararg children: Child, updGr: Boolean = true) : this(false) {
+        addBoxes(1, *children, updGr=updGr)
     }
 
     override fun onChildBoundsChanged(b: FormulaBox, e: ValueChangedEvent<RectF>) {
@@ -48,14 +51,19 @@ open class SequenceFormulaBox() : FormulaBox() {
         get() = ch.drop(1)
 
     fun addBoxes(vararg children: Child) = addBoxes(ch.size, *children)
-    fun addBoxes(i: Int, vararg children: Child) {
-        addBoxes(i, children.map { it.box })
+    fun addBoxes(i: Int, vararg children: Child) = addBoxes(i, *children, updGr=true)
+    protected fun addBoxes(i: Int, vararg children: Child, updGr: Boolean) {
+        addBoxes(i, children.map { it.box }, updGr)
         children.forEach { (b, ig) -> setIgnored(b, ig) }
     }
-    final override fun addBoxes(i: Int, boxes: List<FormulaBox>) {
+
+    override fun addBoxes(i: Int, boxes: List<FormulaBox>) {
+        addBoxes(i, boxes, true)
+    }
+    protected fun addBoxes(i: Int, boxes: List<FormulaBox>, updGr: Boolean) {
         super.addBoxes(i, boxes)
         alignChildren()
-        updateGraphics()
+        if (updGr) updateGraphics()
     }
 
     override fun removeBoxes(boxes: List<FormulaBox>) {

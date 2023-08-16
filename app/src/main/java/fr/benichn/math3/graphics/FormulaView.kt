@@ -781,10 +781,8 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : FormulaViewer
                         val b = p.box
                         val pi = p.parentInput
                         if (pi.index == 0) {
-                            fun isInputRoot(b: FormulaBox): Boolean =
-                                b.parent?.let { if (it is InputFormulaBox) false else isInputRoot(it) } ?: true
-                            if (!isInputRoot(b)) {
-                                b.delete()
+                            if (CaretPosition.Single.getParentInput(pi.input) != null) {
+                                pi.input.delete()
                             } else {
                                 DeletionResult(p)
                             }

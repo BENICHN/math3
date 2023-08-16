@@ -18,7 +18,8 @@ open class TopDownFormulaBox(
     type: Type = Type.BOTH,
     val middle: FormulaBox = FormulaBox(),
     val bottom: FormulaBox = FormulaBox(),
-    val top: FormulaBox = FormulaBox()
+    val top: FormulaBox = FormulaBox(),
+    updGr: Boolean = true
 ) : FormulaBox() {
     val bottomContainer = TransformerFormulaBox(bottom)
     val topContainer = TransformerFormulaBox(top)
@@ -46,7 +47,7 @@ open class TopDownFormulaBox(
     init {
         setTransformers()
         resetChildren()
-        updateGraphics()
+        if (updGr) updateGraphics()
     }
 
     override fun onChildRequiresDelete(b: FormulaBox, vararg anticipation: FormulaBox) = when (b) {

@@ -6,7 +6,7 @@ import fr.benichn.math3.graphics.boxes.types.BoxProperty
 import fr.benichn.math3.graphics.boxes.types.FormulaGraphics
 import fr.benichn.math3.graphics.boxes.types.PaintedPath
 
-open class PhantomFormulaBox(customBounds: RectF = RectF()) : FormulaBox() {
+open class PhantomFormulaBox(customBounds: RectF = RectF(), updGr: Boolean = true) : FormulaBox() {
     val dlgCustomBounds = BoxProperty(this, customBounds)
     var customBounds by dlgCustomBounds
 
@@ -16,6 +16,6 @@ open class PhantomFormulaBox(customBounds: RectF = RectF()) : FormulaBox() {
     )
 
     init {
-        updateGraphics()
+        if (updGr) updateGraphics()
     }
 }

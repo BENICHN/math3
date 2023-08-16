@@ -346,12 +346,15 @@ open class FormulaBox {
             caret?.preDrawOnCanvas(canvas)
         }
         canvas.drawRect(bounds, backgroundPaint)
-        for (p in paintedPaths) {
+        val (av, bl) = paintedPaths.partition { it.aboveChildren }
+        for (p in bl) {
             canvas.drawPath(p.path, p.realPaint)
         }
-        // canvas.drawRect(bounds, FormulaView.red)
         for (b in children) {
             b.drawOnCanvas(canvas)
+        }
+        for (p in av) {
+            canvas.drawPath(p.path, p.realPaint)
         }
         if (isRoot) {
             caret?.postDrawOnCanvas(canvas)

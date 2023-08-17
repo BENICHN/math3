@@ -6,7 +6,6 @@ import android.graphics.Path
 import android.graphics.PointF
 import android.graphics.Rect
 import android.graphics.RectF
-import android.util.Size
 import android.util.SizeF
 import androidx.core.animation.doOnEnd
 import fr.benichn.math3.Utils.Companion.clamp
@@ -187,7 +186,7 @@ class NumpadFormulaBox(pages: List<NumpadPage> = listOf(), size: SizeF = SizeF(0
     }
 }
 
-class NumpadButtonFormulaBox(val buttonElement: NumpadButtonElement, size: SizeF, child: FormulaBox = FormulaBox(), isPressed: Boolean = false) : TransformerFormulaBox(
+class NumpadButtonFormulaBox(val buttonElement: NumpadButtonElement, size: SizeF, child: FormulaBox = FormulaBox(), isPressed: Boolean = false, hasAux: Boolean = false) : TransformerFormulaBox(
     child,
     BoundsTransformer.Align(RectPoint.CENTER),
     BoundsTransformer.Constant(BoxTransform.scale(0.66f)),
@@ -200,6 +199,9 @@ class NumpadButtonFormulaBox(val buttonElement: NumpadButtonElement, size: SizeF
 
     private val dlgIsPressed = BoxProperty(this, isPressed)
     var isPressed by dlgIsPressed
+
+    private val dlgHasAux = BoxProperty(this, hasAux)
+    var hasAux by dlgHasAux
 
     init {
         updateTransformers()
@@ -214,6 +216,13 @@ class NumpadButtonFormulaBox(val buttonElement: NumpadButtonElement, size: SizeF
         val rx = width * 0.5f
         val ry = height * 0.5f
         FormulaGraphics(
+            if (hasAux) PaintedPath(
+                Path().apply {
+                    moveTo(-rx*0.5f, -ry*0.8f)
+                    lineTo(rx*0.5f, -ry*0.8f)
+                },
+                Paints.stroke(2f, Color.rgb(254, 211, 48))
+            ) else null,
             bounds = RectF(-rx, -ry, rx, ry),
             background = if (isPressed) pressedColor else Color.WHITE)
     }
@@ -231,7 +240,8 @@ data class NumpadButtonGroup(
 
 data class NumpadButton(
     val main: NumpadButtonElement,
-    val aux: List<NumpadButtonElement>
+    val aux: List<NumpadButtonElement>,
+    val hideOther: Boolean
 ) {
     val hasAux
         get() = aux.isNotEmpty()
@@ -254,10 +264,10 @@ data class NumpadPage(val width: Int, val height: Int, val coords: Pt, val butto
             else Range(ends[0].toInt(), ends[1].toInt())
         }
 
-        fun listFromJSON(pages: JSONObject) = pages.keys().asSequence().map { k ->
-            val coords = k.split(",").map { it.toInt() }
+        fun listFromJSON(pages: JSONObject) = pages.keys().asSequence().map { pk ->
+            val coords = pk.split(",").map { it.toInt() }
             val pt = Pt(coords[0], coords[1])
-            val page = pages.getJSONObject(k)
+            val page = pages.getJSONObject(pk)
             val pw = page.getInt("w")
             val ph = page.getInt("h")
             fun readButton(btnRect: Rect, obj: JSONObject): NumpadButton {
@@ -270,7 +280,8 @@ data class NumpadPage(val width: Int, val height: Int, val coords: Pt, val butto
                     } ?: getAuxPositions(pw, ph, btnRect, auxIds.size)
                     auxPos.zip(auxIds) { rect, id -> NumpadButtonElement(rect, id) }
                 }
-                return NumpadButton(main, aux ?: listOf())
+                val hideOther = aux == null || obj.optBoolean("hideOther", true)
+                return NumpadButton(main, aux ?: listOf(), hideOther)
             }
             val btns = page.getJSONObject("buttons")
             val buttons = btns.keys().asSequence().map { k ->
@@ -314,11 +325,9 @@ data class NumpadPage(val width: Int, val height: Int, val coords: Pt, val butto
                 val rb = (1 until r + rym).map { i-> orr + ux * i }
                 return listOf(t, l, b, rt, rr, rb).flatten()
             }
-            val auxOffsets = (1 until max(w, h)).flatMap { r -> makeLoop(r) }
-            val auxPos = auxOffsets.map { u -> o + u }.filter { p ->
-                p.x in 0 until w &&
-                p.y in 0 until h
-            }
+            val auxPos = (1 until max(w, h))
+                .flatMap { r -> makeLoop(r) }
+                .filter { p -> p.x in 0 until w && p.y in 0 until h }
             return auxPos.map { pt -> Rect(pt.x, pt.y, pt.x+1, pt.y+1) }.prepend(rect).take(n)
         }
     }
@@ -363,9 +372,22 @@ class NumpadPageFormulaBox(page: NumpadPage, size: SizeF, buttonPressed: Pt? = n
     var buttonExpanded by dlgButtonExpanded
 
     val realButtons
-        get() = buttonExpanded?.aux ?:
-            if (isShift) page.buttons.mapNotNull { it.shift?.main }
-            else page.buttons.map { it.normal.main }
+        get() =
+            if (isShift) page.buttons.mapNotNull { it.shift }
+            else page.buttons.map { it.normal }
+
+    val mainButtonElements
+        get() = realButtons.map { it.main }
+
+    val realButtonElements
+        get() = buttonExpanded?.run {
+            if (hideOther) aux
+            else {
+                aux + mainButtonElements.filter { be ->
+                    !aux.any { be.rect.intersect(it.rect) }
+                }
+            }
+        } ?: mainButtonElements
 
     init {
         updateButtonSize()
@@ -432,10 +454,11 @@ class NumpadPageFormulaBox(page: NumpadPage, size: SizeF, buttonPressed: Pt? = n
     private fun getButtonSize(rect: Rect) = SizeF(buttonSize.width * rect.width(), buttonSize.height * rect.height())
 
     private fun addChildren() {
-        val bs = realButtons.map { be -> NumpadButtonFormulaBox(
+        val bs = realButtonElements.map { be -> NumpadButtonFormulaBox(
             be,
             getButtonSize(be.rect),
-            getIconFromId(be.id))
+            getIconFromId(be.id),
+            hasAux = buttonExpanded == null && realButtons.any { btn -> btn.hasAux && btn.main.rect == be.rect })
         }
         addBoxes(bs)
         updatePressed()
@@ -453,13 +476,13 @@ class NumpadPageFormulaBox(page: NumpadPage, size: SizeF, buttonPressed: Pt? = n
     }
 
     private fun isHSegmentSupported(x: Int, y: Int) =
-        realButtons.any { be ->
+        realButtonElements.any { be ->
             val r = be.rect
             (r.top == y || r.bottom == y) && r.left <= x && x+1 <= r.right
         }
 
     private fun isVSegmentSupported(x: Int, y: Int) =
-        realButtons.any { be ->
+        realButtonElements.any { be ->
             val r = be.rect
             (r.left == x || r.right == x) && r.top <= y && y+1 <= r.bottom
         }

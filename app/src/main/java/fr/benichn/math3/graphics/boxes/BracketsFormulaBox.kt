@@ -1,16 +1,21 @@
 package fr.benichn.math3.graphics.boxes
 
+import com.google.gson.JsonObject
+import fr.benichn.math3.Utils.toBox
+import fr.benichn.math3.Utils.toBoxes
 import fr.benichn.math3.graphics.boxes.SequenceFormulaBox.Child.Companion.ign
 import fr.benichn.math3.graphics.boxes.types.BoxProperty
 import fr.benichn.math3.graphics.boxes.types.FinalBoxes
+import fr.benichn.math3.graphics.boxes.types.FormulaBoxDeserializer
 import fr.benichn.math3.graphics.boxes.types.InitialBoxes
 import fr.benichn.math3.graphics.boxes.types.RangeF
 import fr.benichn.math3.graphics.types.Side
 
-class BracketsInputFormulaBox(vararg boxes: FormulaBox, type: BracketFormulaBox.Type = BracketFormulaBox.Type.BRACE) : BracketsSequenceFormulaBox(
-    InputFormulaBox(*boxes),
+class BracketsInputFormulaBox(boxes: List<FormulaBox>, type: BracketFormulaBox.Type = BracketFormulaBox.Type.BRACE) : BracketsSequenceFormulaBox(
+    InputFormulaBox(boxes),
     type = type
 ) {
+    constructor(vararg boxes: FormulaBox, type: BracketFormulaBox.Type = BracketFormulaBox.Type.BRACE) : this(boxes.asList(), type)
     val input = sequence.ch[1] as InputFormulaBox
     init {
         leftBracket.dlgRange.connectValue(input.onBoundsChanged, input.bounds) { r -> RangeF.fromRectV(r) }
@@ -38,13 +43,30 @@ class BracketsInputFormulaBox(vararg boxes: FormulaBox, type: BracketFormulaBox.
         input.addBoxes(ib.selectedBoxes)
         return FinalBoxes()
     }
+
+    override fun toJson() = makeJsonObject("brackets") {
+        addProperty("type", type.toString())
+        add("input", input.toJson())
+    }
+
+    companion object {
+        init {
+            deserializers.add(FormulaBoxDeserializer("brackets") {
+                BracketsInputFormulaBox(
+                    getAsJsonArray("input").toBoxes(),
+                    BracketFormulaBox.Type.valueOf(get("type").asString)
+                )
+            })
+        }
+    }
 }
 
-open class BracketsSequenceFormulaBox(vararg boxes: FormulaBox, type: BracketFormulaBox.Type = BracketFormulaBox.Type.BRACE, updGr: Boolean = true) : SequenceFormulaBox(
+open class BracketsSequenceFormulaBox(boxes: List<FormulaBox>, type: BracketFormulaBox.Type = BracketFormulaBox.Type.BRACE, updGr: Boolean = true) : SequenceFormulaBox(
     BracketFormulaBox(side = Side.L) ign true,
-    SequenceFormulaBox(*boxes) ign false,
+    SequenceFormulaBox(boxes) ign false,
     BracketFormulaBox(side = Side.R) ign true
 ) {
+    constructor(vararg boxes: FormulaBox, type: BracketFormulaBox.Type = BracketFormulaBox.Type.BRACE, updGr: Boolean = true) : this(boxes.asList(), type, updGr)
     val dlgType = BoxProperty(this, type)
     var type by dlgType
 

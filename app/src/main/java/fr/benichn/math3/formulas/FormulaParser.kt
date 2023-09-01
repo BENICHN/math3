@@ -1,13 +1,25 @@
 package fr.benichn.math3.formulas
 
+import fr.benichn.math3.Utils.collect
+import fr.benichn.math3.Utils.intercalate
 import fr.benichn.math3.formulas.FormulaToken.Companion.readToken
+import fr.benichn.math3.graphics.Utils.prepend
+import fr.benichn.math3.graphics.boxes.BracketFormulaBox
+import fr.benichn.math3.graphics.boxes.BracketsInputFormulaBox
 import fr.benichn.math3.graphics.boxes.FormulaBox
+import fr.benichn.math3.graphics.boxes.FractionFormulaBox
+import fr.benichn.math3.graphics.boxes.MatrixFormulaBox
+import fr.benichn.math3.graphics.boxes.RootFormulaBox
+import fr.benichn.math3.graphics.boxes.ScriptFormulaBox
+import fr.benichn.math3.graphics.boxes.TextFormulaBox
+import fr.benichn.math3.graphics.boxes.TopDownFormulaBox
+import fr.benichn.math3.graphics.boxes.toBoxes
+import fr.benichn.math3.numpad.types.Pt
 import java.io.Reader
-import java.math.BigDecimal
 
 sealed class FormulaToken {
-    data class Number(val value: BigDecimal) : FormulaToken() {
-        override fun toString() = value.toString()
+    data class Number(val value: String) : FormulaToken() {
+        override fun toString() = value
     }
     data class Variable(val value: String) : FormulaToken() {
         override fun toString() = value
@@ -39,7 +51,7 @@ sealed class FormulaToken {
             return when {
                 c0.isDigit() || c0 == '.' && peekChar()?.isDigit() == true -> {
                     readChars { c -> c.isDigit() || c == '.' }
-                    Number(BigDecimal(s))
+                    Number(s)
                 }
                 c0.isLetter() -> {
                     readChars { c -> c.isLetter() || c.isDigit() }
@@ -57,49 +69,142 @@ sealed class FormulaToken {
 sealed class FormulaGroupedToken {
     abstract fun toBoxes(): List<FormulaBox>
     abstract fun flatten(): FormulaGroupedToken
+    open fun degroup() = this
     data object Empty: FormulaGroupedToken() {
-        override fun toBoxes(): List<FormulaBox> = TODO()
+        override fun toBoxes(): List<FormulaBox> = listOf()
         override fun toString() = ""
         override fun flatten() = this
     }
     data class Symbol(val value: FormulaToken) : FormulaGroupedToken() {
-        override fun toBoxes(): List<FormulaBox> = TODO()
+        override fun toBoxes(): List<FormulaBox> =
+            when (value) {
+                is FormulaToken.Number -> value.value.toBoxes()
+                is FormulaToken.Sign -> throw UnsupportedOperationException()
+                is FormulaToken.Variable -> when (value.value) {
+                    "I" -> "ⅈ"
+                    "Pi" -> "ℼ"
+                    "E" -> "ⅇ"
+                    else -> value.value
+                }.toBoxes()
+            }
         override fun toString() = value.toString()
         override fun flatten() = this
     }
     data class Group(val value: FormulaGroupedToken) : FormulaGroupedToken() {
-        override fun toBoxes(): List<FormulaBox> = TODO()
+        override fun toBoxes(): List<FormulaBox> = listOf(BracketsInputFormulaBox(value.toBoxes(), type = BracketFormulaBox.Type.BRACE))
         override fun toString() = "(:$value:)"
         override fun flatten() =
-            Group(value.flatten())
+            value.flatten().let { if (it is Group) it else Group(it) }
+        override fun degroup() = value.degroup()
     }
-    data class Listing(val grouped: Boolean, val values: List<FormulaGroupedToken>) : FormulaGroupedToken() {
-        override fun toBoxes(): List<FormulaBox> = TODO()
-        override fun toString() = if (grouped) "{:${values.joinToString(",")}:}" else values.joinToString(",")
-        override fun flatten() =
-            Listing(grouped, values.flatMap { gtk ->
-                if (gtk is Listing && !gtk.grouped) gtk.values.map { it.flatten() }
+    data class Listing(val type: Type, val values: List<FormulaGroupedToken>) : FormulaGroupedToken() {
+        enum class Type {
+            PARAMS,
+            LIST,
+            NONE
+        }
+        override fun toBoxes(): List<FormulaBox> =
+                matrixShape?.let { shape ->
+                    val boxes = values.map { (it as Listing).values.map { gtk -> gtk.toBoxes() } }
+                    listOf(MatrixFormulaBox(shape).apply {
+                        for (j in 0 until shape.x) {
+                            for (i in 0 until shape.y) {
+                                grid.getInput(Pt(j, i)).addBoxes(boxes[i][j])
+                            }
+                        }
+                    })
+                } ?: values.map { it.toBoxes() }.let { bss ->
+                    when (type) {
+                        Type.PARAMS -> listOf(
+                            MatrixFormulaBox(
+                                Pt(1, bss.size),
+                                matrixType = MatrixFormulaBox.Type.PARAMS
+                            ).apply { grid.addBoxesInColumn(0, bss) })
+
+                        Type.LIST -> listOf(
+                            MatrixFormulaBox(
+                                Pt(1, bss.size),
+                                matrixType = MatrixFormulaBox.Type.LIST
+                            ).apply { grid.addBoxesInColumn(0, bss) })
+
+                        Type.NONE -> bss.intercalate { ",".toBoxes() }.flatten()
+                    }
+                }
+        override fun toString() = values.joinToString(",").let { s ->
+            when (type) {
+                Type.PARAMS -> "[:$s:]"
+                Type.LIST -> "{:$s:}"
+                Type.NONE -> s
+            }
+        }
+        override fun flatten(): Listing =
+            Listing(type, values.flatMap { gtk ->
+                if (gtk is Listing && gtk.type == Type.NONE) gtk.flatten().values
                 else listOf(gtk.flatten())
             })
+        val matrixShape: Pt?
+            get() {
+                var sz = -1
+                return if (type == Type.LIST && values.isNotEmpty() && values.all {
+                    if (it is Listing && it.type == Type.LIST) {
+                        val s = it.values.size
+                        (sz == -1 || sz == s).also { sz = s }
+                    } else false
+                }) {
+                    Pt(sz, values.size)
+                } else null
+            }
     }
-    data class Function(val name: FormulaGroupedToken, val param: FormulaGroupedToken) : FormulaGroupedToken() {
-        override fun toBoxes(): List<FormulaBox> = TODO()
-        override fun toString() = "$$name[$param]$"
+    data class Function(val name: FormulaGroupedToken, val param: Listing) : FormulaGroupedToken() {
+        override fun toBoxes() =
+            ((name as? Symbol)?.value as? FormulaToken.Variable)?.let { v ->
+                val s = v.value
+                val n = param.values.size
+                when {
+                    s == "Sqrt" && n == 1 -> listOf(RootFormulaBox().apply {
+                        input.addBoxes(param.values[0].toBoxes())
+                    })
+                    else -> null
+                }
+            } ?: (name.toBoxes() + param.toBoxes())
+        override fun toString() = "$$name$param$"
         override fun flatten() =
             Function(name, param.flatten())
     }
     data class Unary(val operator: String, val value: FormulaGroupedToken) : FormulaGroupedToken() {
-        override fun toBoxes(): List<FormulaBox> = TODO()
+        override fun toBoxes(): List<FormulaBox> = value.toBoxes().prepend(TextFormulaBox(operator))
         override fun toString() = "<$operator:$operator$value:>"
         override fun flatten() =
             Unary(operator, value.flatten())
     }
     data class Binary(val operator: String, val values: List<FormulaGroupedToken>) : FormulaGroupedToken() {
-        override fun toBoxes(): List<FormulaBox> = TODO()
-        override fun toString() = "<$operator:${values.joinToString(operator)}:>"
-        override fun flatten() =
+        override fun toBoxes() = when (operator) {
+            "/" -> values.map { it.degroup().toBoxes() }.reduce { acc, boxes ->
+                listOf(FractionFormulaBox(acc, boxes))
+            }
+            else -> mutableListOf<FormulaBox>().also { res ->
+                for (gtk in values) {
+                    if (res.isEmpty()) res.addAll(gtk.toBoxes())
+                    else {
+                        res.addAll(
+                            when (operator) {
+                                "^" -> listOf(ScriptFormulaBox(type = TopDownFormulaBox.Type.TOP).apply {
+                                    superscript.addBoxes(gtk.degroup().toBoxes())
+                                })
+                                else -> gtk.toBoxes().prepend(TextFormulaBox(when (operator) {
+                                    "*" -> "×"
+                                    else -> operator
+                                }))
+                            }
+                        )
+                    }
+                }
+            }
+        }
+        override fun toString() = "<$operator:${values.joinToString(operator)}:$operator>"
+        override fun flatten(): Binary =
             Binary(operator, values.flatMap { gtk ->
-                if (gtk is Binary && gtk.operator == operator) values.map { it.flatten() }
+                if (gtk is Binary && gtk.operator == operator) gtk.flatten().values
                 else listOf(gtk.flatten())
             })
     }
@@ -111,6 +216,7 @@ sealed class FormulaGroupedToken {
 
     companion object {
         val priorities = mapOf(
+            '[' to 6,
             '^' to 1,
             '*' to 0,
             '/' to 0,
@@ -159,11 +265,15 @@ sealed class FormulaGroupedToken {
                             is FormulaToken.Sign -> {
                                 val c = tk.value
                                 val g = groupDelimiters[c]?.let { del ->
+                                    val p = getPriority(c)
+                                    if (p <= priority && values.isNotEmpty()) {
+                                        return makeResult(tk)
+                                    }
                                     val content = readGroupedTokenWithEnd(-7)
                                     GroupedTokenWithEnd(
                                         when (c) {
-                                            '[' -> Function(values.removeLast(), content.gtk)
-                                            '{' -> Listing(true, listOf(content.gtk))
+                                            '[' -> Function(values.removeLast(), Listing(Listing.Type.PARAMS, listOf(content.gtk)))
+                                            '{' -> Listing(Listing.Type.LIST, listOf(content.gtk))
                                             '(' -> Group(content.gtk)
                                             else -> throw UnsupportedOperationException()
                                         },
@@ -175,13 +285,14 @@ sealed class FormulaGroupedToken {
                                     }
                                     val right = readGroupedTokenWithEnd(p)
                                     GroupedTokenWithEnd(
-                                        if (values.isEmpty()) Unary(c.toString(), right.gtk)
-                                        else {
-                                            val repl = if (p > 0) values.removeLast() else makeResultGroup()
-                                            when (c) {
-                                                ',' -> Listing(false, listOf(repl, right.gtk))
-                                                else -> Binary(c.toString(), listOf(repl, right.gtk))
-                                            }
+                                        when (c) {
+                                            ',' -> Listing(Listing.Type.NONE, listOf(makeResultGroup(), right.gtk))
+                                            else ->
+                                                if (values.isEmpty()) Unary(c.toString(), right.gtk)
+                                                else {
+                                                    val repl = if (p > 0) values.removeLast() else makeResultGroup()
+                                                    Binary(c.toString(), listOf(repl, right.gtk))
+                                                }
                                         },
                                         right.end
                                     )

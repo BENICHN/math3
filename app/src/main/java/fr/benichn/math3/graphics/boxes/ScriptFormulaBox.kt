@@ -2,12 +2,16 @@ package fr.benichn.math3.graphics.boxes
 
 import android.graphics.Path
 import android.graphics.RectF
-import fr.benichn.math3.graphics.Utils.Companion.with
+import com.google.gson.JsonObject
+import fr.benichn.math3.Utils.toBoxes
+import fr.benichn.math3.Utils.toJsonArray
+import fr.benichn.math3.graphics.Utils.with
 import fr.benichn.math3.graphics.boxes.types.BoundsTransformer
 import fr.benichn.math3.graphics.boxes.types.BoxProperty
 import fr.benichn.math3.graphics.boxes.types.BoxTransform
 import fr.benichn.math3.graphics.boxes.types.DeletionResult
 import fr.benichn.math3.graphics.boxes.types.FinalBoxes
+import fr.benichn.math3.graphics.boxes.types.FormulaBoxDeserializer
 import fr.benichn.math3.graphics.boxes.types.FormulaGraphics
 import fr.benichn.math3.graphics.boxes.types.InitialBoxes
 import fr.benichn.math3.graphics.boxes.types.RangeF
@@ -25,6 +29,8 @@ class ScriptFormulaBox(type: Type = Type.TOP, range: RangeF = RangeF(-DEFAULT_TE
     private val phantom = middle as PhantomFormulaBox
     val subscript = bottom as InputFormulaBox
     val superscript = top as InputFormulaBox
+
+    var initialBoxesInScript: Boolean = false
 
     val dlgRange = BoxProperty(this, range).apply {
         onChanged += { _, _ -> applyRange() }
@@ -44,11 +50,15 @@ class ScriptFormulaBox(type: Type = Type.TOP, range: RangeF = RangeF(-DEFAULT_TE
         }
     }
 
-    override fun addInitialBoxes(ib: InitialBoxes) = FinalBoxes(
+    override fun addInitialBoxes(ib: InitialBoxes) = if (initialBoxesInScript) {
+        val input = if (type.hasBottom) subscript else if (type.hasTop) superscript else null
+        input?.run { addBoxes(ib.selectedBoxes) }
+        FinalBoxes()
+    } else FinalBoxes(
         if (!ib.hasSelection || (ib.selectedBoxes.all { b -> b.isDigit() } && ib.boxesBefore.lastOrNull()?.isDigit() != true)) {
             ib.selectedBoxes
         } else {
-            listOf(BracketsInputFormulaBox(*ib.selectedBoxes.toTypedArray()))
+            listOf(BracketsInputFormulaBox(ib.selectedBoxes))
         }
     )
 
@@ -110,4 +120,24 @@ class ScriptFormulaBox(type: Type = Type.TOP, range: RangeF = RangeF(-DEFAULT_TE
 
     override fun toSage() =
         (if (type.hasBottom) "_(${bottom.toSage()})" else "") + (if (type.hasTop) "^(${top.toSage()})" else "")
+
+    override fun toJson() = makeJsonObject("script") {
+        addProperty("type", type.toString())
+        add("superscript", superscript.toJson())
+        add("subscript", subscript.toJson())
+    }
+
+    companion object {
+        init {
+            deserializers.add(FormulaBoxDeserializer("script") {
+                val type = Type.valueOf(get("type").asString)
+                ScriptFormulaBox(
+                    type
+                ).apply {
+                    if (type.hasTop) superscript.addBoxes(getAsJsonArray("superscript").toBoxes())
+                    if (type.hasBottom) subscript.addBoxes(getAsJsonArray("subscript").toBoxes())
+                }
+            })
+        }
+    }
 }

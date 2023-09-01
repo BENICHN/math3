@@ -11,7 +11,7 @@ import android.widget.LinearLayout
 import android.widget.ScrollView
 import androidx.core.view.children
 import fr.benichn.math3.R
-import fr.benichn.math3.Utils.Companion.dp
+import fr.benichn.math3.Utils.dp
 import fr.benichn.math3.WolframEngine
 import fr.benichn.math3.graphics.types.Orientation
 import fr.benichn.math3.graphics.types.TouchAction

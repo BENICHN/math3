@@ -1,6 +1,8 @@
 package fr.benichn.math3
 
 import android.util.Log
+import com.google.gson.JsonObject
+import com.google.gson.JsonParseException
 import fr.benichn.math3.types.callback.Callback
 import fr.benichn.math3.types.callback.ObservableProperty
 import fr.benichn.math3.types.callback.VCC
@@ -21,14 +23,13 @@ import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
-import org.json.JSONException
-import org.json.JSONObject
 import java.security.Security
 import java.util.LinkedList
 import java.util.Queue
 import org.zeromq.ZMQ
 import org.zeromq.ZContext
 import org.zeromq.SocketType
+import java.lang.IllegalArgumentException
 import kotlin.coroutines.resume
 
 class JobQueue {
@@ -76,6 +77,15 @@ class JobQueue {
     }
 }
 
+sealed class CommandOutput {
+    data class Message(val value: String) : CommandOutput()
+    data class SVG(val value: String) : CommandOutput()
+    data class Typeset(val value: String) : CommandOutput()
+    data object Null : CommandOutput()
+    data object Aborted : CommandOutput()
+    data object Failed : CommandOutput()
+}
+
 abstract class Engine {
     private val jobQueue = JobQueue()
 
@@ -120,7 +130,7 @@ abstract class Engine {
 
     fun contains(source: Any) = jobQueue.contains(source)
 
-    fun enqueue(source: Any, command: String): Flow<String>? =
+    fun enqueue(source: Any, command: String): Flow<CommandOutput>? =
         if (!jobQueue.contains(source)) channelFlow {
             suspendCancellableCoroutine { cont ->
                 jobQueue.enqueue(source) {
@@ -152,7 +162,7 @@ abstract class Engine {
     }
 
     protected open suspend fun abortComputation(computationJob: Job) = computationJob.cancelAndJoin()
-    protected abstract fun runCommand(command: String): Flow<String>
+    protected abstract fun runCommand(command: String): Flow<CommandOutput>
     protected abstract suspend fun startEngine()
     protected abstract suspend fun stopEngine()
 
@@ -179,8 +189,12 @@ abstract class Engine {
 class WolframEngine : Engine() {
     private var socket: ZMQ.Socket? = null
 
-    private fun sendJson(vararg entries: Pair<String, String>): JSONObject {
-        val j = JSONObject(mapOf(*entries))
+    private fun sendJson(vararg entries: Pair<String, String>): JsonObject {
+        val j = JsonObject().apply {
+            for ((k, v) in entries) {
+                addProperty(k, v)
+            }
+        }
         socket?.send(j.toString())
         return j
     }
@@ -189,7 +203,7 @@ class WolframEngine : Engine() {
         while (socket != null) {
             val resp = withContext(Dispatchers.IO) { socket!!.recvStr() }
             try {
-                val rpj = JSONObject(resp)
+                val rpj = App.gson.fromJson(resp, JsonObject::class.java)
                 val handled = notifyReceivedResponse(rpj)
                 if (!handled) {
                     Log.d("WolframEngine", "Response not handled: $rpj")
@@ -198,25 +212,25 @@ class WolframEngine : Engine() {
                     handleIgnored = null
                     l()
                 }
-            } catch (e: JSONException) {
+            } catch (e: JsonParseException) {
                 Log.d("WolframEngine", "Ignored response: $resp due to $e")
             }
         }
     }
 
-    private val notifyReceivedResponse = Callback<WolframEngine, JSONObject>(this)
+    private val notifyReceivedResponse = Callback<WolframEngine, JsonObject>(this)
     private val onReceivedResponse = notifyReceivedResponse.Listener()
 
     private var handleIgnored: (() -> Unit)? = null
 
-    private suspend fun JSONObject.waitForResponse(type: String): JSONObject {
-        var handleResponse: ((Any, JSONObject) -> Boolean)? = null
+    private suspend fun JsonObject.waitForResponse(type: String): JsonObject {
+        var handleResponse: ((Any, JsonObject) -> Boolean)? = null
         try {
             return suspendCancellableCoroutine { cont ->
-                handleResponse = { _: Any, rpj: JSONObject ->
-                    when (rpj.getString("type")) {
+                handleResponse = { _: Any, rpj: JsonObject ->
+                    when (rpj["type"].asString) {
                         "ignored" -> {
-                            val rqi = rpj.getJSONObject("request")
+                            val rqi = rpj["request"].asJsonObject
                             if (rqi == this) {
                                 handleIgnored = {
                                     cont.cancel()
@@ -238,16 +252,36 @@ class WolframEngine : Engine() {
         }
     }
 
-    private var producerScope: ProducerScope<String>? = null
+    private var producerScope: ProducerScope<CommandOutput>? = null
 
-    override fun runCommand(command: String): Flow<String> {
+    override fun runCommand(command: String): Flow<CommandOutput> {
         return channelFlow {
             producerScope = this
-            val res = sendJson(
-                "type" to "eval",
-                "input" to command
-            ).waitForResponse("result")
-            send(res.getString("output"))
+            try {
+                val res = sendJson(
+                    "type" to "eval",
+                    "input" to command
+                ).waitForResponse("result")
+                val r = res["output"].asString
+                send(
+                    when (r) {
+                        "Null" -> CommandOutput.Null
+                        "\$Aborted" -> CommandOutput.Aborted
+                        "\$Failed" -> CommandOutput.Failed
+                        else -> {
+                            val j = App.gson.fromJson(r, JsonObject::class.java)
+                            val d = j["data"].asString
+                            when (j["type"].asString) {
+                                "SVG" -> CommandOutput.SVG(d)
+                                "Typeset" -> CommandOutput.Typeset(d)
+                                else -> throw IllegalArgumentException()
+                            }
+                        }
+                    }
+                )
+            } catch (e: CancellationException) {
+                send(CommandOutput.Aborted)
+            }
             producerScope = null
         }
     }
@@ -256,6 +290,7 @@ class WolframEngine : Engine() {
         sendJson(
             "type" to "abort"
         )
+        computationJob.join()
     }
 
     override suspend fun startEngine() = coroutineScope {
@@ -268,7 +303,7 @@ class WolframEngine : Engine() {
             "type" to "ping"
         ).waitForResponse("pong")
         onReceivedResponse += { _, rpj ->
-            when (rpj.getString("type")) {
+            when (rpj["type"].asString) {
                 "ping" -> sendJson(
                     "type" to "pong"
                 )
@@ -277,7 +312,7 @@ class WolframEngine : Engine() {
                 }
                 "message" -> {
                     producerScope?.trySend(
-                        rpj.getString("output")
+                        CommandOutput.Message(rpj["output"].asString)
                     )
                 }
             }

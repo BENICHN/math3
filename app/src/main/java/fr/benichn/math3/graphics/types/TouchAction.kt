@@ -8,8 +8,8 @@ import androidx.core.graphics.plus
 import androidx.core.graphics.times
 import fr.benichn.math3.graphics.FormulaViewer
 import fr.benichn.math3.graphics.Utils
-import fr.benichn.math3.graphics.Utils.Companion.div
-import fr.benichn.math3.graphics.Utils.Companion.times
+import fr.benichn.math3.graphics.Utils.div
+import fr.benichn.math3.graphics.Utils.times
 import fr.benichn.math3.types.callback.Callback
 import fr.benichn.math3.types.callback.ObservableProperty
 import fr.benichn.math3.types.callback.VCC

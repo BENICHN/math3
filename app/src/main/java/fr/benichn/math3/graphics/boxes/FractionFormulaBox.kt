@@ -1,25 +1,32 @@
 package fr.benichn.math3.graphics.boxes
 
 import android.graphics.PointF
-import fr.benichn.math3.graphics.Utils.Companion.append
+import com.google.gson.JsonObject
+import fr.benichn.math3.Utils.toBoxes
+import fr.benichn.math3.graphics.Utils.append
 import fr.benichn.math3.graphics.boxes.types.BoundsTransformer
 import fr.benichn.math3.graphics.boxes.types.BoxTransform
 import fr.benichn.math3.graphics.boxes.types.DeletionResult
 import fr.benichn.math3.graphics.boxes.types.FinalBoxes
+import fr.benichn.math3.graphics.boxes.types.FormulaBoxDeserializer
 import fr.benichn.math3.graphics.boxes.types.InitialBoxes
 import fr.benichn.math3.graphics.boxes.types.Padding
 import fr.benichn.math3.graphics.types.Orientation
 import fr.benichn.math3.graphics.boxes.types.RangeF
 import kotlin.math.max
 
-class FractionFormulaBox : TopDownFormulaBox(
+class FractionFormulaBox(
+    numeratorBoxes: List<FormulaBox> = listOf(),
+    denominatorBoxes: List<FormulaBox> = listOf()
+) : TopDownFormulaBox(
     middle = LineFormulaBox(Orientation.H),
-    bottom = InputFormulaBox(),
-    top = InputFormulaBox()
+    bottom = InputFormulaBox(denominatorBoxes),
+    top = InputFormulaBox(numeratorBoxes),
+    revertTopDown = true
 ) {
     private val bar = middle as LineFormulaBox
-    private val denominator = bottom as InputFormulaBox
-    private val numerator = top as InputFormulaBox
+    val denominator = bottom as InputFormulaBox
+    val numerator = top as InputFormulaBox
     init {
         bottomContainer.apply {
             modifyTransformers { it.append(BoundsTransformer.Constant(BoxTransform.yOffset(DEFAULT_TEXT_SIZE * 0.15f))) }
@@ -91,4 +98,20 @@ class FractionFormulaBox : TopDownFormulaBox(
 
     override fun toWolfram() = "(${numerator.toWolfram()})/(${denominator.toWolfram()})"
     override fun toSage() = "(${numerator.toSage()})/(${denominator.toSage()})"
+
+    override fun toJson() = makeJsonObject("frac") {
+        add("numerator", numerator.toJson())
+        add("denominator", denominator.toJson())
+    }
+
+    companion object {
+        init {
+            deserializers.add(FormulaBoxDeserializer("frac") {
+                FractionFormulaBox(
+                    getAsJsonArray("numerator").toBoxes(),
+                    getAsJsonArray("denominator").toBoxes()
+                )
+            })
+        }
+    }
 }

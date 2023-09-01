@@ -4,6 +4,8 @@ import android.content.Context
 import android.util.AttributeSet
 import android.util.SizeF
 import android.view.MotionEvent
+import com.google.gson.JsonObject
+import fr.benichn.math3.App
 import fr.benichn.math3.graphics.FormulaViewer
 import fr.benichn.math3.graphics.boxes.types.BoundsTransformer
 import fr.benichn.math3.graphics.types.RectPoint
@@ -15,7 +17,7 @@ import org.json.JSONObject
 class NumpadView(context: Context, attrs: AttributeSet? = null) : FormulaViewer(context, attrs) {
     init {
         child = NumpadFormulaBox(
-            JSONObject(context.assets.open("numpad_pages.json").reader().use { it.readText() }),
+            App.gson.fromJson(context.assets.open("numpad_pages.json").reader().use { it.readText() }, JsonObject::class.java),
             SizeF(width.toFloat(), height.toFloat())
         )
     }

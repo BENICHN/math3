@@ -11,16 +11,23 @@ import android.view.MotionEvent
 import androidx.core.graphics.minus
 import androidx.core.graphics.plus
 import androidx.core.graphics.times
+import com.google.gson.JsonElement
+import com.google.gson.JsonObject
+import fr.benichn.math3.App
 import fr.benichn.math3.ContextMenuView
-import fr.benichn.math3.Utils.Companion.neg
-import fr.benichn.math3.Utils.Companion.pos
+import fr.benichn.math3.Utils.toBox
+import fr.benichn.math3.Utils.toBoxes
+import fr.benichn.math3.Utils.toJsonArray
+import fr.benichn.math3.Utils.toPt
+import fr.benichn.math3.formulas.FormulaGroupedToken.Companion.readGroupedTokenFlattened
 import fr.benichn.math3.graphics.PopupView.Companion.destroyPopup
 import fr.benichn.math3.graphics.PopupView.Companion.getCoordsInPopupView
 import fr.benichn.math3.graphics.PopupView.Companion.requirePopup
-import fr.benichn.math3.graphics.Utils.Companion.l2
-import fr.benichn.math3.graphics.Utils.Companion.with
+import fr.benichn.math3.graphics.Utils.l2
+import fr.benichn.math3.graphics.Utils.with
 import fr.benichn.math3.graphics.boxes.FormulaBox
 import fr.benichn.math3.graphics.boxes.InputFormulaBox
+import fr.benichn.math3.graphics.boxes.MatrixFormulaBox
 import fr.benichn.math3.graphics.boxes.TextFormulaBox
 import fr.benichn.math3.graphics.boxes.types.BoundsTransformer
 import fr.benichn.math3.graphics.boxes.types.BoxTransform
@@ -28,19 +35,18 @@ import fr.benichn.math3.graphics.boxes.types.DeletionResult
 import fr.benichn.math3.graphics.boxes.types.InitialBoxes
 import fr.benichn.math3.graphics.boxes.types.Padding
 import fr.benichn.math3.graphics.boxes.types.Paints
-import fr.benichn.math3.graphics.boxes.types.Range
 import fr.benichn.math3.graphics.caret.BoxCaret
 import fr.benichn.math3.graphics.caret.CaretPosition
 import fr.benichn.math3.graphics.caret.ContextMenu
 import fr.benichn.math3.graphics.caret.ContextMenuEntry
 import fr.benichn.math3.graphics.types.RectPoint
-import fr.benichn.math3.graphics.types.Side
 import fr.benichn.math3.graphics.types.TouchAction
+import fr.benichn.math3.numpad.types.Pt
 import fr.benichn.math3.types.callback.*
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import kotlin.concurrent.fixedRateTimer
+import java.io.StringReader
 import kotlin.math.abs
 import kotlin.math.ceil
 import kotlin.math.max
@@ -317,9 +323,8 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : FormulaViewer
                         cm.ents.forEach { ent ->
                             ent.finalAction = {
                                 cm.source!!.let {
-                                    ent.action(it)
-                                    val newSingle = it.getInitialSingle() ?: CaretPosition.Single.fromBox(it)
-                                    caret.positions = getFiltered(caret.positions.with(caret.positions.lastIndex, newSingle))
+                                    val newPos = ent.action(it) ?: /*it.getInitialSingle() ?: */listOf(CaretPosition.Single.fromBox(it))
+                                    caret.positions = getFiltered(caret.positions.dropLast(1) + newPos)
                                 }
                             }
                         }
@@ -378,7 +383,7 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : FormulaViewer
         override fun onUp() {
             newSingle = findSingle(prim.lastPosition)
             if (!hasMoved) {
-                if (newSingle == downSingle) (displayContextMenu(index))
+                if (!isAdding && newSingle == downSingle) (displayContextMenu(index))
                 lastPlaceUp = PositionUp(prim.downAbsPosition, System.currentTimeMillis(), if (isAdding) null else index)
             }
         }
@@ -532,7 +537,8 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : FormulaViewer
         val cm = if (p is CaretPosition.Single) getSingleContextMenu() else getSelectionContextMenu()
         cm.ents.forEach { ent ->
             ent.finalAction = {
-                ent.action(caret.positions[index])
+                val newPos = ent.action(caret.positions[index])
+                caret.positions = getFiltered(caret.positions.dropLast(1) + (newPos ?: listOf()))
             }
         }
         cm.index = index
@@ -750,7 +756,7 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : FormulaViewer
                 }
                 is CaretPosition.GridSelection -> {
                     ps.addAll(p.selectedInputs.map { box ->
-                        addInInput(box, 0, box.ch.size)
+                        addInInput(box, 0, box.ch.size-1)
                     })
                     null
                 }
@@ -828,6 +834,93 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : FormulaViewer
 
         caret.positions = ps.filterNotNull().distinct()
     }
+
+    fun getSingleContextMenu() = ContextMenu(
+        ContextMenuEntry.create<CaretPosition>(TextFormulaBox("paste")) { p ->
+            val (inp, i) = (p as CaretPosition.Single).parentInput
+            App.pasteFromClipboard().let { items ->
+                FormulaBoxesClipData.formClips(items)?.toBoxes()?.let { bs -> inp.addBoxes(i+1, bs) }
+            }
+            listOf(inp.lastSingle)
+        }
+    )
+    fun copySelection(p: CaretPosition) = when (p) {
+        is CaretPosition.DiscreteSelection -> throw UnsupportedOperationException()
+        is CaretPosition.Double -> App.copyToClipboard(
+            p.selectedBoxes.joinToString("") { it.toWolfram() },
+            p.selectedBoxes.map { it.toJson() }.toJsonArray().toString()
+        )
+        is CaretPosition.GridSelection -> {
+            App.copyToClipboard("{" + p.ptsRange.rows.joinToString(",") { i ->
+                "{" + p.ptsRange.columns.joinToString(",") { j ->
+                    p.box.getInput(Pt(j, i)).toWolfram()
+                } + "}"
+            } + "}",
+                FormulaBox.makeJsonObject("grid") {
+                    add("shape", p.ptsRange.run { br - tl + Pt(1,1) }.toJson())
+                    add("inputs", p.ptsRange.map { pt -> p.box.getInput(pt).toJson() }.toJsonArray())
+                }.toString()
+            )
+        }
+        is CaretPosition.Single -> throw UnsupportedOperationException()
+    }
+    fun getSelectionContextMenu() = ContextMenu(
+        ContextMenuEntry.create<CaretPosition>(TextFormulaBox("copy")) { p ->
+            copySelection(p)
+            (p as? CaretPosition.Double)?.run { listOf(rightSingle) }
+        },
+        ContextMenuEntry.create<CaretPosition>(TextFormulaBox("cut")) { p ->
+            copySelection(p)
+            if (isReadOnly) listOf(p)
+            else when (p) {
+                is CaretPosition.Double -> {
+                    p.input.removeBoxes(p.selectedBoxes)
+                    listOf(p.leftSingle)
+                }
+                is CaretPosition.GridSelection -> {
+                    p.selectedInputs.forEach { b -> b.clear() }
+                    null
+                }
+                else -> throw UnsupportedOperationException()
+            }
+        },
+        ContextMenuEntry.create<CaretPosition>(TextFormulaBox("paste")) { p ->
+            when (p) {
+                is CaretPosition.Double -> {
+                    p.selectedBoxes.forEach { b -> b.delete() }
+                    App.pasteFromClipboard().let { items ->
+                        FormulaBoxesClipData.formClips(items)?.toBoxes()?.let { bs ->
+                            p.input.addBoxes(p.startIndex + 1, bs)
+                            listOf(bs.lastOrNull()?.let { b -> CaretPosition.Single(b) } ?: p.leftSingle)
+                        }
+                    }
+                }
+                is CaretPosition.GridSelection -> {
+                    val inps = p.selectedInputs
+                    inps.forEach { b -> b.clear() }
+                    App.pasteFromClipboard().let { items ->
+                        FormulaBoxesClipData.formClips(items)?.let { cd ->
+                            when {
+                                cd is FormulaBoxesClipData.Grid && cd.shape == p.ptsRange.run { br - tl + Pt(1,1) } -> {
+                                    inps.mapIndexed { i, inp ->
+                                        inp.addBoxes(cd.inputsValue[i])
+                                        inp.lastSingle
+                                    }
+                                }
+                                else -> {
+                                    inps.map { inp ->
+                                        inp.addBoxes(cd.toBoxes())
+                                        inp.lastSingle
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                else -> null
+            }
+        }
+    )
 
     override fun onDraw(canvas: Canvas) {
         val o = origin + offset
@@ -926,19 +1019,38 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : FormulaViewer
         } ?: PlaceCaretAction()
     }
 
+    fun moveToPreviousInput() {
+        caret.positions = caret.positions.map { p ->
+            when (p) {
+                is CaretPosition.Double -> {
+                    p.previousSingle ?: p
+                }
+                is CaretPosition.Single -> {
+                    p.previousSingle ?: p
+                }
+                else -> p
+            }
+        }
+    }
+
+    fun moveToNextInput() {
+        caret.positions = caret.positions.map { p ->
+            when (p) {
+                is CaretPosition.Double -> {
+                    p.nextSingle ?: p
+                }
+                is CaretPosition.Single -> {
+                    p.nextSingle ?: p
+                }
+                else -> p
+            }
+        }
+    }
+
     companion object {
         val baselinePaint = Paints.stroke(1f, Color.BLACK)
         val defaultBackgroundColor = Color.DKGRAY
         val magnifierBorder = Paints.stroke(1f, Color.LTGRAY)
-
-        fun getSingleContextMenu() = ContextMenu(
-            ContextMenuEntry.create<CaretPosition>(TextFormulaBox("paste")) {  }
-        )
-        fun getSelectionContextMenu() = ContextMenu(
-            ContextMenuEntry.create<CaretPosition>(TextFormulaBox("copy")) {  },
-            ContextMenuEntry.create<CaretPosition>(TextFormulaBox("cut")) {  },
-            ContextMenuEntry.create<CaretPosition>(TextFormulaBox("paste")) {  }
-        )
 
         const val DEFAULT_PADDING = FormulaBox.DEFAULT_TEXT_WIDTH
         // const val MIN_HEIGHT = (FormulaBox.DEFAULT_TEXT_SIZE + 2 * DEFAULT_PADDING).toInt()
@@ -949,5 +1061,64 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : FormulaViewer
         const val ZOOM_TOLERENCE = 0.1f
         const val DOUBLE_TAP_DELAY = 150
         const val CONTEXT_MENU_OFFSET = FormulaBox.DEFAULT_TEXT_RADIUS * 0.25f
+    }
+}
+
+sealed class FormulaBoxesClipData {
+    data class Input(
+        val boxes: () -> List<FormulaBox>
+    ) : FormulaBoxesClipData() {
+        val boxesValue = boxes()
+        override fun generateBoxes() = if (reduced) boxes() else boxesValue
+    }
+    data class Grid(
+        val shape: Pt,
+        val inputs: () -> List<List<FormulaBox>>
+    ) : FormulaBoxesClipData() {
+        val inputsValue = inputs()
+        override fun generateBoxes() = listOf(
+            MatrixFormulaBox(
+                shape
+            ).apply {
+                grid.inputs.forEachIndexed { i, inp ->
+                    inp.addBoxes((if (reduced) inputs() else inputsValue)[i])
+                }
+            }
+        )
+    }
+    protected var reduced = false
+    fun toBoxes() =
+        generateBoxes().also {
+            if (!reduced) reduced = true
+        }
+    protected abstract fun generateBoxes(): List<FormulaBox>
+    companion object {
+        fun formClips(items: List<String>) =
+            (if (items.size > 1) try {
+                val json = App.gson.fromJson(items[1], JsonElement::class.java)
+                when {
+                    json.isJsonArray -> {
+                        Input(json.asJsonArray.let { { it.toBoxes() } })
+                    }
+                    json.isJsonObject -> {
+                        val obj = json.asJsonObject
+                        when (obj["tag"].asString) {
+                            "grid" -> {
+                                Grid(
+                                    obj.getAsJsonArray("shape").toPt(),
+                                    obj.getAsJsonArray("inputs").map { it.asJsonArray }.let { arr -> { arr.map { it.toBoxes() } } }
+                                )
+                            }
+                            else -> null
+                        }
+                    }
+                    else -> null
+                }
+            } catch (e: Exception) {
+                Log.d("exc", e.toString())
+                null
+            } else null) ?: if (items.isNotEmpty()) {
+                Input(StringReader(items[0]).readGroupedTokenFlattened().let { { it.toBoxes() } })
+            } else null
     }
 }

@@ -1,9 +1,14 @@
 package fr.benichn.math3
 
 import android.app.Application
+import android.content.ClipData
+import android.content.ClipDescription.MIMETYPE_TEXT_PLAIN
+import android.content.ClipboardManager
+import android.content.Context
 import android.os.Bundle
 import android.util.Log
 import androidx.appcompat.app.AppCompatActivity
+import com.google.gson.Gson
 import fr.benichn.math3.formulas.FormulaGroupedToken.Companion.readGroupedToken
 import fr.benichn.math3.graphics.FormulaCell
 import fr.benichn.math3.graphics.FormulaCellsContainer
@@ -20,11 +25,11 @@ import fr.benichn.math3.graphics.boxes.ScriptFormulaBox
 import fr.benichn.math3.graphics.boxes.SequenceFormulaBox
 import fr.benichn.math3.graphics.boxes.TextFormulaBox
 import fr.benichn.math3.graphics.boxes.TopDownFormulaBox
+import fr.benichn.math3.graphics.boxes.TransformerFormulaBox
+import fr.benichn.math3.graphics.boxes.types.BoundsTransformer
+import fr.benichn.math3.graphics.types.RectPoint
 import fr.benichn.math3.numpad.NumpadView
 import fr.benichn.math3.numpad.types.Pt
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
 import org.matheclipse.core.basic.AndroidLoggerFix
 import org.matheclipse.core.eval.ExprEvaluator
 import java.io.StringReader
@@ -37,7 +42,26 @@ class App : Application() {
     }
 
     companion object {
+        val gson = Gson()
         lateinit var instance: App private set
+        fun copyToClipboard(text: String, vararg aux: String) =
+            (instance.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager).let { clipboard ->
+                clipboard.setPrimaryClip(ClipData.newPlainText("math3", text).apply {
+                    aux.forEach {
+                        addItem(ClipData.Item(it))
+                    }
+                })
+            }
+        fun canPasteFromClipboard() =
+            (instance.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager).let { clipboard ->
+                clipboard.primaryClipDescription?.hasMimeType(MIMETYPE_TEXT_PLAIN) == true
+            }
+        fun pasteFromClipboard() =
+            (instance.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager).let { clipboard ->
+                clipboard.primaryClip?.run {
+                    (0..<itemCount).map { i -> getItemAt(i).text.toString() }
+                }
+            } ?: listOf()
     }
 }
 
@@ -54,6 +78,8 @@ class MainActivity : AppCompatActivity() {
             when (i) {
                 0 -> fv.input.addBoxes(TextFormulaBox("FactorInteger[191808877330090598356947683236541006028951992209]"))
                 2 -> fv.input.addBoxes(TextFormulaBox("For[i = 0, i < 10, i++, Print[45+i]; Pause[1];]"))
+                4 -> fv.input.addBoxes(MatrixFormulaBox(Pt(3,3)),
+                MatrixFormulaBox(Pt(1,3)))
             }
         }
         nv = findViewById(R.id.numpad)
@@ -72,6 +98,13 @@ class MainActivity : AppCompatActivity() {
 
                     "⇪", "⇩", "⇧" -> { }
 
+                    "⇥" -> {
+                        fv.moveToNextInput()
+                    }
+                    "⇤" -> {
+                        fv.moveToPreviousInput()
+                    }
+
                     else -> {
                         val newBox = {
                             when (id) {
@@ -86,6 +119,7 @@ class MainActivity : AppCompatActivity() {
                                 "floor" -> BracketsInputFormulaBox(type = BracketFormulaBox.Type.FLOOR)
                                 "ceil" -> BracketsInputFormulaBox(type = BracketFormulaBox.Type.CEIL)
                                 "abs" -> BracketsInputFormulaBox(type = BracketFormulaBox.Type.BAR)
+                                "superscript_base" -> ScriptFormulaBox(TopDownFormulaBox.Type.TOP).apply { initialBoxesInScript = true }
                                 "superscript" -> ScriptFormulaBox(TopDownFormulaBox.Type.TOP)
                                 "subscript" -> ScriptFormulaBox(TopDownFormulaBox.Type.BOTTOM)
                                 "int_indef" -> IntegralFormulaBox(TopDownFormulaBox.Type.NONE)

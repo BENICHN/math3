@@ -19,10 +19,15 @@ open class TopDownFormulaBox(
     val middle: FormulaBox = FormulaBox(),
     val bottom: FormulaBox = FormulaBox(),
     val top: FormulaBox = FormulaBox(),
+    val revertTopDown: Boolean = false,
     updGr: Boolean = true
 ) : FormulaBox() {
     val bottomContainer = TransformerFormulaBox(bottom)
     val topContainer = TransformerFormulaBox(top)
+
+    override val sortedChildren
+        get() = if (revertTopDown) listOf(topContainer, middle, bottomContainer)
+                else listOf(bottomContainer, middle, topContainer)
 
     val dlgLimitsScale = BoxProperty(this, limitsScale).apply {
         onChanged += { _, _ -> setTransformers() }
@@ -244,6 +249,12 @@ open class TopDownFormulaBox(
         CENTER,
         LEFT,
         RIGHT
+    }
+
+    override fun toJson() = makeJsonObject("top_down") {
+        addProperty("type", type.toString())
+        if (type.hasTop) add("top", top.toJson())
+        if (type.hasBottom) add("bottom", bottom.toJson())
     }
 
     companion object {

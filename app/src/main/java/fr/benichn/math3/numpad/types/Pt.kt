@@ -1,5 +1,7 @@
 package fr.benichn.math3.numpad.types
 
+import com.google.gson.JsonPrimitive
+import fr.benichn.math3.Utils.toJsonArray
 import kotlin.math.abs
 
 data class Pt(val x: Int, val y: Int) {
@@ -21,6 +23,7 @@ data class Pt(val x: Int, val y: Int) {
     operator fun times(f: Int): Pt {
         return Pt(x * f, y * f)
     }
+    fun toJson() = listOf(x, y).map { JsonPrimitive(it) }.toJsonArray()
     fun and(p: Pt): Pt {
         return Pt(
             if (p.x != 0) x else 0,

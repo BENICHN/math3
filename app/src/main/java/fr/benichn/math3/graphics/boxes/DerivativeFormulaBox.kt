@@ -1,7 +1,11 @@
 package fr.benichn.math3.graphics.boxes
 
-import fr.benichn.math3.graphics.Utils.Companion.scale
+import com.google.gson.JsonObject
+import fr.benichn.math3.Utils.toBox
+import fr.benichn.math3.Utils.toBoxes
+import fr.benichn.math3.graphics.Utils.scale
 import fr.benichn.math3.graphics.boxes.types.FinalBoxes
+import fr.benichn.math3.graphics.boxes.types.FormulaBoxDeserializer
 import fr.benichn.math3.graphics.boxes.types.InitialBoxes
 import fr.benichn.math3.graphics.caret.ContextMenu
 import fr.benichn.math3.graphics.caret.ContextMenuEntry
@@ -29,11 +33,13 @@ class DerivativeOperatorFormulaBox(type: Type = Type.BOTTOM) : TopDownFormulaBox
             DerivativeOperatorFormulaBox(Type.BOTTOM)
         ) {
             it.type = Type.BOTTOM
+            null
         },
         ContextMenuEntry.create<DerivativeOperatorFormulaBox>(
             DerivativeOperatorFormulaBox(Type.BOTH)
         ) {
             it.type = Type.BOTH
+            null
         }),
         trigger = { pos ->
             middle.realBounds.scale(
@@ -76,4 +82,23 @@ class DerivativeFormulaBox(type: TopDownFormulaBox.Type = TopDownFormulaBox.Type
                 TopDownFormulaBox.Type.BOTH -> "var(${operator.variable.toSage()}), ${operator.order.toSage()}"
                 else -> throw UnsupportedOperationException()
             } + ")"
+
+    override fun toJson() = makeJsonObject("deriv") {
+        add("operator", operator.toJson())
+        add("input", brackets.input.toJson())
+    }
+
+    companion object {
+        init {
+            deserializers.add(FormulaBoxDeserializer("deriv") {
+                val op = getAsJsonObject("operator")
+                val type = TopDownFormulaBox.Type.valueOf(op["type"].asString)
+                DerivativeFormulaBox(type).apply {
+                    brackets.input.addBoxes(getAsJsonArray("input").toBoxes())
+                    if (type.hasTop) operator.order.addBoxes(op.getAsJsonArray("top").toBoxes())
+                    operator.variable.addBoxes(op.getAsJsonArray("bottom").toBoxes())
+                }
+            })
+        }
+    }
 }

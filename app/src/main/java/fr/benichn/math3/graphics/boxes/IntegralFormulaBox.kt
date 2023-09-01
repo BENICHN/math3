@@ -1,9 +1,12 @@
 package fr.benichn.math3.graphics.boxes
 
 import android.graphics.PointF
-import fr.benichn.math3.graphics.Utils.Companion.scale
+import com.google.gson.JsonObject
+import fr.benichn.math3.Utils.toBoxes
+import fr.benichn.math3.graphics.Utils.scale
 import fr.benichn.math3.graphics.boxes.SequenceFormulaBox.Child.Companion.ign
 import fr.benichn.math3.graphics.boxes.types.FinalBoxes
+import fr.benichn.math3.graphics.boxes.types.FormulaBoxDeserializer
 import fr.benichn.math3.graphics.boxes.types.FormulaGraphics
 import fr.benichn.math3.graphics.boxes.types.InitialBoxes
 import fr.benichn.math3.graphics.boxes.types.Padding
@@ -33,11 +36,13 @@ class IntegralOperatorFormulaBox(type: Type = Type.BOTH) : TopDownFormulaBox(
             IntegralOperatorFormulaBox(Type.BOTH)
         ) {
             it.type = Type.BOTH
+            null
         },
         ContextMenuEntry.create<IntegralOperatorFormulaBox>(
             IntegralOperatorFormulaBox(Type.NONE)
         ) {
             it.type = Type.NONE
+            null
         },
         trigger = { pos ->
             middle.realBounds.scale(
@@ -78,8 +83,8 @@ class IntegralFormulaBox(type: TopDownFormulaBox.Type = TopDownFormulaBox.Type.B
     }
 
     override fun toWolfram() = when (operator.type) {
-        TopDownFormulaBox.Type.NONE -> "Integrate[${integrand.toWolfram()}, ${variable.toSage()}]"
-        TopDownFormulaBox.Type.BOTH -> "Integrate[${integrand.toWolfram()}, {${variable.toSage()}, ${operator.bottom.toSage()}, ${operator.top.toSage()}}]"
+        TopDownFormulaBox.Type.NONE -> "Integrate[${integrand.toWolfram()}, ${variable.toWolfram()}]"
+        TopDownFormulaBox.Type.BOTH -> "Integrate[${integrand.toWolfram()}, {${variable.toWolfram()}, ${operator.bottom.toWolfram()}, ${operator.top.toWolfram()}}]"
         else -> throw UnsupportedOperationException()
     }
 
@@ -87,5 +92,28 @@ class IntegralFormulaBox(type: TopDownFormulaBox.Type = TopDownFormulaBox.Type.B
         TopDownFormulaBox.Type.NONE -> "integrate(${integrand.toSage()}, ${variable.toSage()})"
         TopDownFormulaBox.Type.BOTH -> "integrate(${integrand.toSage()}, ${variable.toSage()}, ${operator.bottom.toSage()}, ${operator.top.toSage()})"
         else -> throw UnsupportedOperationException()
+    }
+
+    override fun toJson() = makeJsonObject("int") {
+        add("operator", operator.toJson())
+        add("integrand", integrand.toJson())
+        add("variable", variable.toJson())
+    }
+
+    companion object {
+        init {
+            deserializers.add(FormulaBoxDeserializer("deriv") {
+                val op = getAsJsonObject("operator")
+                val type = TopDownFormulaBox.Type.valueOf(op["type"].asString)
+                IntegralFormulaBox(type).apply {
+                    integrand.addBoxes(getAsJsonArray("integrand").toBoxes())
+                    variable.addBoxes(getAsJsonArray("variable").toBoxes())
+                    if (type.hasTop) {
+                        operator.upper.addBoxes(op.getAsJsonArray("top").toBoxes())
+                        operator.lower.addBoxes(op.getAsJsonArray("bottom").toBoxes())
+                    }
+                }
+            })
+        }
     }
 }

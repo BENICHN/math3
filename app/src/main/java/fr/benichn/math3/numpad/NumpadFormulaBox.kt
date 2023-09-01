@@ -8,10 +8,12 @@ import android.graphics.Rect
 import android.graphics.RectF
 import android.util.SizeF
 import androidx.core.animation.doOnEnd
-import fr.benichn.math3.Utils.Companion.clamp
-import fr.benichn.math3.graphics.Utils.Companion.prepend
-import fr.benichn.math3.graphics.Utils.Companion.times
-import fr.benichn.math3.graphics.Utils.Companion.with
+import com.google.gson.JsonObject
+import fr.benichn.math3.Utils.clamp
+import fr.benichn.math3.Utils.opt
+import fr.benichn.math3.graphics.Utils.prepend
+import fr.benichn.math3.graphics.Utils.times
+import fr.benichn.math3.graphics.Utils.with
 import fr.benichn.math3.graphics.boxes.BracketFormulaBox
 import fr.benichn.math3.graphics.boxes.BracketsInputFormulaBox
 import fr.benichn.math3.graphics.boxes.DerivativeOperatorFormulaBox
@@ -39,11 +41,10 @@ import fr.benichn.math3.graphics.types.Side
 import fr.benichn.math3.numpad.types.Direction
 import fr.benichn.math3.numpad.types.Pt
 import fr.benichn.math3.types.callback.ValueChangedEvent
-import org.json.JSONObject
 import kotlin.math.max
 
 class NumpadFormulaBox(pages: List<NumpadPage> = listOf(), size: SizeF = SizeF(0f, 0f)) : FormulaBox() {
-    constructor(pages: JSONObject, size: SizeF = SizeF(0f, 0f)) : this(NumpadPage.listFromJSON(pages), size)
+    constructor(pages: JsonObject, size: SizeF = SizeF(0f, 0f)) : this(NumpadPage.listFromJSON(pages), size)
 
     val dlgPages = BoxProperty(this, pages).apply {
         onChanged += { _, e ->
@@ -264,31 +265,31 @@ data class NumpadPage(val width: Int, val height: Int, val coords: Pt, val butto
             else Range(ends[0].toInt(), ends[1].toInt())
         }
 
-        fun listFromJSON(pages: JSONObject) = pages.keys().asSequence().map { pk ->
+        fun listFromJSON(pages: JsonObject) = pages.keySet().map { pk ->
             val coords = pk.split(",").map { it.toInt() }
             val pt = Pt(coords[0], coords[1])
-            val page = pages.getJSONObject(pk)
-            val pw = page.getInt("w")
-            val ph = page.getInt("h")
-            fun readButton(btnRect: Rect, obj: JSONObject): NumpadButton {
-                val id = obj.getString("id")
+            val page = pages[pk].asJsonObject
+            val pw = page["w"].asInt
+            val ph = page["h"].asInt
+            fun readButton(btnRect: Rect, obj: JsonObject): NumpadButton {
+                val id = obj["id"].asString
                 val main = NumpadButtonElement(btnRect, id)
-                val aux = obj.optJSONArray("aux")?.let { arr ->
-                    val auxIds = (0 until arr.length()).map { i -> arr.getString(i) }
-                    val auxPos = obj.optJSONArray("auxPos")?.let { apArr ->
-                        (0 until apArr.length()).map { i -> getRect(apArr.getString(i)) }
+                val aux = obj.opt("aux")?.asJsonArray?.let { arr ->
+                    val auxIds = arr.map { it.asString }
+                    val auxPos = obj.opt("auxPos")?.asJsonArray?.let { apArr ->
+                        (0 until apArr.size()).map { i -> getRect(apArr[i].asString) }
                     } ?: getAuxPositions(pw, ph, btnRect, auxIds.size)
                     auxPos.zip(auxIds) { rect, id -> NumpadButtonElement(rect, id) }
                 }
-                val hideOther = aux == null || obj.optBoolean("hideOther", true)
+                val hideOther = aux == null || (obj.opt("hideOther")?.asBoolean ?: true)
                 return NumpadButton(main, aux ?: listOf(), hideOther)
             }
-            val btns = page.getJSONObject("buttons")
-            val buttons = btns.keys().asSequence().map { k ->
+            val btns = page["buttons"].asJsonObject
+            val buttons = btns.keySet().map { k ->
                 val btnRect = getRect(k)
-                btns.getJSONObject(k).let { obj ->
-                    val normal = readButton(btnRect, obj.getJSONObject("normal"))
-                    val shift = obj.optJSONObject("shift")?.let { o -> readButton(btnRect, o) }
+                btns[k].asJsonObject.let { obj ->
+                    val normal = readButton(btnRect, obj["normal"].asJsonObject)
+                    val shift = obj.opt("shift")?.asJsonObject?.let { o -> readButton(btnRect, o) }
                     NumpadButtonGroup(btnRect, normal, shift)
                 }
             }.toList()
@@ -555,6 +556,7 @@ class NumpadPageFormulaBox(page: NumpadPage, size: SizeF, buttonPressed: Pt? = n
             "floor" -> BracketsInputFormulaBox(type = BracketFormulaBox.Type.FLOOR)
             "ceil" -> BracketsInputFormulaBox(type = BracketFormulaBox.Type.CEIL)
             "abs" -> BracketsInputFormulaBox(type = BracketFormulaBox.Type.BAR)
+            "superscript_base" -> SequenceFormulaBox(InputFormulaBox(), ScriptFormulaBox(TopDownFormulaBox.Type.TOP))
             "superscript" -> SequenceFormulaBox(InputFormulaBox(), ScriptFormulaBox(TopDownFormulaBox.Type.TOP))
             "subscript" -> SequenceFormulaBox(InputFormulaBox(), ScriptFormulaBox(TopDownFormulaBox.Type.BOTTOM))
             "int_indef" -> IntegralOperatorFormulaBox(TopDownFormulaBox.Type.NONE)

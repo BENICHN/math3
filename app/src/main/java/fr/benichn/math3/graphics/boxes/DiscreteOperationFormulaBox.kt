@@ -1,9 +1,12 @@
 package fr.benichn.math3.graphics.boxes
 
-import fr.benichn.math3.graphics.Utils.Companion.scale
+import com.google.gson.JsonObject
+import fr.benichn.math3.Utils.toBoxes
+import fr.benichn.math3.graphics.Utils.scale
 import fr.benichn.math3.graphics.boxes.SequenceFormulaBox.Child.Companion.ign
 import fr.benichn.math3.graphics.boxes.types.BoxProperty
 import fr.benichn.math3.graphics.boxes.types.FinalBoxes
+import fr.benichn.math3.graphics.boxes.types.FormulaBoxDeserializer
 import fr.benichn.math3.graphics.boxes.types.InitialBoxes
 import fr.benichn.math3.graphics.boxes.types.Padding
 import fr.benichn.math3.graphics.caret.ContextMenu
@@ -41,16 +44,19 @@ class DiscreteOperatorFormulaBox(operator: String, operatorType: Type = Type.BOU
             DiscreteOperatorFormulaBox(operator, Type.BOUNDS)
         ) {
             it.operatorType = Type.BOUNDS
+            null
         },
         ContextMenuEntry.create<DiscreteOperatorFormulaBox>(
             DiscreteOperatorFormulaBox(operator, Type.LIST)
         ) {
             it.operatorType = Type.LIST
+            null
         },
         ContextMenuEntry.create<DiscreteOperatorFormulaBox>(
             DiscreteOperatorFormulaBox(operator, Type.INDEFINITE)
         ) {
             it.operatorType = Type.INDEFINITE
+            null
         },
         trigger = { pos ->
             middle.realBounds.scale(
@@ -89,6 +95,23 @@ class DiscreteOperatorFormulaBox(operator: String, operatorType: Type = Type.BOU
         LIST,
         BOUNDS,
         INDEFINITE
+    }
+
+    override fun toJson() = makeJsonObject("discr_op") {
+        addProperty("operator", operator)
+        addProperty("type", operatorType.toString())
+        add("variable", bottom.ch[1].toJson())
+        when (operatorType) {
+            Type.LIST -> {
+                add("list", (bottom.ch[3] as BracketsInputFormulaBox).input.toJson())
+            }
+            Type.BOUNDS -> {
+                add("lower", bottom.ch[3].toJson())
+                add("upper", top.toJson())
+            }
+            Type.INDEFINITE -> {
+            }
+        }
     }
 }
 
@@ -142,6 +165,35 @@ class DiscreteOperationFormulaBox(operator: String, operatorType: DiscreteOperat
             DiscreteOperatorFormulaBox.Type.BOUNDS ->
                 "$name(${operand.toSage()}, ${operator.bottom.ch[0].toSage()}, ${operator.bottom.ch[2].toSage()}, ${operator.top.toSage()})"
             DiscreteOperatorFormulaBox.Type.INDEFINITE -> TODO()
+        }
+    }
+
+    override fun toJson() = makeJsonObject("discr") {
+        add("operator", operator.toJson())
+        add("operand", operand.toJson())
+    }
+
+    companion object {
+        init {
+            deserializers.add(FormulaBoxDeserializer("discr") {
+                val op = getAsJsonObject("operator")
+                val type = DiscreteOperatorFormulaBox.Type.valueOf(op["type"].asString)
+                DiscreteOperationFormulaBox(op["operator"].asString, type).apply {
+                    operand.addBoxes(getAsJsonArray("operand").toBoxes())
+                    operator.bottom.ch[1].addBoxes(op.getAsJsonArray("variable").toBoxes())
+                    when (type) {
+                        DiscreteOperatorFormulaBox.Type.LIST -> {
+                            (operator.bottom.ch[3] as BracketsInputFormulaBox).input.addBoxes(op.getAsJsonArray("list").toBoxes())
+                        }
+                        DiscreteOperatorFormulaBox.Type.BOUNDS -> {
+                            operator.bottom.ch[3].addBoxes(op.getAsJsonArray("lower").toBoxes())
+                            operator.top.addBoxes(op.getAsJsonArray("upper").toBoxes())
+                        }
+                        DiscreteOperatorFormulaBox.Type.INDEFINITE -> {
+                        }
+                    }
+                }
+            })
         }
     }
 }

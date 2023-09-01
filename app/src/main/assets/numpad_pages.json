@@ -47,7 +47,10 @@
       },
       "5,0": {
         "normal": {
-          "id": "superscript"
+          "id": "superscript",
+          "aux": [
+            "superscript_base"
+          ]
         }
       },
       "0,1": {
@@ -82,7 +85,10 @@
       },
       "0,2": {
         "normal": {
-          "id": "y"
+          "id": "deriv",
+          "aux": [
+            "deriv_n"
+          ]
         }
       },
       "1,2": {
@@ -120,7 +126,10 @@
       },
       "0,3": {
         "normal": {
-          "id": "z"
+          "id": "int_def",
+          "aux": [
+            "int_indef"
+          ]
         }
       },
       "1,3": {
@@ -150,18 +159,12 @@
       },
       "0,4": {
         "normal": {
-          "id": "deriv",
-          "aux": [
-            "deriv_n"
-          ]
+          "id": "⇤"
         }
       },
       "1,4": {
         "normal": {
-          "id": "int_def",
-          "aux": [
-            "int_indef"
-          ]
+          "id": "⇥"
         }
       },
       "2,4": {
@@ -676,18 +679,18 @@
       },
       "0,4": {
         "normal": {
-          "id": "."
+          "id": "⇤"
         },
         "shift": {
-          "id": "."
+          "id": "⇤"
         }
       },
       "1,4": {
         "normal": {
-          "id": "."
+          "id": "⇥"
         },
         "shift": {
-          "id": "."
+          "id": "⇥"
         }
       },
       "2,4": {

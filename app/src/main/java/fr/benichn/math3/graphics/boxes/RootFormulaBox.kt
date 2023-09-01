@@ -4,12 +4,16 @@ import android.graphics.Path
 import android.graphics.PointF
 import android.graphics.RectF
 import androidx.core.graphics.plus
-import fr.benichn.math3.graphics.Utils.Companion.sumOfRects
+import com.google.gson.JsonObject
+import fr.benichn.math3.Utils.toBoxes
+import fr.benichn.math3.Utils.toJsonArray
+import fr.benichn.math3.graphics.Utils.sumOfRects
 import fr.benichn.math3.graphics.boxes.types.BoundsTransformer
 import fr.benichn.math3.graphics.boxes.types.BoxProperty
 import fr.benichn.math3.graphics.boxes.types.BoxTransform
 import fr.benichn.math3.graphics.boxes.types.DeletionResult
 import fr.benichn.math3.graphics.boxes.types.FinalBoxes
+import fr.benichn.math3.graphics.boxes.types.FormulaBoxDeserializer
 import fr.benichn.math3.graphics.boxes.types.FormulaGraphics
 import fr.benichn.math3.graphics.boxes.types.InitialBoxes
 import fr.benichn.math3.graphics.boxes.types.Padding
@@ -44,11 +48,13 @@ class RootFormulaBox(type: Type = Type.SQRT) : FormulaBox() {
             RootFormulaBox(Type.SQRT)
         ) {
             it.type = Type.SQRT
+            null
         },
         ContextMenuEntry.create<RootFormulaBox>(
             RootFormulaBox(Type.ORDER)
         ) {
             it.type = Type.ORDER
+            null
         },
         trigger = { pos ->
             val b = input.realBounds
@@ -147,10 +153,6 @@ class RootFormulaBox(type: Type = Type.SQRT) : FormulaBox() {
         )
     }
 
-    companion object {
-        const val OFFSET = DEFAULT_TEXT_RADIUS * 0.33f
-    }
-
     enum class Type {
         SQRT,
         ORDER
@@ -164,5 +166,26 @@ class RootFormulaBox(type: Type = Type.SQRT) : FormulaBox() {
     override fun toSage() = when(type) {
         Type.SQRT -> "sqrt(${input.toSage()})"
         Type.ORDER -> "(${input.toSage()})^(1/(${order.toSage()}))"
+    }
+
+    override fun toJson() = makeJsonObject("root") {
+        addProperty("type", type.toString())
+        add("input", input.toJson())
+        if (type == Type.ORDER) add("order", order.toJson())
+    }
+
+    companion object {
+        const val OFFSET = DEFAULT_TEXT_RADIUS * 0.33f
+        init {
+            deserializers.add(FormulaBoxDeserializer("root") {
+                val type = Type.valueOf(get("type").asString)
+                RootFormulaBox(
+                    type
+                ).apply {
+                    input.addBoxes(getAsJsonArray("input").toBoxes())
+                    if (type == Type.ORDER) order.addBoxes(getAsJsonArray("order").toBoxes())
+                }
+            })
+        }
     }
 }

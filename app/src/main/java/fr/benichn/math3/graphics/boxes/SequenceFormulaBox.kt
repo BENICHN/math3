@@ -31,11 +31,12 @@ open class SequenceFormulaBox(updGr: Boolean = true) : FormulaBox() {
         if (updGr) updateGraphics()
     }
 
-    constructor(vararg boxes: FormulaBox, updGr: Boolean = true) : this(false) {
-        addBoxes(1, boxes.asList(), updGr=updGr)
-    }
+    constructor(vararg boxes: FormulaBox, updGr: Boolean = true) : this(boxes.asList(), updGr)
     constructor(vararg children: Child, updGr: Boolean = true) : this(false) {
         addBoxes(1, *children, updGr=updGr)
+    }
+    constructor(boxes: List<FormulaBox>, updGr: Boolean = true) : this(false) {
+        addBoxes(1, boxes, updGr=updGr)
     }
 
     override fun onChildBoundsChanged(b: FormulaBox, e: ValueChangedEvent<RectF>) {

@@ -12,13 +12,16 @@ import android.view.View
 import android.widget.FrameLayout
 import android.widget.ImageButton
 import android.widget.LinearLayout
+import fr.benichn.math3.CommandOutput
 import fr.benichn.math3.Engine
 import fr.benichn.math3.R
-import fr.benichn.math3.Utils.Companion.dp
+import fr.benichn.math3.Utils.dp
 import fr.benichn.math3.formulas.FormulaGroupedToken.Companion.readGroupedToken
+import fr.benichn.math3.formulas.FormulaGroupedToken.Companion.readGroupedTokenFlattened
 import fr.benichn.math3.graphics.boxes.IntegralFormulaBox
 import fr.benichn.math3.graphics.boxes.SequenceFormulaBox
 import fr.benichn.math3.graphics.boxes.TextFormulaBox
+import fr.benichn.math3.graphics.boxes.toBoxes
 import fr.benichn.math3.graphics.boxes.types.Paints
 import fr.benichn.math3.types.callback.ObservableProperty
 import kotlinx.coroutines.MainScope
@@ -156,18 +159,21 @@ class FormulaCell(context: Context, attrs: AttributeSet? = null) : FrameLayout(c
             )
             outputFV.visibility = VISIBLE
             MainScope().launch {
-                f.collect { s ->
-                    outputFV.input.addBoxes(s.map { c ->
-                        when (c) {
-                            '\n' -> SequenceFormulaBox.LineStart()
-                            else -> TextFormulaBox(
-                                c.toString()
-                            )
+                f.collect { co ->
+                    outputFV.input.addBoxes(
+                        when (co) {
+                            CommandOutput.Null -> listOf()
+                            CommandOutput.Aborted -> listOf(TextFormulaBox("\$Aborted").apply { foreground = Color.rgb(243, 156, 18) })
+                            CommandOutput.Failed -> listOf(TextFormulaBox("\$Failed").apply { foreground = Color.rgb(192, 57, 43) })
+                            is CommandOutput.Message -> co.value.toBoxes()
+                            is CommandOutput.SVG -> co.value.toBoxes()
+                            is CommandOutput.Typeset -> {
+                                val sr = StringReader(co.value)
+                                val gtk = sr.readGroupedTokenFlattened()
+                                gtk.toBoxes()
+                            }
                         }
-                    })
-                    val sr = StringReader(s)
-                    val gtk = sr.readGroupedToken()
-                    Log.d("gtk", gtk.toString())
+                    )
                 }
                 evalState = EvalState.Ready
             }

@@ -5,6 +5,9 @@ import android.graphics.Color
 import android.graphics.PointF
 import android.graphics.RectF
 import android.util.Log
+import com.google.gson.JsonElement
+import com.google.gson.JsonObject
+import fr.benichn.math3.graphics.Utils.moveToEnd
 import fr.benichn.math3.graphics.caret.BoxCaret
 import fr.benichn.math3.graphics.boxes.types.BoxTransform
 import fr.benichn.math3.graphics.boxes.types.DeletionResult
@@ -12,10 +15,11 @@ import fr.benichn.math3.graphics.boxes.types.FormulaGraphics
 import fr.benichn.math3.types.ImmutableList
 import fr.benichn.math3.graphics.boxes.types.InitialBoxes
 import fr.benichn.math3.graphics.types.Orientation
-import fr.benichn.math3.graphics.Utils.Companion.sumOfRects
+import fr.benichn.math3.graphics.Utils.sumOfRects
 import fr.benichn.math3.graphics.boxes.types.BoxProperty
 import fr.benichn.math3.graphics.boxes.types.CommonParentWithIndices
 import fr.benichn.math3.graphics.boxes.types.FinalBoxes
+import fr.benichn.math3.graphics.boxes.types.FormulaBoxDeserializer
 import fr.benichn.math3.graphics.boxes.types.Padding
 import fr.benichn.math3.graphics.boxes.types.PaintedPath
 import fr.benichn.math3.graphics.boxes.types.Paints
@@ -24,6 +28,8 @@ import fr.benichn.math3.graphics.caret.CaretPosition
 import fr.benichn.math3.graphics.caret.ContextMenu
 import fr.benichn.math3.types.Chain
 import fr.benichn.math3.types.callback.*
+import java.util.LinkedList
+import java.util.Queue
 import kotlin.math.max
 
 open class FormulaBox {
@@ -39,6 +45,9 @@ open class FormulaBox {
     val isRoot
         get() = parent == null
 
+    open val sortedChildren: List<FormulaBox>
+        get() = ch
+
     val parentWithIndex
         get() = parent?.let { ParentWithIndex(it, it.ch.indexOf(this)) }
     private fun buildParents(tail: Chain<ParentWithIndex>): Chain<ParentWithIndex> =
@@ -47,6 +56,34 @@ open class FormulaBox {
         get() = buildParents(Chain.Empty)
     val parentsAndThis
         get() = buildParents(Chain.singleton(ParentWithIndex(this, -1)))
+
+    fun findNextSingleAfter(child: FormulaBox?, askParent: Boolean = true): CaretPosition.Single? =
+        sortedChildren.let { sch ->
+            val i = child?.let { c -> sch.indexOf(c) } ?: -1
+            (if (i == sch.lastIndex) null else sch.subList(i+1, sch.size).firstNotNullOfOrNull { c ->
+                (c as? InputFormulaBox)?.let { inp -> CaretPosition.Single(inp, 0) }
+                    ?: c.findNextSingleAfter(null, false)
+            }) ?: if (askParent) parent?.let { box ->
+                if (box is InputFormulaBox) {
+                    val index = box.ch.indexOf(this)
+                    CaretPosition.Single(box, index)
+                } else box.findNextSingleAfter(this, true)
+            } else null
+        }
+
+    fun findPreviousSingleBefore(child: FormulaBox?, askParent: Boolean = true): CaretPosition.Single? =
+        sortedChildren.let { sch ->
+            val i = child?.let { c -> sch.indexOf(c) } ?: sch.size
+            sch.subList(0, i).asReversed().firstNotNullOfOrNull { c ->
+                (c as? InputFormulaBox)?.let { inp -> CaretPosition.Single(inp, inp.ch.lastIndex) }
+                    ?: c.findPreviousSingleBefore(null, false)
+            } ?: if (askParent) parent?.let { box ->
+                if (box is InputFormulaBox) {
+                    val index = box.ch.indexOf(this)
+                    CaretPosition.Single(box, index - 1)
+                } else box.findPreviousSingleBefore(this, true)
+            } else null
+        }
 
     private var caret: BoxCaret? = null
         get() = parent?.caret ?: field
@@ -312,6 +349,39 @@ open class FormulaBox {
         updateGraphics()
     }
 
+    protected val updatesQueue: Queue<() -> Unit> = LinkedList()
+    var canUpdate = true
+        private set
+
+    protected inline fun enqueueOrRun(noinline method: () -> Unit, block: () -> Unit) {
+        if (canUpdate) block()
+        else updatesQueue.offer(method)
+    }
+
+    fun preventUpdate() {
+        canUpdate = false
+    }
+    fun retrieveUpdate() {
+        if (!canUpdate) {
+            val fs = mutableListOf<() -> Unit>()
+            var f: (() -> Unit)?
+            val s = updatesQueue.size
+            while (updatesQueue.poll().also { f = it } != null) {
+                if (fs.lastOrNull() != f) {
+                    val i = fs.indexOf(f)
+                    if (i >= 0) fs.moveToEnd(i)
+                    else fs.add(f!!)
+                }
+            }
+            Log.d("go", "${fs.size} ~ $s")
+            canUpdate = true
+            for (fn in fs) fn()
+        }
+    }
+    fun discardUpdate() {
+        canUpdate = false
+    }
+
     protected open fun generateGraphics(): FormulaGraphics = FormulaGraphics(
         PaintedPath(),
         bounds = sumOfRects(ch.map { it.realBounds })
@@ -329,7 +399,7 @@ open class FormulaBox {
             graphics = withBounds { r -> padding.applyOnRect(r) }
         }
     }
-    fun updateGraphics() = updateGraphics(true)
+    fun updateGraphics() = enqueueOrRun(::updateGraphics) { updateGraphics(true) }
 
     fun getLength(o: Orientation) = when (o) {
         Orientation.H -> bounds.width()
@@ -398,6 +468,7 @@ open class FormulaBox {
     open fun toSage(): String = children.joinToString("") { c -> c.toSage() }
     open fun toMaxima(): String = children.joinToString("") { c -> c.toMaxima() }
     open fun toWolfram(): String = children.joinToString("") { c -> c.toWolfram() }
+    open fun toJson(): JsonElement = throw UnsupportedOperationException(parentsAndThis.joinToString("\n") { it.box.toWolfram() }) // !
 
     companion object {
         const val DEFAULT_TEXT_SIZE = 70f
@@ -437,6 +508,13 @@ open class FormulaBox {
                 } else break
             }
             return res
+        }
+
+        val deserializers = mutableListOf<FormulaBoxDeserializer<*>>()
+
+        fun makeJsonObject(tag: String, block: JsonObject.() -> Unit) = JsonObject().apply {
+            addProperty("tag", tag)
+            block()
         }
     }
 }

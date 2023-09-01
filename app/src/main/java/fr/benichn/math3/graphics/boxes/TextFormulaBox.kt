@@ -3,10 +3,12 @@ package fr.benichn.math3.graphics.boxes
 import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.RectF
+import com.google.gson.JsonObject
 import fr.benichn.math3.R
 import fr.benichn.math3.graphics.boxes.types.BoxProperty
 import fr.benichn.math3.graphics.boxes.types.FormulaGraphics
 import fr.benichn.math3.graphics.Utils
+import fr.benichn.math3.graphics.boxes.types.FormulaBoxDeserializer
 import fr.benichn.math3.graphics.boxes.types.PaintedPath
 import fr.benichn.math3.graphics.boxes.types.Paints
 
@@ -51,9 +53,9 @@ class TextFormulaBox(text: String = "", big: Boolean = false, widthFactor: Float
 
     override fun toWolfram() = when(text) {
         "×" -> "*"
-        "ⅈ" -> "I"
-        "ℼ" -> "Pi"
-        "ⅇ" -> "E"
+        "ⅈ" -> " I "
+        "ℼ" -> " Pi "
+        "ⅇ" -> " E "
         else -> text
     }
 
@@ -63,6 +65,33 @@ class TextFormulaBox(text: String = "", big: Boolean = false, widthFactor: Float
         "ℼ" -> "pi"
         "ⅇ" -> "e"
         else -> text
+    }
+
+    override fun toJson() = makeJsonObject("text") {
+        addProperty("text", text)
+        addProperty("big", big)
+        addProperty("widthFactor", widthFactor)
+    }
+
+    companion object {
+        init {
+            deserializers.add(FormulaBoxDeserializer("text") {
+                TextFormulaBox(
+                    get("text").asString,
+                    get("big").asBoolean,
+                    get("widthFactor").asFloat,
+                )
+            })
+        }
+    }
+}
+
+fun String.toBoxes() = map { c ->
+    when (c) {
+        '\n' -> SequenceFormulaBox.LineStart()
+        else -> TextFormulaBox(
+            c.toString()
+        )
     }
 }
 

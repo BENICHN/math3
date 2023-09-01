@@ -5,10 +5,10 @@ import android.graphics.Color
 import android.graphics.PointF
 import android.graphics.RectF
 import androidx.core.graphics.minus
-import fr.benichn.math3.graphics.Utils.Companion.corners
-import fr.benichn.math3.graphics.Utils.Companion.l2
-import fr.benichn.math3.graphics.Utils.Companion.leftBar
-import fr.benichn.math3.graphics.Utils.Companion.rightBar
+import fr.benichn.math3.graphics.Utils.corners
+import fr.benichn.math3.graphics.Utils.l2
+import fr.benichn.math3.graphics.Utils.leftBar
+import fr.benichn.math3.graphics.Utils.rightBar
 import fr.benichn.math3.types.callback.*
 import fr.benichn.math3.graphics.boxes.FormulaBox
 import fr.benichn.math3.graphics.boxes.types.Padding

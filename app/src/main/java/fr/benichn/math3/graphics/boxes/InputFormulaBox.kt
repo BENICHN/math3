@@ -3,6 +3,8 @@ package fr.benichn.math3.graphics.boxes
 import android.graphics.Path
 import android.graphics.PointF
 import android.graphics.RectF
+import com.google.gson.JsonObject
+import fr.benichn.math3.Utils.toJsonArray
 import fr.benichn.math3.graphics.boxes.types.BoxProperty
 import fr.benichn.math3.graphics.boxes.types.DeletionResult
 import fr.benichn.math3.graphics.boxes.types.FinalBoxes
@@ -13,18 +15,19 @@ import fr.benichn.math3.graphics.boxes.types.Paints
 import fr.benichn.math3.graphics.caret.CaretPosition
 import kotlin.math.abs
 
-class InputFormulaBox(vararg boxes: FormulaBox, isVisible: Boolean = true) : SequenceFormulaBox(false) {
+class InputFormulaBox(boxes: List<FormulaBox>, isVisible: Boolean = true) : SequenceFormulaBox(boxes,false) {
     val firstSingle
         get() = CaretPosition.Single(this, 0)
     val lastSingle
         get() = CaretPosition.Single(this, ch.lastIndex)
 
+    constructor(vararg boxes: FormulaBox, isVisible: Boolean = true) : this(boxes.asList(), isVisible)
+
     private val dlgIsVisible = BoxProperty(this, isVisible)
     var isVisible by dlgIsVisible
 
     init {
-        addBoxes(*boxes)
-        if (ch.size == 1) updateGraphics()
+        updateGraphics()
     }
 
     override fun onChildRequiresDelete(b: FormulaBox, vararg anticipation: FormulaBox) =
@@ -55,9 +58,7 @@ class InputFormulaBox(vararg boxes: FormulaBox, isVisible: Boolean = true) : Seq
         }
 
     fun addFinalBoxes(i: Int, fb: FinalBoxes) : CaretPosition {
-        val b = ch[i]
-        addBoxesBefore(b, fb.boxesBefore)
-        addBoxesAfter(b, fb.boxesAfter)
+        addBoxesAfter(i, fb.boxesBefore + fb.boxesAfter)
         val j = i + fb.boxesBefore.size
         return when {
             fb.selectBoxesAfter || fb.selectBoxesBefore ->
@@ -100,6 +101,8 @@ class InputFormulaBox(vararg boxes: FormulaBox, isVisible: Boolean = true) : Seq
     //     if (it.isVariable()) " ${it.toWolfram()} "
     //     else it.toWolfram()
     // }
+
+    override fun toJson() = chr.map { it.toJson() }.toJsonArray()
 
     override fun toSage(): String {
         var result = ""

@@ -21,6 +21,11 @@ data class PtsRange(val tl: Pt, val br: Pt): Iterable<Pt> {
         }
     }.iterator()
 
+    val rows
+        get() = tl.y .. br.y
+    val columns
+        get() = tl.x .. br.x
+
     companion object {
         val nan = PtsRange(Pt(-1, -1), Pt(-1, -1))
         fun fromPts(pts: Iterable<Pt>) = pts.fold(nan) { acc, pt -> acc .. pt }

@@ -4,9 +4,9 @@ import android.graphics.PointF
 import android.graphics.RectF
 import androidx.core.graphics.minus
 import fr.benichn.math3.graphics.Utils
-import fr.benichn.math3.graphics.Utils.Companion.leftBar
-import fr.benichn.math3.graphics.Utils.Companion.rightBar
-import fr.benichn.math3.graphics.Utils.Companion.sumOfRects
+import fr.benichn.math3.graphics.Utils.leftBar
+import fr.benichn.math3.graphics.Utils.rightBar
+import fr.benichn.math3.graphics.Utils.sumOfRects
 import fr.benichn.math3.graphics.boxes.FormulaBox
 import fr.benichn.math3.graphics.boxes.GridFormulaBox
 import fr.benichn.math3.graphics.boxes.InputFormulaBox
@@ -31,8 +31,13 @@ sealed class CaretPosition {
     abstract fun withoutModif(): CaretPosition
     open val absPos: PointF? = null
 
-    data class Single private constructor(val box: FormulaBox, override val absPos: PointF? = null) : CaretPosition() {
+    data class Single(val box: FormulaBox, override val absPos: PointF? = null) : CaretPosition() {
         constructor(input: InputFormulaBox, index: Int, absPos: PointF? = null) : this(input.ch[index], absPos)
+
+        val nextSingle
+            get() = parentInput.let { (inp, i) -> inp.findNextSingleAfter(inp.ch[i]) }
+        val previousSingle
+            get() = parentInput.let { (inp, i) -> inp.findPreviousSingleBefore(if (i == inp.ch.lastIndex) null else inp.ch[i+1]) }
 
         val barRect
             get() = parentInput.let { (inp, _) ->
@@ -87,6 +92,11 @@ sealed class CaretPosition {
         override val selectedBoxes = input.ch.subList(startIndex+1, endIndex+1).toList()
         override fun isValid(root: FormulaBox) =
             input.root == root && input.ch.filterIndexed { i, _ -> startIndex < i && i <= endIndex } == selectedBoxes
+
+        val nextSingle
+            get() = rightSingle.nextSingle
+        val previousSingle
+            get() = leftSingle.previousSingle
 
         val bounds
             get() = sumOfRects(selectedBoxes.map { it.accRealBounds })
@@ -271,7 +281,7 @@ sealed class CaretPosition {
         }
 
         companion object {
-            fun fromBoxes(b1: FormulaBox, b2: FormulaBox): GridSelection? = FormulaBox.commonParentWithThis(b1, b2)?.let {
+            fun fromBoxes(b1: FormulaBox, b2: FormulaBox): GridSelection? = FormulaBox.commonParent(b1, b2)?.let {
                 val (p, ixs) = it
                 if (p is GridFormulaBox) {
                     val pts = ixs.map { i -> p.getIndex(i) }

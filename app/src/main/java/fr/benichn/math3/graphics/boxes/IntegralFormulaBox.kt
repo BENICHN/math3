@@ -1,13 +1,10 @@
 package fr.benichn.math3.graphics.boxes
 
-import android.graphics.PointF
-import com.google.gson.JsonObject
 import fr.benichn.math3.Utils.toBoxes
 import fr.benichn.math3.graphics.Utils.scale
 import fr.benichn.math3.graphics.boxes.SequenceFormulaBox.Child.Companion.ign
 import fr.benichn.math3.graphics.boxes.types.FinalBoxes
 import fr.benichn.math3.graphics.boxes.types.FormulaBoxDeserializer
-import fr.benichn.math3.graphics.boxes.types.FormulaGraphics
 import fr.benichn.math3.graphics.boxes.types.InitialBoxes
 import fr.benichn.math3.graphics.boxes.types.Padding
 import fr.benichn.math3.graphics.caret.ContextMenu
@@ -82,17 +79,17 @@ class IntegralFormulaBox(type: TopDownFormulaBox.Type = TopDownFormulaBox.Type.B
         Padding(0f, 0f, DEFAULT_TEXT_WIDTH * 0.25f, 0f).applyOnRect(r)
     }
 
-    override fun toWolfram() = when (operator.type) {
-        TopDownFormulaBox.Type.NONE -> "Integrate[${integrand.toWolfram()}, ${variable.toWolfram()}]"
-        TopDownFormulaBox.Type.BOTH -> "Integrate[${integrand.toWolfram()}, {${variable.toWolfram()}, ${operator.bottom.toWolfram()}, ${operator.top.toWolfram()}}]"
+    override fun toWolfram(mode: Int) = when (operator.type) {
+        TopDownFormulaBox.Type.NONE -> "Integrate[${integrand.toWolfram(mode)}, ${variable.toWolfram(mode)}]"
+        TopDownFormulaBox.Type.BOTH -> "Integrate[${integrand.toWolfram(mode)}, {${variable.toWolfram(mode)}, ${operator.bottom.toWolfram(mode)}, ${operator.top.toWolfram(mode)}}]"
         else -> throw UnsupportedOperationException()
     }
 
-    override fun toSage() = when (operator.type) {
-        TopDownFormulaBox.Type.NONE -> "integrate(${integrand.toSage()}, ${variable.toSage()})"
-        TopDownFormulaBox.Type.BOTH -> "integrate(${integrand.toSage()}, ${variable.toSage()}, ${operator.bottom.toSage()}, ${operator.top.toSage()})"
-        else -> throw UnsupportedOperationException()
-    }
+    // override fun toSage() = when (operator.type) {
+    //     TopDownFormulaBox.Type.NONE -> "integrate(${integrand.toSage()}, ${variable.toSage()})"
+    //     TopDownFormulaBox.Type.BOTH -> "integrate(${integrand.toSage()}, ${variable.toSage()}, ${operator.bottom.toSage()}, ${operator.top.toSage()})"
+    //     else -> throw UnsupportedOperationException()
+    // }
 
     override fun toJson() = makeJsonObject("int") {
         add("operator", operator.toJson())

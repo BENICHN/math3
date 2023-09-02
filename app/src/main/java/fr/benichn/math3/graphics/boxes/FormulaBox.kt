@@ -26,6 +26,7 @@ import fr.benichn.math3.graphics.boxes.types.Paints
 import fr.benichn.math3.graphics.boxes.types.ParentWithIndex
 import fr.benichn.math3.graphics.caret.CaretPosition
 import fr.benichn.math3.graphics.caret.ContextMenu
+import fr.benichn.math3.graphics.types.CellMode
 import fr.benichn.math3.types.Chain
 import fr.benichn.math3.types.callback.*
 import java.util.LinkedList
@@ -465,9 +466,9 @@ open class FormulaBox {
         }
     }
 
-    open fun toSage(): String = children.joinToString("") { c -> c.toSage() }
-    open fun toMaxima(): String = children.joinToString("") { c -> c.toMaxima() }
-    open fun toWolfram(): String = children.joinToString("") { c -> c.toWolfram() }
+    // open fun toSage(): String = children.joinToString("") { c -> c.toSage() }
+    // open fun toMaxima(): String = children.joinToString("") { c -> c.toMaxima() }
+    open fun toWolfram(mode: Int = CellMode.DEFAULT): String = children.joinToString("") { c -> c.toWolfram(mode) }
     open fun toJson(): JsonElement = throw UnsupportedOperationException(parentsAndThis.joinToString("\n") { it.box.toWolfram() }) // !
 
     companion object {

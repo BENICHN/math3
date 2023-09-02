@@ -1,7 +1,5 @@
 package fr.benichn.math3.graphics.boxes
 
-import android.graphics.PointF
-import com.google.gson.JsonObject
 import fr.benichn.math3.Utils.toBoxes
 import fr.benichn.math3.graphics.Utils.append
 import fr.benichn.math3.graphics.boxes.types.BoundsTransformer
@@ -56,7 +54,7 @@ class FractionFormulaBox(
         val boxes = if (ib.hasSelection) {
                 ib.selectedBoxes
             } else {
-                ib.boxesBefore.takeLastWhile { it !is TextFormulaBox || (it.text != "+" && it.text != "-") }
+                ib.boxesBefore.takeLastWhile { !it.hasText { s -> s == "+" || s == "-" } }
             }
         if (boxes.size == 1 && boxes[0] is BracketsInputFormulaBox) {
             (boxes[0] as BracketsInputFormulaBox).input.also {
@@ -96,8 +94,8 @@ class FractionFormulaBox(
         return RangeF(-r, r)
     }
 
-    override fun toWolfram() = "(${numerator.toWolfram()})/(${denominator.toWolfram()})"
-    override fun toSage() = "(${numerator.toSage()})/(${denominator.toSage()})"
+    override fun toWolfram(mode: Int) = "(${numerator.toWolfram(mode)})/(${denominator.toWolfram(mode)})"
+    // override fun toSage() = "(${numerator.toSage()})/(${denominator.toSage()})"
 
     override fun toJson() = makeJsonObject("frac") {
         add("numerator", numerator.toJson())

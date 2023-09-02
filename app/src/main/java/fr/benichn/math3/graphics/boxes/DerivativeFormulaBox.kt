@@ -1,7 +1,5 @@
 package fr.benichn.math3.graphics.boxes
 
-import com.google.gson.JsonObject
-import fr.benichn.math3.Utils.toBox
 import fr.benichn.math3.Utils.toBoxes
 import fr.benichn.math3.graphics.Utils.scale
 import fr.benichn.math3.graphics.boxes.types.FinalBoxes
@@ -69,19 +67,19 @@ class DerivativeFormulaBox(type: TopDownFormulaBox.Type = TopDownFormulaBox.Type
         return FinalBoxes()
     }
 
-    override fun toWolfram() = "D[${brackets.input.toWolfram()}, " +
+    override fun toWolfram(mode: Int) = "D[${brackets.input.toWolfram(mode)}, " +
             when (operator.type) {
-                TopDownFormulaBox.Type.BOTTOM -> operator.variable.toWolfram()
-                TopDownFormulaBox.Type.BOTH -> "{${operator.variable.toWolfram()}, ${operator.order.toWolfram()}}"
+                TopDownFormulaBox.Type.BOTTOM -> operator.variable.toWolfram(mode)
+                TopDownFormulaBox.Type.BOTH -> "{${operator.variable.toWolfram(mode)}, ${operator.order.toWolfram(mode)}}"
                 else -> throw UnsupportedOperationException()
             } + "]"
 
-    override fun toSage() = "diff(${brackets.input.toSage()}, " +
-            when (operator.type) {
-                TopDownFormulaBox.Type.BOTTOM -> operator.variable.toSage()
-                TopDownFormulaBox.Type.BOTH -> "var(${operator.variable.toSage()}), ${operator.order.toSage()}"
-                else -> throw UnsupportedOperationException()
-            } + ")"
+    // override fun toSage() = "diff(${brackets.input.toSage()}, " +
+    //         when (operator.type) {
+    //             TopDownFormulaBox.Type.BOTTOM -> operator.variable.toSage()
+    //             TopDownFormulaBox.Type.BOTH -> "var(${operator.variable.toSage()}), ${operator.order.toSage()}"
+    //             else -> throw UnsupportedOperationException()
+    //         } + ")"
 
     override fun toJson() = makeJsonObject("deriv") {
         add("operator", operator.toJson())

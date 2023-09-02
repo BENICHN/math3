@@ -114,4 +114,6 @@ object Utils {
         if (i == size) element
         else this[i]
     }
+
+    fun <T> ListIterator<T>.peek() = next().also { previous() }
 }

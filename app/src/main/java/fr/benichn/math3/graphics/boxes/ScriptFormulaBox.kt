@@ -1,22 +1,13 @@
 package fr.benichn.math3.graphics.boxes
 
-import android.graphics.Path
 import android.graphics.RectF
-import com.google.gson.JsonObject
 import fr.benichn.math3.Utils.toBoxes
-import fr.benichn.math3.Utils.toJsonArray
-import fr.benichn.math3.graphics.Utils.with
-import fr.benichn.math3.graphics.boxes.types.BoundsTransformer
 import fr.benichn.math3.graphics.boxes.types.BoxProperty
-import fr.benichn.math3.graphics.boxes.types.BoxTransform
 import fr.benichn.math3.graphics.boxes.types.DeletionResult
 import fr.benichn.math3.graphics.boxes.types.FinalBoxes
 import fr.benichn.math3.graphics.boxes.types.FormulaBoxDeserializer
-import fr.benichn.math3.graphics.boxes.types.FormulaGraphics
 import fr.benichn.math3.graphics.boxes.types.InitialBoxes
 import fr.benichn.math3.graphics.boxes.types.RangeF
-import fr.benichn.math3.graphics.types.RectPoint
-import kotlin.math.max
 
 class ScriptFormulaBox(type: Type = Type.TOP, range: RangeF = RangeF(-DEFAULT_TEXT_RADIUS, DEFAULT_TEXT_RADIUS)) : TopDownFormulaBox(
     LimitsPosition.RIGHT,
@@ -115,11 +106,11 @@ class ScriptFormulaBox(type: Type = Type.TOP, range: RangeF = RangeF(-DEFAULT_TE
         phantom.customBounds = RectF(0f, range.start, 0f, range.end)
     }
 
-    override fun toWolfram() =
-        (if (type.hasBottom) "_(${bottom.toWolfram()})" else "") + (if (type.hasTop) "^(${top.toWolfram()})" else "")
+    override fun toWolfram(mode: Int) =
+        (if (type.hasBottom) "Subscript[Null, ${bottom.toWolfram(mode)}]" else "") + (if (type.hasTop) "^(${top.toWolfram(mode)})" else "")
 
-    override fun toSage() =
-        (if (type.hasBottom) "_(${bottom.toSage()})" else "") + (if (type.hasTop) "^(${top.toSage()})" else "")
+    // override fun toSage() =
+    //     (if (type.hasBottom) "_(${bottom.toSage()})" else "") + (if (type.hasTop) "^(${top.toSage()})" else "")
 
     override fun toJson() = makeJsonObject("script") {
         addProperty("type", type.toString())

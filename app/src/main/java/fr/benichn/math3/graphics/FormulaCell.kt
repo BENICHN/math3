@@ -5,7 +5,6 @@ import android.graphics.Color
 import android.graphics.Rect
 import android.graphics.drawable.ColorDrawable
 import android.util.AttributeSet
-import android.util.Log
 import android.view.LayoutInflater
 import android.view.MotionEvent
 import android.view.View
@@ -16,10 +15,7 @@ import fr.benichn.math3.CommandOutput
 import fr.benichn.math3.Engine
 import fr.benichn.math3.R
 import fr.benichn.math3.Utils.dp
-import fr.benichn.math3.formulas.FormulaGroupedToken.Companion.readGroupedToken
 import fr.benichn.math3.formulas.FormulaGroupedToken.Companion.readGroupedTokenFlattened
-import fr.benichn.math3.graphics.boxes.IntegralFormulaBox
-import fr.benichn.math3.graphics.boxes.SequenceFormulaBox
 import fr.benichn.math3.graphics.boxes.TextFormulaBox
 import fr.benichn.math3.graphics.boxes.toBoxes
 import fr.benichn.math3.graphics.boxes.types.Paints
@@ -150,7 +146,7 @@ class FormulaCell(context: Context, attrs: AttributeSet? = null) : FrameLayout(c
     fun evalInput(engine: Engine) {
         if (evalState !is EvalState.Ready) return
         evalState = EvalState.Evaluating(engine)
-        val command = inputFV.input.toWolfram()
+        val command = inputFV.input.toWolfram(inputFV.cellMode)
         engine.enqueue(this@FormulaCell, command)?.also { f ->
             outputFV.input.clear()
             outputFV.clearCaretPositions()

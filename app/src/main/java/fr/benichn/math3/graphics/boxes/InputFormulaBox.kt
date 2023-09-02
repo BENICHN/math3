@@ -3,8 +3,8 @@ package fr.benichn.math3.graphics.boxes
 import android.graphics.Path
 import android.graphics.PointF
 import android.graphics.RectF
-import com.google.gson.JsonObject
 import fr.benichn.math3.Utils.toJsonArray
+import fr.benichn.math3.graphics.Utils.peek
 import fr.benichn.math3.graphics.boxes.types.BoxProperty
 import fr.benichn.math3.graphics.boxes.types.DeletionResult
 import fr.benichn.math3.graphics.boxes.types.FinalBoxes
@@ -13,6 +13,7 @@ import fr.benichn.math3.graphics.boxes.types.Padding
 import fr.benichn.math3.graphics.boxes.types.PaintedPath
 import fr.benichn.math3.graphics.boxes.types.Paints
 import fr.benichn.math3.graphics.caret.CaretPosition
+import fr.benichn.math3.graphics.types.CellMode
 import kotlin.math.abs
 
 class InputFormulaBox(boxes: List<FormulaBox>, isVisible: Boolean = true) : SequenceFormulaBox(boxes,false) {
@@ -97,42 +98,121 @@ class InputFormulaBox(boxes: List<FormulaBox>, isVisible: Boolean = true) : Sequ
         )
     } else super.generateGraphics()
 
-    // override fun toWolfram() = ch.joinToString("") {
-    //     if (it.isVariable()) " ${it.toWolfram()} "
-    //     else it.toWolfram()
+    // override fun toWolfram(mode) = ch.joinToString("") {
+    //     if (it.isVariable()) " ${it.toWolfram(mode)} "
+    //     else it.toWolfram(mode)
     // }
 
-    override fun toJson() = chr.map { it.toJson() }.toJsonArray()
+    open class TaggedBox(
+        val wolframString: String
+    ) {
+        class Osef(wolframString: String) : TaggedBox(wolframString)
+        class Number(wolframString: String) : TaggedBox(wolframString)
+        class Variable(wolframString: String) : TaggedBox(wolframString)
+    }
 
-    override fun toSage(): String {
-        var result = ""
-        var check: ((FormulaBox) -> Boolean)? = null
-        for (c in ch) {
-            if (check?.invoke(c) != true) {
-                if (result.isNotEmpty() && !(c is TextFormulaBox && c.text in binaryOperators) && result.last().toString() !in binaryOperators) {
-                    result += "*"
+    override fun toWolfram(mode: Int): String {
+        val results = mutableListOf<TaggedBox>()
+        val iter = ch.listIterator().apply { next() }
+        fun addDigits() {
+            var res = ""
+            var isDec = false
+            while (iter.hasNext()) {
+                val b = iter.next()
+                when {
+                    b.hasChar { it.isDigit() } -> res += b.toWolfram(mode)
+                    b.hasText { it == "." } -> {
+                        if (isDec) {
+                            iter.previous()
+                            break
+                        } else {
+                            isDec = true
+                            res += b.toWolfram(mode)
+                        }
+                    }
+                    else -> {
+                        iter.previous()
+                        break
+                    }
                 }
-                check = null
             }
-            result += c.toSage()
-            check = check ?: when (c) {
-                is TextFormulaBox -> {
-                    val t = c.text
-                    if (t.length == 1) {
-                        val char = t[0]
+            if (res == ".") {
+                iter.previous()
+                results.add(TaggedBox.Osef(res))
+            }
+            results.add(TaggedBox.Number(res))
+        }
+        fun addVariable() {
+            var res = ""
+            while (iter.hasNext()) {
+                val b = iter.next()
+                when {
+                    b.isVariable() -> {
+                        res += b.toWolfram(mode)
+                        if (mode and CellMode.ONE_LETTER_VAR != 0) break
+                    }
+                    res.isNotEmpty() && b.hasText { it.all { c -> c.isLetterOrDigit() } } -> {
+                        res += b.toWolfram(mode)
+                    }
+                    else -> {
+                        iter.previous()
+                        break
+                    }
+                }
+            }
+            if (iter.hasNext()) {
+                val b = iter.next()
+                if (b is ScriptFormulaBox && b.type.hasBottom) {
+                    res = "Subscript[$res, ${b.subscript.toWolfram(mode)}]"
+                    results.add(TaggedBox.Variable(res))
+                    if (b.type.hasTop) results.add(TaggedBox.Osef("^(${b.superscript.toWolfram(mode)})"))
+                }
+                else {
+                    iter.previous()
+                    results.add(TaggedBox.Variable(res))
+                }
+            } else {
+                results.add(TaggedBox.Variable(res))
+            }
+        }
+        while (iter.hasNext()) {
+            val b = iter.peek()
+            when {
+                b is LineStart || b.hasText { text -> text.all { it.isWhitespace() } } -> {
+                    iter.next()
+                    continue
+                }
+                b is TextFormulaBox ->
+                    if (b.text.isNotEmpty()) {
+                        val c0 = b.text[0]
                         when {
-                            char in specialCharacters -> { _ -> false }
-                            char.isDigit() || char == '.' -> { b: FormulaBox -> b is TextFormulaBox && b.text.length == 1 && b.text[0].let { it.isDigit() || it == '.' } || b is ScriptFormulaBox }
-                            char.isLetter() -> { b: FormulaBox -> b is TextFormulaBox && b.text.length == 1 && b.text[0].let { (it.isLetter() || it.isDigit()) && it !in specialCharacters } || b is ScriptFormulaBox }
+                            c0.isDigit() || c0 == '.' -> {
+                                addDigits()
+                                continue
+                            }
+                            c0.isLetter() -> {
+                                addVariable()
+                                continue
+                            }
                             else -> null
                         }
                     } else null
-                }
                 else -> null
+            } ?: results.add(TaggedBox.Osef(iter.next().toWolfram(mode)))
+        }
+        var res = ""
+        val resIter = results.listIterator()
+        while (resIter.hasNext()) {
+            val tb = resIter.next()
+            res += tb.wolframString
+            if (tb is TaggedBox.Variable && resIter.hasNext() && resIter.peek().let { it !is TaggedBox.Osef }) {
+                res += " "
             }
         }
-        return result
+        return res
     }
+
+    override fun toJson() = chr.map { it.toJson() }.toJsonArray()
 
     companion object {
         val binaryOperators = listOf( "+", "-", "×", "*", "^" )

@@ -4,9 +4,7 @@ import android.graphics.Path
 import android.graphics.PointF
 import android.graphics.RectF
 import androidx.core.graphics.plus
-import com.google.gson.JsonObject
 import fr.benichn.math3.Utils.toBoxes
-import fr.benichn.math3.Utils.toJsonArray
 import fr.benichn.math3.graphics.Utils.sumOfRects
 import fr.benichn.math3.graphics.boxes.types.BoundsTransformer
 import fr.benichn.math3.graphics.boxes.types.BoxProperty
@@ -158,15 +156,15 @@ class RootFormulaBox(type: Type = Type.SQRT) : FormulaBox() {
         ORDER
     }
 
-    override fun toWolfram() = when(type) {
-        Type.SQRT -> "Sqrt[${input.toWolfram()}]"
-        Type.ORDER -> "(${input.toWolfram()})^(1/(${order.toWolfram()}))"
+    override fun toWolfram(mode: Int) = when(type) {
+        Type.SQRT -> "Sqrt[${input.toWolfram(mode)}]"
+        Type.ORDER -> "(${input.toWolfram(mode)})^(1/(${order.toWolfram(mode)}))"
     }
 
-    override fun toSage() = when(type) {
-        Type.SQRT -> "sqrt(${input.toSage()})"
-        Type.ORDER -> "(${input.toSage()})^(1/(${order.toSage()}))"
-    }
+    // override fun toSage() = when(type) {
+    //     Type.SQRT -> "sqrt(${input.toSage()})"
+    //     Type.ORDER -> "(${input.toSage()})^(1/(${order.toSage()}))"
+    // }
 
     override fun toJson() = makeJsonObject("root") {
         addProperty("type", type.toString())

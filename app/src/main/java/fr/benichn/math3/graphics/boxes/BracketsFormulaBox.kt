@@ -1,7 +1,5 @@
 package fr.benichn.math3.graphics.boxes
 
-import com.google.gson.JsonObject
-import fr.benichn.math3.Utils.toBox
 import fr.benichn.math3.Utils.toBoxes
 import fr.benichn.math3.graphics.boxes.SequenceFormulaBox.Child.Companion.ign
 import fr.benichn.math3.graphics.boxes.types.BoxProperty
@@ -81,17 +79,17 @@ open class BracketsSequenceFormulaBox(boxes: List<FormulaBox>, type: BracketForm
         if (updGr) updateGraphics()
     }
 
-    override fun toWolfram() = when (type) {
-        BracketFormulaBox.Type.BAR -> "Abs[${sequence.toWolfram()}]"
-        BracketFormulaBox.Type.FLOOR -> "Floor[${sequence.toWolfram()}]"
-        BracketFormulaBox.Type.CEIL -> "Ceiling[${sequence.toWolfram()}]"
-        else -> "${leftBracket.toWolfram()}${sequence.toWolfram()}${rightBracket.toWolfram()}"
+    override fun toWolfram(mode: Int) = when (type) {
+        BracketFormulaBox.Type.BAR -> "Abs[${sequence.toWolfram(mode)}]"
+        BracketFormulaBox.Type.FLOOR -> "Floor[${sequence.toWolfram(mode)}]"
+        BracketFormulaBox.Type.CEIL -> "Ceiling[${sequence.toWolfram(mode)}]"
+        else -> "${leftBracket.toWolfram(mode)}${sequence.toWolfram(mode)}${rightBracket.toWolfram(mode)}"
     }
 
-    override fun toSage() = when (type) {
-        BracketFormulaBox.Type.BAR -> "abs(${sequence.toSage()})"
-        BracketFormulaBox.Type.FLOOR -> "floor(${sequence.toSage()})"
-        BracketFormulaBox.Type.CEIL -> "ceil(${sequence.toSage()})"
-        else -> "${leftBracket.toSage()}${sequence.toSage()}${rightBracket.toSage()}"
-    }
+    // override fun toSage() = when (type) {
+    //     BracketFormulaBox.Type.BAR -> "abs(${sequence.toSage()})"
+    //     BracketFormulaBox.Type.FLOOR -> "floor(${sequence.toSage()})"
+    //     BracketFormulaBox.Type.CEIL -> "ceil(${sequence.toSage()})"
+    //     else -> "${leftBracket.toSage()}${sequence.toSage()}${rightBracket.toSage()}"
+    // }
 }

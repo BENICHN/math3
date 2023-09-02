@@ -1,6 +1,5 @@
 package fr.benichn.math3.graphics.boxes
 
-import com.google.gson.JsonObject
 import fr.benichn.math3.Utils.toBoxes
 import fr.benichn.math3.graphics.Utils.scale
 import fr.benichn.math3.graphics.boxes.SequenceFormulaBox.Child.Companion.ign
@@ -33,6 +32,11 @@ class DiscreteOperatorFormulaBox(operator: String, operatorType: Type = Type.BOU
 
     val dlgOperator = BoxProperty(this, operator)
     var operator by dlgOperator
+
+    override fun getInitialSingle() =
+        bottom.ch.firstNotNullOfOrNull {
+            if (it is InputFormulaBox && !it.isFilled) it.lastSingle else null
+        } ?: if (operatorType == Type.BOUNDS && !top.isFilled) (top as InputFormulaBox).lastSingle else null
 
     init {
         allowedTypes = listOf()
@@ -126,7 +130,7 @@ class DiscreteOperationFormulaBox(operator: String, operatorType: DiscreteOperat
         updateGraphics()
     }
 
-    override fun getInitialSingle() = if (operand.ch.size == 1) operand.lastSingle else operator.getInitialSingle()
+    override fun getInitialSingle() = operator.getInitialSingle() ?: operand.getInitialSingle()
 
     override fun addInitialBoxes(ib: InitialBoxes): FinalBoxes {
         operand.addBoxes(ib.selectedBoxes)
@@ -137,7 +141,7 @@ class DiscreteOperationFormulaBox(operator: String, operatorType: DiscreteOperat
         Padding(0f, 0f, DEFAULT_TEXT_WIDTH * 0.25f, 0f).applyOnRect(r)
     }
 
-    override fun toWolfram(): String {
+    override fun toWolfram(mode: Int): String {
         val name = when (operator.operator) {
             "∑" -> "Sum"
             "∏" -> "Product"
@@ -145,28 +149,28 @@ class DiscreteOperationFormulaBox(operator: String, operatorType: DiscreteOperat
         }
         return when (operator.operatorType) {
             DiscreteOperatorFormulaBox.Type.LIST ->
-                "$name[${operand.toWolfram()}, {${operator.bottom.ch[1].toWolfram()}, ${operator.bottom.ch[3].toWolfram()}}]"
+                "$name[${operand.toWolfram(mode)}, {${operator.bottom.ch[1].toWolfram(mode)}, ${operator.bottom.ch[3].toWolfram(mode)}}]"
             DiscreteOperatorFormulaBox.Type.BOUNDS ->
-                "$name[${operand.toWolfram()}, {${operator.bottom.ch[1].toWolfram()}, ${operator.bottom.ch[3].toWolfram()}, ${operator.top.toWolfram()}}]"
+                "$name[${operand.toWolfram(mode)}, {${operator.bottom.ch[1].toWolfram(mode)}, ${operator.bottom.ch[3].toWolfram(mode)}, ${operator.top.toWolfram(mode)}}]"
             DiscreteOperatorFormulaBox.Type.INDEFINITE ->
-                "$name[${operand.toWolfram()}, ${operator.bottom.toWolfram()}]"
+                "$name[${operand.toWolfram(mode)}, ${operator.bottom.toWolfram(mode)}]"
         }
     }
 
-    override fun toSage(): String {
-        val name = when (operator.operator) {
-            "∑" -> "sum"
-            "∏" -> "product"
-            else -> throw UnsupportedOperationException()
-        }
-        return when (operator.operatorType) {
-            DiscreteOperatorFormulaBox.Type.LIST ->
-                "$name([${operand.toSage()} for ${operator.bottom.ch[0].toSage()} in [${(operator.bottom.ch[2] as BracketsInputFormulaBox).input.toSage()}]])"
-            DiscreteOperatorFormulaBox.Type.BOUNDS ->
-                "$name(${operand.toSage()}, ${operator.bottom.ch[0].toSage()}, ${operator.bottom.ch[2].toSage()}, ${operator.top.toSage()})"
-            DiscreteOperatorFormulaBox.Type.INDEFINITE -> TODO()
-        }
-    }
+    // override fun toSage(): String {
+    //     val name = when (operator.operator) {
+    //         "∑" -> "sum"
+    //         "∏" -> "product"
+    //         else -> throw UnsupportedOperationException()
+    //     }
+    //     return when (operator.operatorType) {
+    //         DiscreteOperatorFormulaBox.Type.LIST ->
+    //             "$name([${operand.toSage()} for ${operator.bottom.ch[0].toSage()} in [${(operator.bottom.ch[2] as BracketsInputFormulaBox).input.toSage()}]])"
+    //         DiscreteOperatorFormulaBox.Type.BOUNDS ->
+    //             "$name(${operand.toSage()}, ${operator.bottom.ch[0].toSage()}, ${operator.bottom.ch[2].toSage()}, ${operator.top.toSage()})"
+    //         DiscreteOperatorFormulaBox.Type.INDEFINITE -> TODO()
+    //     }
+    // }
 
     override fun toJson() = makeJsonObject("discr") {
         add("operator", operator.toJson())

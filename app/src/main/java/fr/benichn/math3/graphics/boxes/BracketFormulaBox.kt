@@ -1,8 +1,6 @@
 package fr.benichn.math3.graphics.boxes
 
-import android.graphics.Color
 import android.graphics.Matrix
-import android.graphics.Paint
 import android.graphics.Path
 import android.graphics.RectF
 import fr.benichn.math3.graphics.boxes.types.BoxProperty
@@ -104,9 +102,7 @@ class BracketFormulaBox(range: RangeF = RangeF(-DEFAULT_TEXT_RADIUS,DEFAULT_TEXT
         )
     }
 
-    override fun toWolfram() = toSage()
-
-    override fun toSage() = when (type) {
+    override fun toWolfram(mode: Int) = when (type) {
         Type.BRACE -> if (side == Side.L) "(" else ")"
         Type.BAR -> if (side == Side.L) "|" else "|"
         Type.BRACKET -> if (side == Side.L) "[" else "]"

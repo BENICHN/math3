@@ -129,30 +129,44 @@ open class GridFormulaBox(shape: Pt = Pt(1, 1), updGr: Boolean = true) : Formula
         if (updGr) updateGraphics()
     }
 
-    fun addRow(i: Int) {
-        repeat(shape.x) {
-            addBoxes(i * shape.x,
+    fun addRows(i: Int, n: Int) {
+        addBoxes(i * shape.x,
+            (1 .. n * shape.x).map {
                 TransformerFormulaBox(
                     InputFormulaBox(),
                     BoundsTransformer.Align(RectPoint.NAN_CENTER)
                 )
-            )
-        }
-        shape = Pt(shape.x, shape.y + 1)
+            }
+        )
+        shape = Pt(shape.x, shape.y + n)
         alignChildren()
+        updateGraphics()
     }
 
-    fun addColumn(i: Int) {
-        for (j in shape.y downTo 1) {
-            addBoxes(j * shape.x,
-                TransformerFormulaBox(
-                    InputFormulaBox(),
-                    BoundsTransformer.Align(RectPoint.NAN_CENTER)
-                )
+    fun removeRows(i: Int, n: Int) {
+        removeBoxes((i until i+n).flatMap { x -> columnsRange.map { j -> get(Pt(x, j)) } })
+        shape += Pt.l
+    }
+
+    fun addColumns(i: Int, n: Int) {
+        for (j in shape.y-1 downTo 0) {
+            addBoxes(j * shape.x+i,
+                (1..n).map {
+                    TransformerFormulaBox(
+                        InputFormulaBox(),
+                        BoundsTransformer.Align(RectPoint.NAN_CENTER)
+                    )
+                }
             )
         }
-        shape = Pt(shape.x + 1, shape.y)
+        shape = Pt(shape.x + n, shape.y)
         alignChildren()
+        updateGraphics()
+    }
+
+    fun removeColumn(i: Int, n: Int) {
+        removeBoxes((i until i+n).flatMap { x -> rowsRange.map { j -> get(Pt(j, x)) } })
+        shape += Pt.t
     }
 
     fun addBoxesInColumn(j: Int, boxes: List<List<FormulaBox>>) {

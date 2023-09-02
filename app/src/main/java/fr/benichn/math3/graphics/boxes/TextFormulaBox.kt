@@ -1,9 +1,6 @@
 package fr.benichn.math3.graphics.boxes
 
-import android.graphics.Color
-import android.graphics.Paint
 import android.graphics.RectF
-import com.google.gson.JsonObject
 import fr.benichn.math3.R
 import fr.benichn.math3.graphics.boxes.types.BoxProperty
 import fr.benichn.math3.graphics.boxes.types.FormulaGraphics
@@ -51,21 +48,21 @@ class TextFormulaBox(text: String = "", big: Boolean = false, widthFactor: Float
             bounds = bounds)
     }
 
-    override fun toWolfram() = when(text) {
+    override fun toWolfram(mode: Int) = when(text) {
         "×" -> "*"
-        "ⅈ" -> " I "
-        "ℼ" -> " Pi "
-        "ⅇ" -> " E "
+        "ⅈ" -> "I"
+        "ℼ" -> "Pi"
+        "ⅇ" -> "E"
         else -> text
     }
 
-    override fun toSage() = when(text) {
-        "×" -> "*"
-        "ⅈ" -> "I"
-        "ℼ" -> "pi"
-        "ⅇ" -> "e"
-        else -> text
-    }
+    // override fun toSage() = when(text) {
+    //     "×" -> "*"
+    //     "ⅈ" -> "I"
+    //     "ℼ" -> "pi"
+    //     "ⅇ" -> "e"
+    //     else -> text
+    // }
 
     override fun toJson() = makeJsonObject("text") {
         addProperty("text", text)
@@ -95,17 +92,22 @@ fun String.toBoxes() = map { c ->
     }
 }
 
-fun FormulaBox.isDigit() = this is TextFormulaBox
-        && text.isNotEmpty()
-        && (text[0].isDigit() && run {
-            var isDec = false
-            text.substring(1).all { c ->
-                if (c == '.') !isDec.also { isDec = true }
-                else c.isDigit()
-            }
+fun FormulaBox.isDigit() = hasText { text ->
+    text.isNotEmpty()
+            && (text[0].isDigit() && run {
+        var isDec = false
+        text.substring(1).all { c ->
+            if (c == '.') !isDec.also { isDec = true }
+            else c.isDigit()
         }
-         || text[0] == '.' && text.length >= 2 && text[1].isDigit() && text.substring(2).all { c -> c.isDigit() })
-fun FormulaBox.isVariable() = this is TextFormulaBox
-        && text.isNotEmpty()
-        && text[0].isLetter()
-        && text.substring(1).all { c -> c.isLetterOrDigit() }
+    }
+            || text[0] == '.' && text.length >= 2 && text.substring(1).all { c -> c.isDigit() })
+}
+fun FormulaBox.isVariable() = hasText { text ->
+    text.isNotEmpty()
+            && text[0].isLetter()
+            && text.substring(1).all { c -> c.isLetterOrDigit() }
+}
+
+fun FormulaBox.hasText(predicate: (String) -> Boolean) = this is TextFormulaBox && predicate(text)
+fun FormulaBox.hasChar(predicate: (Char) -> Boolean) = this is TextFormulaBox && text.length == 1 && predicate(text[0])

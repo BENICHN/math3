@@ -1,7 +1,6 @@
 package fr.benichn.math3.graphics.boxes
 
 import fr.benichn.math3.Utils.toBoxes
-import fr.benichn.math3.Utils.toJsonArray
 import fr.benichn.math3.Utils.toPt
 import fr.benichn.math3.graphics.boxes.types.BoundsTransformer
 import fr.benichn.math3.graphics.boxes.types.BoxProperty
@@ -45,17 +44,17 @@ class MatrixFormulaBox(shape: Pt = Pt(1, 1), matrixType: Type = Type.MATRIX) :
 
     override fun getInitialSingle() = grid.getInitialSingle()
 
-    override fun toWolfram(): String {
+    override fun toWolfram(mode: Int): String {
         val (ds, de) = when (matrixType) {
             Type.MATRIX, Type.LIST -> '{' to '}'
             Type.PARAMS -> '[' to ']'
         }
         val twoD = matrixType == Type.MATRIX
-        return grid.rows.joinToString(",") { row -> "${if (twoD) ds else ""}${row.joinToString(", ") { b -> b.toWolfram() }}${if (twoD) de else ""}" }.let { "$ds$it$de" }
+        return grid.rows.joinToString(",") { row -> "${if (twoD) ds else ""}${row.joinToString(", ") { b -> b.toWolfram(mode) }}${if (twoD) de else ""}" }.let { "$ds$it$de" }
     }
 
-    override fun toSage() =
-        grid.rows.joinToString(",") { row -> "[${row.joinToString(", ") { b -> b.toSage() }}]" }.let { "[$it]" }
+    // override fun toSage() =
+    //     grid.rows.joinToString(",") { row -> "[${row.joinToString(", ") { b -> b.toSage() }}]" }.let { "[$it]" }
 
     override fun toJson() = makeJsonObject("matrix") {
         addProperty("type", matrixType.toString())

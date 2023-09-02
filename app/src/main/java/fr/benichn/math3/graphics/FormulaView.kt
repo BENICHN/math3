@@ -12,10 +12,8 @@ import androidx.core.graphics.minus
 import androidx.core.graphics.plus
 import androidx.core.graphics.times
 import com.google.gson.JsonElement
-import com.google.gson.JsonObject
 import fr.benichn.math3.App
 import fr.benichn.math3.ContextMenuView
-import fr.benichn.math3.Utils.toBox
 import fr.benichn.math3.Utils.toBoxes
 import fr.benichn.math3.Utils.toJsonArray
 import fr.benichn.math3.Utils.toPt
@@ -26,6 +24,7 @@ import fr.benichn.math3.graphics.PopupView.Companion.requirePopup
 import fr.benichn.math3.graphics.Utils.l2
 import fr.benichn.math3.graphics.Utils.with
 import fr.benichn.math3.graphics.boxes.FormulaBox
+import fr.benichn.math3.graphics.boxes.GridFormulaBox
 import fr.benichn.math3.graphics.boxes.InputFormulaBox
 import fr.benichn.math3.graphics.boxes.MatrixFormulaBox
 import fr.benichn.math3.graphics.boxes.TextFormulaBox
@@ -39,6 +38,7 @@ import fr.benichn.math3.graphics.caret.BoxCaret
 import fr.benichn.math3.graphics.caret.CaretPosition
 import fr.benichn.math3.graphics.caret.ContextMenu
 import fr.benichn.math3.graphics.caret.ContextMenuEntry
+import fr.benichn.math3.graphics.types.CellMode
 import fr.benichn.math3.graphics.types.RectPoint
 import fr.benichn.math3.graphics.types.TouchAction
 import fr.benichn.math3.numpad.types.Pt
@@ -56,6 +56,8 @@ import kotlin.math.sign
 class FormulaView(context: Context, attrs: AttributeSet? = null) : FormulaViewer(context, attrs) {
     override val initialBoxTransformers: Array<BoundsTransformer>
         get() = arrayOf(BoundsTransformer.Align(RectPoint.TOP_LEFT), BoundsTransformer.id)
+
+    var cellMode = CellMode.ONE_LETTER_VAR
 
     var caret: BoxCaret
         private set
@@ -837,23 +839,38 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : FormulaViewer
 
     fun getSingleContextMenu() = ContextMenu(
         ContextMenuEntry.create<CaretPosition>(TextFormulaBox("paste")) { p ->
-            val (inp, i) = (p as CaretPosition.Single).parentInput
+            val (input, i) = (p as CaretPosition.Single).parentInput
             App.pasteFromClipboard().let { items ->
-                FormulaBoxesClipData.formClips(items)?.toBoxes()?.let { bs -> inp.addBoxes(i+1, bs) }
+                FormulaBoxesClipData.formClips(items)?.let { cd ->
+                    if (cd is FormulaBoxesClipData.Grid && !input.isFilled) {
+                        val g = input.parent?.parent
+                        if (g is GridFormulaBox && g.shape == Pt(1,1)) {
+                            g.addRows(1, cd.shape.y-1)
+                            g.addColumns(1, cd.shape.x-1)
+                            g.preventUpdate()
+                            return@create g.inputs.mapIndexed { i, inp ->
+                                inp.addBoxes(cd.inputsValue[i])
+                                inp.lastSingle
+                            }.also { g.retrieveUpdate() }
+                        }
+                    }
+                    val bs = cd.toBoxes()
+                    input.addBoxes(i+1, bs)
+                    listOf(bs.lastOrNull()?.let { b -> CaretPosition.Single(b) } ?: p)
+                }
             }
-            listOf(inp.lastSingle)
         }
     )
     fun copySelection(p: CaretPosition) = when (p) {
         is CaretPosition.DiscreteSelection -> throw UnsupportedOperationException()
         is CaretPosition.Double -> App.copyToClipboard(
-            p.selectedBoxes.joinToString("") { it.toWolfram() },
+            p.selectedBoxes.joinToString("") { it.toWolfram(cellMode) },
             p.selectedBoxes.map { it.toJson() }.toJsonArray().toString()
         )
         is CaretPosition.GridSelection -> {
             App.copyToClipboard("{" + p.ptsRange.rows.joinToString(",") { i ->
                 "{" + p.ptsRange.columns.joinToString(",") { j ->
-                    p.box.getInput(Pt(j, i)).toWolfram()
+                    p.box.getInput(Pt(j, i)).toWolfram(cellMode)
                 } + "}"
             } + "}",
                 FormulaBox.makeJsonObject("grid") {
@@ -889,7 +906,20 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : FormulaViewer
                 is CaretPosition.Double -> {
                     p.selectedBoxes.forEach { b -> b.delete() }
                     App.pasteFromClipboard().let { items ->
-                        FormulaBoxesClipData.formClips(items)?.toBoxes()?.let { bs ->
+                        FormulaBoxesClipData.formClips(items)?.let { cd ->
+                            if (cd is FormulaBoxesClipData.Grid && !p.input.isFilled) {
+                                val g = p.input.parent?.parent
+                                if (g is GridFormulaBox && g.shape == Pt(1,1)) {
+                                    g.addRows(1, cd.shape.y-1)
+                                    g.addColumns(1, cd.shape.x-1)
+                                    g.preventUpdate()
+                                    return@create g.inputs.mapIndexed { i, inp ->
+                                        inp.addBoxes(cd.inputsValue[i])
+                                        inp.lastSingle
+                                    }.also { g.retrieveUpdate() }
+                                }
+                            }
+                            val bs = cd.toBoxes()
                             p.input.addBoxes(p.startIndex + 1, bs)
                             listOf(bs.lastOrNull()?.let { b -> CaretPosition.Single(b) } ?: p.leftSingle)
                         }

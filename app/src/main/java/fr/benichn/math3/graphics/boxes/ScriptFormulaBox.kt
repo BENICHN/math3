@@ -1,11 +1,9 @@
 package fr.benichn.math3.graphics.boxes
 
 import android.graphics.RectF
-import fr.benichn.math3.Utils.toBoxes
 import fr.benichn.math3.graphics.boxes.types.BoxProperty
 import fr.benichn.math3.graphics.boxes.types.DeletionResult
 import fr.benichn.math3.graphics.boxes.types.FinalBoxes
-import fr.benichn.math3.graphics.boxes.types.FormulaBoxDeserializer
 import fr.benichn.math3.graphics.boxes.types.InitialBoxes
 import fr.benichn.math3.graphics.boxes.types.RangeF
 
@@ -46,7 +44,7 @@ class ScriptFormulaBox(type: Type = Type.TOP, range: RangeF = RangeF(-DEFAULT_TE
         input?.run { addBoxes(ib.selectedBoxes) }
         FinalBoxes()
     } else FinalBoxes(
-        if (!ib.hasSelection || (ib.selectedBoxes.all { b -> b.isDigit() } && ib.boxesBefore.lastOrNull()?.isDigit() != true)) {
+        if (!ib.hasSelection || (ib.selectedBoxes.all { b -> b.isNumber() } && ib.boxesBefore.lastOrNull()?.isNumber() != true)) {
             ib.selectedBoxes
         } else {
             listOf(BracketsInputFormulaBox(ib.selectedBoxes))
@@ -116,19 +114,5 @@ class ScriptFormulaBox(type: Type = Type.TOP, range: RangeF = RangeF(-DEFAULT_TE
         addProperty("type", type.toString())
         add("superscript", superscript.toJson())
         add("subscript", subscript.toJson())
-    }
-
-    companion object {
-        init {
-            deserializers.add(FormulaBoxDeserializer("script") {
-                val type = Type.valueOf(get("type").asString)
-                ScriptFormulaBox(
-                    type
-                ).apply {
-                    if (type.hasTop) superscript.addBoxes(getAsJsonArray("superscript").toBoxes())
-                    if (type.hasBottom) subscript.addBoxes(getAsJsonArray("subscript").toBoxes())
-                }
-            })
-        }
     }
 }

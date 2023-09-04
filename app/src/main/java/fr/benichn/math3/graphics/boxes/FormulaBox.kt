@@ -7,6 +7,8 @@ import android.graphics.RectF
 import android.util.Log
 import com.google.gson.JsonElement
 import com.google.gson.JsonObject
+import fr.benichn.math3.Utils.toBoxes
+import fr.benichn.math3.Utils.toPt
 import fr.benichn.math3.graphics.Utils.moveToEnd
 import fr.benichn.math3.graphics.caret.BoxCaret
 import fr.benichn.math3.graphics.boxes.types.BoxTransform
@@ -374,7 +376,6 @@ open class FormulaBox {
                     else fs.add(f!!)
                 }
             }
-            Log.d("go", "${fs.size} ~ $s")
             canUpdate = true
             for (fn in fs) fn()
         }
@@ -511,11 +512,99 @@ open class FormulaBox {
             return res
         }
 
-        val deserializers = mutableListOf<FormulaBoxDeserializer<*>>()
-
         fun makeJsonObject(tag: String, block: JsonObject.() -> Unit) = JsonObject().apply {
             addProperty("tag", tag)
             block()
         }
+
+        val deserializers: MutableList<FormulaBoxDeserializer<*>> = mutableListOf(
+            FormulaBoxDeserializer("text") {
+                TextFormulaBox(
+                    get("text").asString,
+                    get("big").asBoolean,
+                    get("widthFactor").asFloat,
+                )
+            },
+            FormulaBoxDeserializer("script") {
+                val type = TopDownFormulaBox.Type.valueOf(get("type").asString)
+                ScriptFormulaBox(
+                    type
+                ).apply {
+                    if (type.hasTop) superscript.addBoxes(getAsJsonArray("superscript").toBoxes())
+                    if (type.hasBottom) subscript.addBoxes(getAsJsonArray("subscript").toBoxes())
+                }
+            },
+            FormulaBoxDeserializer("root") {
+                val type = RootFormulaBox.Type.valueOf(get("type").asString)
+                RootFormulaBox(
+                    type
+                ).apply {
+                    input.addBoxes(getAsJsonArray("input").toBoxes())
+                    if (type == RootFormulaBox.Type.ORDER) order.addBoxes(getAsJsonArray("order").toBoxes())
+                }
+            },
+            FormulaBoxDeserializer("matrix") {
+                val gr = getAsJsonObject("grid")
+                val inps = gr.getAsJsonArray("inputs")
+                MatrixFormulaBox(
+                    gr.getAsJsonArray("shape").toPt(),
+                    MatrixFormulaBox.Type.valueOf(get("type").asString)
+                ).apply {
+                    grid.inputs.forEachIndexed { i, inp -> inp.addBoxes(inps[i].asJsonArray.toBoxes()) }
+                }
+            },
+            FormulaBoxDeserializer("int") {
+                val op = getAsJsonObject("operator")
+                val type = TopDownFormulaBox.Type.valueOf(op["type"].asString)
+                IntegralFormulaBox(type).apply {
+                    integrand.addBoxes(getAsJsonArray("integrand").toBoxes())
+                    variable.addBoxes(getAsJsonArray("variable").toBoxes())
+                    if (type.hasTop) {
+                        operator.upper.addBoxes(op.getAsJsonArray("top").toBoxes())
+                        operator.lower.addBoxes(op.getAsJsonArray("bottom").toBoxes())
+                    }
+                }
+            },
+            FormulaBoxDeserializer("frac") {
+                FractionFormulaBox(
+                    getAsJsonArray("numerator").toBoxes(),
+                    getAsJsonArray("denominator").toBoxes()
+                )
+            },
+            FormulaBoxDeserializer("discr") {
+                val op = getAsJsonObject("operator")
+                val type = DiscreteOperatorFormulaBox.Type.valueOf(op["type"].asString)
+                DiscreteOperationFormulaBox(op["operator"].asString, type).apply {
+                    operand.addBoxes(getAsJsonArray("operand").toBoxes())
+                    operator.bottom.ch[1].addBoxes(op.getAsJsonArray("variable").toBoxes())
+                    when (type) {
+                        DiscreteOperatorFormulaBox.Type.LIST -> {
+                            (operator.bottom.ch[3] as BracketsInputFormulaBox).input.addBoxes(op.getAsJsonArray("list").toBoxes())
+                        }
+                        DiscreteOperatorFormulaBox.Type.BOUNDS -> {
+                            operator.bottom.ch[3].addBoxes(op.getAsJsonArray("lower").toBoxes())
+                            operator.top.addBoxes(op.getAsJsonArray("upper").toBoxes())
+                        }
+                        DiscreteOperatorFormulaBox.Type.INDEFINITE -> {
+                        }
+                    }
+                }
+            },
+            FormulaBoxDeserializer("deriv") {
+                val op = getAsJsonObject("operator")
+                val type = TopDownFormulaBox.Type.valueOf(op["type"].asString)
+                DerivativeFormulaBox(type).apply {
+                    brackets.input.addBoxes(getAsJsonArray("input").toBoxes())
+                    if (type.hasTop) operator.order.addBoxes(op.getAsJsonArray("top").toBoxes())
+                    operator.variable.addBoxes(op.getAsJsonArray("bottom").toBoxes())
+                }
+            },
+            FormulaBoxDeserializer("brackets") {
+                BracketsInputFormulaBox(
+                    getAsJsonArray("input").toBoxes(),
+                    BracketFormulaBox.Type.valueOf(get("type").asString)
+                )
+            }
+        )
     }
 }

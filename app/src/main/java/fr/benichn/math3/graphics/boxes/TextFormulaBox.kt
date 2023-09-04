@@ -5,7 +5,6 @@ import fr.benichn.math3.R
 import fr.benichn.math3.graphics.boxes.types.BoxProperty
 import fr.benichn.math3.graphics.boxes.types.FormulaGraphics
 import fr.benichn.math3.graphics.Utils
-import fr.benichn.math3.graphics.boxes.types.FormulaBoxDeserializer
 import fr.benichn.math3.graphics.boxes.types.PaintedPath
 import fr.benichn.math3.graphics.boxes.types.Paints
 
@@ -49,7 +48,6 @@ class TextFormulaBox(text: String = "", big: Boolean = false, widthFactor: Float
     }
 
     override fun toWolfram(mode: Int) = when(text) {
-        "×" -> "*"
         "ⅈ" -> "I"
         "ℼ" -> "Pi"
         "ⅇ" -> "E"
@@ -69,18 +67,6 @@ class TextFormulaBox(text: String = "", big: Boolean = false, widthFactor: Float
         addProperty("big", big)
         addProperty("widthFactor", widthFactor)
     }
-
-    companion object {
-        init {
-            deserializers.add(FormulaBoxDeserializer("text") {
-                TextFormulaBox(
-                    get("text").asString,
-                    get("big").asBoolean,
-                    get("widthFactor").asFloat,
-                )
-            })
-        }
-    }
 }
 
 fun String.toBoxes() = map { c ->
@@ -92,7 +78,7 @@ fun String.toBoxes() = map { c ->
     }
 }
 
-fun FormulaBox.isDigit() = hasText { text ->
+fun FormulaBox.isNumber() = hasText { text ->
     text.isNotEmpty()
             && (text[0].isDigit() && run {
         var isDec = false
@@ -108,6 +94,7 @@ fun FormulaBox.isVariable() = hasText { text ->
             && text[0].isLetter()
             && text.substring(1).all { c -> c.isLetterOrDigit() }
 }
+fun FormulaBox.isLetters() = hasText { text -> text.all { it.isLetter() } }
 
 fun FormulaBox.hasText(predicate: (String) -> Boolean) = this is TextFormulaBox && predicate(text)
 fun FormulaBox.hasChar(predicate: (Char) -> Boolean) = this is TextFormulaBox && text.length == 1 && predicate(text[0])

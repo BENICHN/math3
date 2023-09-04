@@ -174,16 +174,5 @@ class RootFormulaBox(type: Type = Type.SQRT) : FormulaBox() {
 
     companion object {
         const val OFFSET = DEFAULT_TEXT_RADIUS * 0.33f
-        init {
-            deserializers.add(FormulaBoxDeserializer("root") {
-                val type = Type.valueOf(get("type").asString)
-                RootFormulaBox(
-                    type
-                ).apply {
-                    input.addBoxes(getAsJsonArray("input").toBoxes())
-                    if (type == Type.ORDER) order.addBoxes(getAsJsonArray("order").toBoxes())
-                }
-            })
-        }
     }
 }

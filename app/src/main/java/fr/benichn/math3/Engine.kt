@@ -195,7 +195,7 @@ class WolframEngine : Engine() {
                 addProperty(k, v)
             }
         }
-        socket?.send(j.toString())
+        socket?.send(j.toString().toByteArray(Charsets.UTF_8))
         return j
     }
 
@@ -302,19 +302,29 @@ class WolframEngine : Engine() {
         sendJson(
             "type" to "ping"
         ).waitForResponse("pong")
-        onReceivedResponse += { _, rpj ->
+        val names = sendJson(
+            "type" to "names"
+        ).waitForResponse("names")
+        App.instance.main.namesBarView.barBox.names = names["names"].asJsonArray.map { it.asString }
+        onReceivedResponse.add { _, rpj ->
             when (rpj["type"].asString) {
-                "ping" -> sendJson(
-                    "type" to "pong"
-                )
+                "ping" -> {
+                    sendJson(
+                        "type" to "pong"
+                    )
+                    true
+                }
                 "session_expired" -> {
                     socket = null
+                    true
                 }
                 "message" -> {
                     producerScope?.trySend(
                         CommandOutput.Message(rpj["output"].asString)
                     )
+                    true
                 }
+                else -> false
             }
         }
     }

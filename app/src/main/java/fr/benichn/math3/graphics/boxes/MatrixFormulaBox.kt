@@ -60,19 +60,4 @@ class MatrixFormulaBox(shape: Pt = Pt(1, 1), matrixType: Type = Type.MATRIX) :
         addProperty("type", matrixType.toString())
         add("grid", grid.toJson())
     }
-
-    companion object {
-        init {
-            deserializers.add(FormulaBoxDeserializer("matrix") {
-                val gr = getAsJsonObject("grid")
-                val inps = gr.getAsJsonArray("inputs")
-                MatrixFormulaBox(
-                    gr.getAsJsonArray("shape").toPt(),
-                    Type.valueOf(get("type").asString)
-                ).apply {
-                    grid.inputs.forEachIndexed { i, inp -> inp.addBoxes(inps[i].asJsonArray.toBoxes()) }
-                }
-            })
-        }
-    }
 }

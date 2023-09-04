@@ -19,6 +19,7 @@ import fr.benichn.math3.formulas.FormulaGroupedToken.Companion.readGroupedTokenF
 import fr.benichn.math3.graphics.boxes.TextFormulaBox
 import fr.benichn.math3.graphics.boxes.toBoxes
 import fr.benichn.math3.graphics.boxes.types.Paints
+import fr.benichn.math3.graphics.types.CellMode
 import fr.benichn.math3.types.callback.ObservableProperty
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.launch
@@ -166,7 +167,7 @@ class FormulaCell(context: Context, attrs: AttributeSet? = null) : FrameLayout(c
                             is CommandOutput.Typeset -> {
                                 val sr = StringReader(co.value)
                                 val gtk = sr.readGroupedTokenFlattened()
-                                gtk.toBoxes()
+                                gtk.toBoxes(outputFV.cellMode)
                             }
                         }
                     )

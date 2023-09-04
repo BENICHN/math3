@@ -28,6 +28,8 @@ import fr.benichn.math3.graphics.boxes.GridFormulaBox
 import fr.benichn.math3.graphics.boxes.InputFormulaBox
 import fr.benichn.math3.graphics.boxes.MatrixFormulaBox
 import fr.benichn.math3.graphics.boxes.TextFormulaBox
+import fr.benichn.math3.graphics.boxes.hasText
+import fr.benichn.math3.graphics.boxes.isLetters
 import fr.benichn.math3.graphics.boxes.types.BoundsTransformer
 import fr.benichn.math3.graphics.boxes.types.BoxTransform
 import fr.benichn.math3.graphics.boxes.types.DeletionResult
@@ -41,6 +43,7 @@ import fr.benichn.math3.graphics.caret.ContextMenuEntry
 import fr.benichn.math3.graphics.types.CellMode
 import fr.benichn.math3.graphics.types.RectPoint
 import fr.benichn.math3.graphics.types.TouchAction
+import fr.benichn.math3.numpad.NamesBar
 import fr.benichn.math3.numpad.types.Pt
 import fr.benichn.math3.types.callback.*
 import kotlinx.coroutines.MainScope
@@ -84,6 +87,9 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : FormulaViewer
 
     init {
         // setBackgroundColor(defaultBackgroundColor)
+        App.instance.main.namesBarView.onButtonClicked += { _, s ->
+            onNameSelected(s)
+        }
         child = InputFormulaBox()
         box.dlgTransformers.onChanged += { _, e ->
             notifyScaleChanged(
@@ -98,6 +104,7 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : FormulaViewer
         caret = box.createCaret()
         caret.onPositionsChanged += { _, _ ->
             moveToCaret()
+            updatePattern()
         }
         MainScope().launch {
             while (true) {
@@ -141,6 +148,19 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : FormulaViewer
 
     private fun adjustOffset() {
         offset = offset
+    }
+
+    private fun onNameSelected(name: String) {
+        patternBoxes?.let { pb ->
+            if (pb.isNotEmpty()) {
+                CaretPosition.Single.getParentInput(pb[0])?.let { (inp, i) ->
+                    pb.forEach { it.delete() }
+                    val b = MatrixFormulaBox(matrixType = MatrixFormulaBox.Type.PARAMS) // !
+                    inp.addBoxes(i, TextFormulaBox(name), b)
+                    caret.positions = caret.positions.with(caret.positions.lastIndex, b.grid.inputs[0].lastSingle) // !
+                }
+            }
+        }
     }
 
     private fun adjustOffset(offset: PointF): PointF {
@@ -193,6 +213,43 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : FormulaViewer
     fun setCaretOnEnd() {
         caret.positions = listOf(input.lastSingle)
         moveToCaret()
+    }
+
+    private fun getPatternBoxes() = caret.positions.lastOrNull()?.let { p ->
+        when (p) {
+            is CaretPosition.Single -> {
+                val (inp, index) = p.parentInput
+                val i0 =
+                    if (p.box.isLetters()) index
+                    else if (index < inp.ch.lastIndex && inp.ch[index+1].isLetters()) index+1
+                    else -1
+                if (i0 != -1) {
+                    val (start, end) = inp.ch.withIndex().toList().let { chi ->
+                        chi.indexOfLast { (i, b) -> i < i0 && !b.isLetters() }+1 to
+                        chi.indexOfFirst { (i, b) -> i > i0 && !b.isLetters() }.let { j -> if (j == -1) inp.ch.size else j }
+                    }
+                    val letters = inp.ch.subList(start,end)
+                    val firstMaj = letters.indexOfFirst { b -> b.hasText { it.isNotEmpty() && it[0].isUpperCase() } }
+                    letters.subList(if (firstMaj == -1) 0 else firstMaj, letters.size).toList()
+                } else null
+            }
+            else -> null
+        }
+    }
+
+    private var patternBoxes: List<FormulaBox>? = null
+
+    private fun updatePattern() {
+        patternBoxes = getPatternBoxes()
+        App.instance.main.namesBarView.let { nv ->
+            val pattern = patternBoxes?.joinToString("") { it.toWolfram() }
+            if (pattern?.run { length >= NamesBar.MIN_PATTERN_LENGT } == true) {
+                nv.visibility = VISIBLE
+                nv.barBox.pattern = pattern
+            } else {
+                nv.visibility = GONE
+            }
+        }
     }
 
     override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
@@ -841,7 +898,7 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : FormulaViewer
         ContextMenuEntry.create<CaretPosition>(TextFormulaBox("paste")) { p ->
             val (input, i) = (p as CaretPosition.Single).parentInput
             App.pasteFromClipboard().let { items ->
-                FormulaBoxesClipData.formClips(items)?.let { cd ->
+                FormulaBoxesClipData.formClips(items, cellMode)?.let { cd ->
                     if (cd is FormulaBoxesClipData.Grid && !input.isFilled) {
                         val g = input.parent?.parent
                         if (g is GridFormulaBox && g.shape == Pt(1,1)) {
@@ -906,7 +963,7 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : FormulaViewer
                 is CaretPosition.Double -> {
                     p.selectedBoxes.forEach { b -> b.delete() }
                     App.pasteFromClipboard().let { items ->
-                        FormulaBoxesClipData.formClips(items)?.let { cd ->
+                        FormulaBoxesClipData.formClips(items, cellMode)?.let { cd ->
                             if (cd is FormulaBoxesClipData.Grid && !p.input.isFilled) {
                                 val g = p.input.parent?.parent
                                 if (g is GridFormulaBox && g.shape == Pt(1,1)) {
@@ -929,7 +986,7 @@ class FormulaView(context: Context, attrs: AttributeSet? = null) : FormulaViewer
                     val inps = p.selectedInputs
                     inps.forEach { b -> b.clear() }
                     App.pasteFromClipboard().let { items ->
-                        FormulaBoxesClipData.formClips(items)?.let { cd ->
+                        FormulaBoxesClipData.formClips(items, cellMode)?.let { cd ->
                             when {
                                 cd is FormulaBoxesClipData.Grid && cd.shape == p.ptsRange.run { br - tl + Pt(1,1) } -> {
                                     inps.mapIndexed { i, inp ->
@@ -1123,7 +1180,7 @@ sealed class FormulaBoxesClipData {
         }
     protected abstract fun generateBoxes(): List<FormulaBox>
     companion object {
-        fun formClips(items: List<String>) =
+        fun formClips(items: List<String>, mode: Int) =
             (if (items.size > 1) try {
                 val json = App.gson.fromJson(items[1], JsonElement::class.java)
                 when {
@@ -1148,7 +1205,7 @@ sealed class FormulaBoxesClipData {
                 Log.d("exc", e.toString())
                 null
             } else null) ?: if (items.isNotEmpty()) {
-                Input(StringReader(items[0]).readGroupedTokenFlattened().let { { it.toBoxes() } })
+                Input(StringReader(items[0]).readGroupedTokenFlattened().let { { it.toBoxes(mode) } })
             } else null
     }
 }

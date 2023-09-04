@@ -96,21 +96,4 @@ class IntegralFormulaBox(type: TopDownFormulaBox.Type = TopDownFormulaBox.Type.B
         add("integrand", integrand.toJson())
         add("variable", variable.toJson())
     }
-
-    companion object {
-        init {
-            deserializers.add(FormulaBoxDeserializer("deriv") {
-                val op = getAsJsonObject("operator")
-                val type = TopDownFormulaBox.Type.valueOf(op["type"].asString)
-                IntegralFormulaBox(type).apply {
-                    integrand.addBoxes(getAsJsonArray("integrand").toBoxes())
-                    variable.addBoxes(getAsJsonArray("variable").toBoxes())
-                    if (type.hasTop) {
-                        operator.upper.addBoxes(op.getAsJsonArray("top").toBoxes())
-                        operator.lower.addBoxes(op.getAsJsonArray("bottom").toBoxes())
-                    }
-                }
-            })
-        }
-    }
 }

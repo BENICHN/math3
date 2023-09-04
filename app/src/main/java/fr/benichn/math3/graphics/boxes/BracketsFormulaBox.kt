@@ -46,17 +46,6 @@ class BracketsInputFormulaBox(boxes: List<FormulaBox>, type: BracketFormulaBox.T
         addProperty("type", type.toString())
         add("input", input.toJson())
     }
-
-    companion object {
-        init {
-            deserializers.add(FormulaBoxDeserializer("brackets") {
-                BracketsInputFormulaBox(
-                    getAsJsonArray("input").toBoxes(),
-                    BracketFormulaBox.Type.valueOf(get("type").asString)
-                )
-            })
-        }
-    }
 }
 
 open class BracketsSequenceFormulaBox(boxes: List<FormulaBox>, type: BracketFormulaBox.Type = BracketFormulaBox.Type.BRACE, updGr: Boolean = true) : SequenceFormulaBox(

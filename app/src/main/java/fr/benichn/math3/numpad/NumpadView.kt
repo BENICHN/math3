@@ -11,8 +11,8 @@ import fr.benichn.math3.graphics.boxes.types.BoundsTransformer
 import fr.benichn.math3.graphics.types.RectPoint
 import fr.benichn.math3.graphics.types.TouchAction
 import fr.benichn.math3.numpad.types.Direction
+import fr.benichn.math3.numpad.types.NumpadButtonGroup
 import fr.benichn.math3.types.callback.Callback
-import org.json.JSONObject
 
 class NumpadView(context: Context, attrs: AttributeSet? = null) : FormulaViewer(context, attrs) {
     init {
@@ -25,10 +25,10 @@ class NumpadView(context: Context, attrs: AttributeSet? = null) : FormulaViewer(
     override val initialBoxTransformers: Array<BoundsTransformer>
         get() = arrayOf(BoundsTransformer.Align(RectPoint.TOP_LEFT))
 
-    private val numpadBox = child as NumpadFormulaBox
-    private val page
+    val numpadBox = child as NumpadFormulaBox
+    val page
         get() = numpadBox.currentPage
-    private val pageBox
+    val pageBox
         get() = numpadBox.currentPageBox
 
     val notifyButtonClicked = Callback<NumpadView, String>(this)

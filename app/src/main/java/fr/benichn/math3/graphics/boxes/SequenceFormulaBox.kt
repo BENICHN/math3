@@ -7,7 +7,7 @@ import fr.benichn.math3.types.callback.ValueChangedEvent
 import kotlin.math.max
 import kotlin.math.min
 
-open class SequenceFormulaBox(updGr: Boolean = true) : FormulaBox() {
+open class SequenceFormulaBox(private val updGr: Boolean = true) : FormulaBox() {
     class LineStart : PhantomFormulaBox(RectF(0f, -DEFAULT_TEXT_RADIUS, 0f, DEFAULT_TEXT_RADIUS))
 
     class Line(
@@ -23,25 +23,30 @@ open class SequenceFormulaBox(updGr: Boolean = true) : FormulaBox() {
     }
 
     private val ignMap = mutableMapOf<FormulaBox, Boolean>()
-    private var isInitialized = false
 
+    private var isInitialized = false
     init {
         super.addBoxes(0, listOf(LineStart()))
         updateLines()
         if (updGr) updateGraphics()
+        isInitialized = true
     }
 
     constructor(vararg boxes: FormulaBox, updGr: Boolean = true) : this(boxes.asList(), updGr)
     constructor(vararg children: Child, updGr: Boolean = true) : this(false) {
+        isInitialized = false
         addBoxes(1, *children, updGr=updGr)
+        isInitialized = true
     }
     constructor(boxes: List<FormulaBox>, updGr: Boolean = true) : this(false) {
+        isInitialized = false
         addBoxes(1, boxes, updGr=updGr)
+        isInitialized = true
     }
 
     override fun onChildBoundsChanged(b: FormulaBox, e: ValueChangedEvent<RectF>) {
         alignChildren()
-        updateGraphics()
+        if (isInitialized || updGr) updateGraphics()
     }
 
     fun setIgnored(c: FormulaBox, ignored: Boolean) {

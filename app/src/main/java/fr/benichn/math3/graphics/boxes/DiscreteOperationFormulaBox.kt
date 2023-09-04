@@ -176,28 +176,4 @@ class DiscreteOperationFormulaBox(operator: String, operatorType: DiscreteOperat
         add("operator", operator.toJson())
         add("operand", operand.toJson())
     }
-
-    companion object {
-        init {
-            deserializers.add(FormulaBoxDeserializer("discr") {
-                val op = getAsJsonObject("operator")
-                val type = DiscreteOperatorFormulaBox.Type.valueOf(op["type"].asString)
-                DiscreteOperationFormulaBox(op["operator"].asString, type).apply {
-                    operand.addBoxes(getAsJsonArray("operand").toBoxes())
-                    operator.bottom.ch[1].addBoxes(op.getAsJsonArray("variable").toBoxes())
-                    when (type) {
-                        DiscreteOperatorFormulaBox.Type.LIST -> {
-                            (operator.bottom.ch[3] as BracketsInputFormulaBox).input.addBoxes(op.getAsJsonArray("list").toBoxes())
-                        }
-                        DiscreteOperatorFormulaBox.Type.BOUNDS -> {
-                            operator.bottom.ch[3].addBoxes(op.getAsJsonArray("lower").toBoxes())
-                            operator.top.addBoxes(op.getAsJsonArray("upper").toBoxes())
-                        }
-                        DiscreteOperatorFormulaBox.Type.INDEFINITE -> {
-                        }
-                    }
-                }
-            })
-        }
-    }
 }

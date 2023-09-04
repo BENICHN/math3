@@ -85,18 +85,4 @@ class DerivativeFormulaBox(type: TopDownFormulaBox.Type = TopDownFormulaBox.Type
         add("operator", operator.toJson())
         add("input", brackets.input.toJson())
     }
-
-    companion object {
-        init {
-            deserializers.add(FormulaBoxDeserializer("deriv") {
-                val op = getAsJsonObject("operator")
-                val type = TopDownFormulaBox.Type.valueOf(op["type"].asString)
-                DerivativeFormulaBox(type).apply {
-                    brackets.input.addBoxes(getAsJsonArray("input").toBoxes())
-                    if (type.hasTop) operator.order.addBoxes(op.getAsJsonArray("top").toBoxes())
-                    operator.variable.addBoxes(op.getAsJsonArray("bottom").toBoxes())
-                }
-            })
-        }
-    }
 }

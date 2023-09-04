@@ -24,7 +24,7 @@ class InputFormulaBox(boxes: List<FormulaBox>, isVisible: Boolean = true) : Sequ
 
     constructor(vararg boxes: FormulaBox, isVisible: Boolean = true) : this(boxes.asList(), isVisible)
 
-    private val dlgIsVisible = BoxProperty(this, isVisible)
+    val dlgIsVisible = BoxProperty(this, isVisible)
     var isVisible by dlgIsVisible
 
     init {
@@ -137,10 +137,9 @@ class InputFormulaBox(boxes: List<FormulaBox>, isVisible: Boolean = true) : Sequ
                 }
             }
             if (res == ".") {
-                iter.previous()
                 results.add(TaggedBox.Osef(res))
             }
-            results.add(TaggedBox.Number(res))
+            else results.add(TaggedBox.Number(res))
         }
         fun addVariable() {
             var res = ""
@@ -186,11 +185,11 @@ class InputFormulaBox(boxes: List<FormulaBox>, isVisible: Boolean = true) : Sequ
                     if (b.text.isNotEmpty()) {
                         val c0 = b.text[0]
                         when {
-                            c0.isDigit() || c0 == '.' -> {
+                            c0.isDigit() || c0 == '.' -> { // ! (que certains blocs)
                                 addDigits()
                                 continue
                             }
-                            c0.isLetter() -> {
+                            c0.isLetter() -> { // ! (que certains blocs)
                                 addVariable()
                                 continue
                             }

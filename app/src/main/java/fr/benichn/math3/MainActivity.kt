@@ -7,6 +7,7 @@ import android.content.ClipboardManager
 import android.content.Context
 import android.os.Bundle
 import android.util.Log
+import android.widget.HorizontalScrollView
 import androidx.appcompat.app.AppCompatActivity
 import com.google.gson.Gson
 import fr.benichn.math3.formulas.FormulaGroupedToken.Companion.readGroupedToken
@@ -25,9 +26,7 @@ import fr.benichn.math3.graphics.boxes.ScriptFormulaBox
 import fr.benichn.math3.graphics.boxes.SequenceFormulaBox
 import fr.benichn.math3.graphics.boxes.TextFormulaBox
 import fr.benichn.math3.graphics.boxes.TopDownFormulaBox
-import fr.benichn.math3.graphics.boxes.TransformerFormulaBox
-import fr.benichn.math3.graphics.boxes.types.BoundsTransformer
-import fr.benichn.math3.graphics.types.RectPoint
+import fr.benichn.math3.numpad.NamesBarView
 import fr.benichn.math3.numpad.NumpadView
 import fr.benichn.math3.numpad.types.Pt
 import org.matheclipse.core.basic.AndroidLoggerFix
@@ -40,6 +39,8 @@ class App : Application() {
         instance = this
         AndroidLoggerFix.fix()
     }
+
+    lateinit var main: MainActivity
 
     companion object {
         val gson = Gson()
@@ -66,25 +67,35 @@ class App : Application() {
 }
 
 class MainActivity : AppCompatActivity() {
-    private lateinit var cc: FormulaCellsContainer
-    private lateinit var nv: NumpadView
+    lateinit var cellsContainer: FormulaCellsContainer
+    lateinit var numpadView: NumpadView
+    lateinit var namesBarView: NamesBarView
+
+    init {
+        App.instance.main = this
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
-        cc = findViewById(R.id.cellsContainer)
-        repeat(3) { cc.addCell() }
-        cc.fvs.forEachIndexed { i, fv ->
+        namesBarView = findViewById(R.id.names)
+        (namesBarView.parent as HorizontalScrollView).isHorizontalScrollBarEnabled = false
+        namesBarView.barBox.dlgPattern.onChanged += { _, _ ->
+            (namesBarView.parent as HorizontalScrollView).scrollX = 0
+        }
+        cellsContainer = findViewById(R.id.cellsContainer)
+        cellsContainer.addCell()
+        cellsContainer.fvs.forEachIndexed { i, fv ->
             when (i) {
-                0 -> fv.input.addBoxes(TextFormulaBox("FactorInteger[191808877330090598356947683236541006028951992209]"))
-                2 -> fv.input.addBoxes(TextFormulaBox("For[i = 0, i < 10, i++, Print[45+i]; Pause[1];]"))
-                4 -> fv.input.addBoxes(MatrixFormulaBox(Pt(3,3)),
-                MatrixFormulaBox(Pt(1,3)))
+                0 -> fv.input.addBoxes(
+                    MatrixFormulaBox(Pt(3,3)),
+                    MatrixFormulaBox(Pt(1,3))
+                )
             }
         }
-        nv = findViewById(R.id.numpad)
-        nv.onButtonClicked += { _, id ->
-            cc.realCurrentFV?.let { fv ->
+        numpadView = findViewById(R.id.numpad)
+        numpadView.onButtonClicked += { _, id ->
+            cellsContainer.realCurrentFV?.let { fv ->
                 when (id) {
                     "⌫" -> {
                         fv.sendDelete()

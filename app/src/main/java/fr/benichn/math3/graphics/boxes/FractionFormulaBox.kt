@@ -101,15 +101,4 @@ class FractionFormulaBox(
         add("numerator", numerator.toJson())
         add("denominator", denominator.toJson())
     }
-
-    companion object {
-        init {
-            deserializers.add(FormulaBoxDeserializer("frac") {
-                FractionFormulaBox(
-                    getAsJsonArray("numerator").toBoxes(),
-                    getAsJsonArray("denominator").toBoxes()
-                )
-            })
-        }
-    }
 }
